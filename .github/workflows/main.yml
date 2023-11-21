@@ -21,4 +21,4 @@ jobs:
     - name: Run ruff and black
       run: |
         poetry run black --check .
-        poetry run ruff --check .
+        poetry run ruff check .
