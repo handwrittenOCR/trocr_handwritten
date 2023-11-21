@@ -7,14 +7,14 @@ from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 import torch
 import logging
-from src.utils.arunet_utils import (
+from trocr_handwritten.utils.arunet_utils import (
     create_aru_net,
     get_test_loaders,
     load_checkpoint,
     save_test_predictions_as_imgs,
 )
 
-from src.utils.parsing_lines import (
+from trocr_handwritten.utils.parsing_lines import (
     get_coords,
     convert_coords,
     get_columns_coords,
