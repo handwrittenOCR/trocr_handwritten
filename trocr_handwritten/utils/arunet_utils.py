@@ -22,7 +22,6 @@ import trocr_handwritten.utils.polyapprox as pa
 
 
 def create_aru_net(in_channels=3, out_channels=1, model_kwargs={}):
-
     model = model_kwargs.get("model", "aru")
 
     scale_space_num = model_kwargs.get("scale_space_num", 6)
@@ -98,7 +97,6 @@ class TestDataset(Dataset):
         image = np.array(image, dtype=np.float32)
 
         if self.padding:
-
             # downscale
             max_size = max(self.image_height, self.image_width)
             resize = A.LongestMaxSize(max_size=max_size, p=1)
@@ -128,7 +126,6 @@ class TestDataset(Dataset):
             image = augmentations["image"]
 
         else:
-
             test_transform = A.Compose(
                 [
                     A.Resize(height=self.image_height, width=self.image_width),
@@ -155,7 +152,6 @@ def get_test_loaders(
     num_workers=4,
     pin_memory=True,
 ):
-
     test_ds = TestDataset(
         image_dir=test_dir,
         image_height=image_height,
@@ -205,7 +201,6 @@ def save_test_predictions_as_imgs(
             image_name = image_name[: len(image_name) - 5]
 
         if padding:
-
             transform = transforms.Compose(
                 [
                     transforms.ToPILImage(),
@@ -243,7 +238,6 @@ def save_test_predictions_as_imgs(
             preds = transform(preds)
 
         else:
-
             transform = transforms.Compose(
                 [
                     transforms.ToPILImage(),

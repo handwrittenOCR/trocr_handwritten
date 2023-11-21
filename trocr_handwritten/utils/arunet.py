@@ -78,7 +78,6 @@ class UNET(nn.Module):
 
         # Up part of UNET (consists the "up" part (ConvTranspose2d) and two following convs (DoubleConv))
         for feature in reversed(features):
-
             self.ups.append(
                 nn.ConvTranspose2d(
                     # in_channels = feature*2 because we add the skip connection, i.e. 512 -> 1024
@@ -283,7 +282,6 @@ class RUNET(nn.Module):
 
         # Up part of RUNET (consists the "up" part (ConvTranspose2d) and two following convs (DoubleConv))
         for feature in reversed(features):
-
             self.ru_ups.append(
                 # in_channels = feature*2 because we add the skip connection, i.e. 512 -> 1024
                 # out_channels = feature
@@ -381,7 +379,6 @@ class ANET(nn.Module):
         self.a_layers.append(A_conv(32, 1))
 
     def forward(self, x):
-
         counter = 1
         for layer in self.a_layers:
             x = layer(x)
@@ -467,7 +464,6 @@ class ARUNET(nn.Module):
         )
 
     def forward(self, x):
-
         # Average Pooling / Downscaling
         scaled_inputs = OrderedDict()
         scaled_inputs[0] = x
