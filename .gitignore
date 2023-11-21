@@ -1,0 +1,59 @@
+# Ignorer le dossier data
+data/
+
+# Ignorer les fichiers .DS_Store
+**/.DS_Store
+
+# Fichiers typiques à ignorer pour Git et Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.egg
+*.log
+*.sql
+*.sqlite
+
+# Environnements virtuels
+venv/
+*.venv
+.env
+
+# IDEs et éditeurs
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.bak2
+*.bak3
+*.bak4
+*.bak5
+*.bak6
+*.bak7
+*.bak8
+*.bak9
+*.bak10
+*.bak11
+*.bak12
+*.bak13
+*.bak14
+*.bak15
+*.bak16
+*.bak17
+*.bak18
+*.bak19
+*.bak20
+*.bak21
+*.bak22
+*.bak23
+*.bak24
+*.bak25
+*.bak26
+*.bak27
+*.bak28
+*.bak29
+*.bak30
