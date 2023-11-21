@@ -1,5 +1,5 @@
 import argparse
-from os.path import join
+from os.path import join, dirname, realpath
 from os import listdir, makedirs
 import json
 from xml.dom import minidom
@@ -28,8 +28,10 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+# Obtenez le chemin du répertoire du script actuel
+dir_path = dirname(realpath(__file__))
 
-with open("config.json") as f:
+with open(join(dir_path, "config.json")) as f:
     config = json.load(f)
 
 model_kwargs = dict(

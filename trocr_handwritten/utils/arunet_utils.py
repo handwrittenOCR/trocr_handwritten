@@ -16,9 +16,9 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from shapely.geometry import LineString
 
-from arunet import ARUNET, RUNET, UNET
-from xmlPage import pageData
-import polyapprox as pa
+from trocr_handwritten.utils.arunet import ARUNET, RUNET, UNET
+from trocr_handwritten.utils.xmlPage import pageData
+import trocr_handwritten.utils.polyapprox as pa
 
 
 def create_aru_net(in_channels=3, out_channels=1, model_kwargs={}):
