@@ -5,10 +5,6 @@ In this page we explain a bit more in detail the different components of the pip
 # Table of Contents
 
 1. [Installation](#installation)
-   - [Step 1: Clone the Repository](#step-1-clone-the-repository)
-   - [Step 2: Install Poetry](#step-2-install-poetry)
-   - [Step 3: Install Dependencies](#step-3-install-dependencies)
-   - [Step 4: Install Pre-commit Hooks](#step-4-install-pre-commit-hooks)
 2. [Parsing Layout](#parsing-layout)
    - [Objective](#objective)
    - [How it works](#how-it-works)
@@ -47,9 +43,17 @@ poetry install
 Pre-commit hooks help to catch issues before code is committed to the repository. Install the pre-commit package and set up the pre-commit hooks with the following commands:
 
 ```bash
-pip install pre-commit
-pre-commit install
+poetry run pre-commit install
 ```
+
+### Step 5: Activate the environment
+
+Activate the Poetry-managed virtual environment before working:
+
+```bash
+poetry shell
+```
+
 
 ## 🔬 Parsing Layout
 
