@@ -1,6 +1,6 @@
 # Enhancing Historical Archive Structuration Using Machine Learning: A Case Study on 19th Century French Archives
 
-This documentation presents a comprehensive pipeline designed to structure scanned archives from the 19th century. Leveraging machine learning techniques, including Optical Character Recognition (OCR) and the utilization of a Large Language Model (LLM), we successfully extracted valuable data from historical scans, facilitating its utilization by economist researchers.
+This documentation presents a comprehensive pipeline designed to structure scanned archives from the 19th century. Leveraging machine learning techniques, including Optical Character Recognition (OCR) and the utilization of a Large Language Model (LLM), we successfully extracted valuable data from historical scans, facilitating its utilization by economist researchers.We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives.
 
 Our key contributions encompass the following:
 
@@ -10,7 +10,7 @@ Our key contributions encompass the following:
 
 3. **Reproducible Research Notebooks:** In an effort to promote transparency and enable further research, we provide a set of comprehensive notebooks that allow researchers to reproduce our work. Additionally, these notebooks can be adapted to accommodate other languages, thereby extending their utility beyond the scope of French archives.
 
-We anticipate that our contributions will greatly benefit economists in advancing their research and historians in efficiently processing extensive archival data across multiple languages with the help of other machine learning practionners. We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives and collaborate with her to develop it.
+We anticipate that our contributions will greatly benefit economists in advancing their research and historians in efficiently processing extensive archival data across multiple languages with the help of other machine learning practionners.
 
 ## Overview of Pipeline Components
 
@@ -154,7 +154,7 @@ Furthermore, Large Language Model (LLM) is a deep learning model, typically base
 
 LLMs, can efficiently extract entities when provided with a schema parameter and a well-crafted prompt. By specifying a schema, you can guide the model to recognize and extract specific types of entities, such as dates, names, or locations, from the text it generates. A well-constructed prompt, which is a textual input or question, can further instruct the model to focus on extracting particular information, making it a powerful tool for automating entity extraction tasks in various domains, from extracting financial data to answering specific questions about a given text.
 
-We adapted a schema and a prompt to this task in order to extract every info related to the main character(s) of the text and his/her/their parents' when available. 
+We adapted a schema and a prompt to this task in order to extract every info related to the main character(s) of the text and his/her/their parents' when available.
 
 Here is an example of final output we got for birth acte:
 
@@ -197,7 +197,7 @@ This framework includes the PyTorch version of the ARU-Net. Stage 2 is not imple
 Minghao Li, Tengchao Lv, Jingye Chen, Lei Cui, Yijuan Lu, Dinei Florencio, Cha Zhang, Zhoujun Li, Furu Wei, [TrOCR: Transformer-based Optical Character Recognition with Pre-trained Models](https://arxiv.org/abs/2109.10282)
 ```bibtex
 @misc{li2021trocr,
-      title={TrOCR: Transformer-based Optical Character Recognition with Pre-trained Models}, 
+      title={TrOCR: Transformer-based Optical Character Recognition with Pre-trained Models},
       author={Minghao Li and Tengchao Lv and Lei Cui and Yijuan Lu and Dinei Florencio and Cha Zhang and Zhoujun Li and Furu Wei},
       year={2021},
       eprint={2109.10282},
