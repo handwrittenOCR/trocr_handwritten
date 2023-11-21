@@ -4,13 +4,13 @@ In this page we explain a bit more in detail the different components of the pip
 
 # Table of Contents
 
-1. [Installation](#installation)
-2. [Parsing Layout](#parsing-layout)
-   - [Objective](#objective)
-   - [How it works](#how-it-works)
-   - [How to apply the script](#how-to-apply-the-script)
-3. [Optical Character Recognition (OCR)](#optical-character-recognition-ocr)
-4. [Named Entity Recognition (NER)](#named-entity-recognition-ner)
+1. [Installation](#-installation)
+2. [Parsing Layout](#-parsing-layout)
+   - [Objective](#-objective)
+   - [How it works](#-how-it-works)
+   - [How to apply the script](#-how-to-apply-the-script)
+3. [Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
+4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner)
 
 
 ## 📦 Installation
