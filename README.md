@@ -1,5 +1,7 @@
 # Enhancing Historical Archive Structuration Using Machine Learning: A Case Study on 19th Century French Archives
 
+## Executive Summary
+
 This documentation presents a comprehensive pipeline designed to structure scanned archives from the 19th century. Leveraging machine learning techniques, including Optical Character Recognition (OCR) and the utilization of a Large Language Model (LLM), we successfully extracted valuable data from historical scans, facilitating its utilization by economist researchers.We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives.
 
 Our key contributions encompass the following:
@@ -43,6 +45,7 @@ We customized the existing methodology to suit the characteristics of 19th-centu
 
 As part of our ongoing research endeavors, we intend to develop a tailored layout-parser that is specifically optimized for historical archive documents. Our aim is to enhance its capacity to accurately identify the precise regions within these documents where textual content is located. This adaptation is crucial for achieving a more refined and accurate document analysis process in the context of archival materials.
 
+To test the layout parsing we document all steps and how to use the script: [Layout Parsing](trocr_handwritten/README.md#parsing-layout)
 
 ### [TrOCR French Handwritten Model](https://huggingface.co/agomberto/trocr-large-handwritten-fr)
 
