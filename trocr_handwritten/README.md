@@ -213,6 +213,7 @@ You can run the script from the command line with the following arguments:
 Example command:
 
 ```bash
+export OPENAI_API_KEY='your-api-key'
 python ner_GPT.py --PATH_DATA /path/to/data --text example_birth_act --PATH_CONFIG /path/to/config --prompt birth_act --schema birth_act_schema
 ```
 
