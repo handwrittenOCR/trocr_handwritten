@@ -1,0 +1,82 @@
+{
+    "name": "deces_act",
+    "description": "extract entities",
+    "parameters": {
+                "type": "object",
+                "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "dead person's whole name"
+                                },
+                        "sex": {
+                            "type": "string",
+                            "enum": ["homme", "femme"]
+                                },
+                        "age": {
+                            "type": "string",
+                            "description": "dead person's age"
+                                },
+                        "job": {
+                            "type": "string",
+                            "description": "dead person's job"
+                                },
+                        "birth date": {
+                            "type": "string",
+                            "description": "dead person's birth date"
+                                },
+                        "birth place": {
+                            "type": "string",
+                            "description": "dead person's birth place"
+                                },
+                        "residence place": {
+                            "type": "string",
+                            "description": "dead person's residence place"
+                                },
+                        "father's name": {
+                            "type": "string",
+                            "description": "father's whole name"
+                                },
+                        "father's age": {
+                            "type": "string",
+                            "description": "father's age"
+                                },
+                        "father's job": {
+                            "type": "string",
+                            "description": "father's job"
+                                },
+                        "father's birth place": {
+                            "type": "string",
+                            "description": "father's birth place"
+                                },
+                        "father's residence place": {
+                            "type": "string",
+                            "description": "father's birth place"
+                                },
+                        "mother's name": {
+                            "type": "string",
+                            "description": "mother's whole name"
+                                },
+                        "mother's age": {
+                            "type": "string",
+                            "description": "mother's age"
+                                },
+                        "mother's job": {
+                            "type": "string",
+                            "description": "mother's job"
+                                },
+                        "mother's birth place": {
+                            "type": "string",
+                            "description": "mother's birth place"
+                                },
+                        "mother's residence place": {
+                            "type": "string",
+                            "description": "mother's birth place"
+                                }
+                                },
+                    "required": ["name", "sex", "age", "job", "birth date", "birth place", "residence place",
+                                "father's name", "father's sex", "father's age",
+                                "father's job", "father's birth place", "father's residence place",
+                                "mother's name", "mother's sex", "mother's age",
+                                "mother's job", "mother's birth place", "mother's residence place"]
+                }
+}

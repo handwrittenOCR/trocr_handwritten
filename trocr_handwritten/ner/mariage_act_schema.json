@@ -1,0 +1,143 @@
+{
+    "name": "mariage_act",
+    "description": "extract entities",
+    "parameters": {
+        "type": "object",
+        "properties": {
+              "groom's name": {
+                  "type": "string",
+                  "description": "groom's name"
+                      },
+              "groom's age": {
+                  "type": "string",
+                  "description": "groom's birth date"
+                      },
+              "groom's job": {
+                  "type": "string",
+                  "description": "groom's job"
+                      },
+              "groom's residence place": {
+                  "type": "string",
+                  "description": "groom's residence place"
+                      },
+              "groom's birth place": {
+                  "type": "string",
+                  "description": "groom's birth place"
+                      },
+              "bride's name": {
+                  "type": "string",
+                  "description": "bride's name"
+                      },
+              "bride's age": {
+                  "type": "string",
+                  "description": "bride's birth date"
+                      },
+              "bride's job": {
+                  "type": "string",
+                  "description": "bride's job"
+                      },
+              "bride's residence place": {
+                  "type": "string",
+                  "description": "bride's residence place"
+                      },
+              "bride's birth place": {
+                  "type": "string",
+                  "description": "bride's birth place"
+                      },
+              "groom's father's name": {
+                  "type": "string",
+                  "description": "groom's father's whole name"
+                      },
+              "groom's father's age": {
+                  "type": "string",
+                  "description": "groom's father's age"
+                      },
+              "groom's father's job": {
+                  "type": "string",
+                  "description": "groom's father's job"
+                      },
+              "groom's father's birth place": {
+                  "type": "string",
+                  "description": "groom's father's birth place"
+                      },
+              "groom's father's residence place": {
+                  "type": "string",
+                  "description": "groom's father's birth place"
+                      },
+              "groom's mother's name": {
+                  "type": "string",
+                  "description": "groom's mother's whole name"
+                      },
+              "groom's mother's age": {
+                  "type": "string",
+                  "description": "groom's mother's age"
+                      },
+              "groom's mother's job": {
+                  "type": "string",
+                  "description": "groom's mother's job"
+                      },
+              "groom's mother's birth place": {
+                  "type": "string",
+                  "description": "groom's mother's birth place"
+                      },
+              "groom's mother's residence place": {
+                  "type": "string",
+                  "description": "groom's mother's birth place"
+                      },
+              "bride's father's name": {
+                  "type": "string",
+                  "description": "bride's father's whole name"
+                      },
+              "bride's father's age": {
+                  "type": "string",
+                  "description": "bride's father's age"
+                      },
+              "bride's father's job": {
+                  "type": "string",
+                  "description": "bride's father's job"
+                      },
+              "bride's father's birth place": {
+                  "type": "string",
+                  "description": "bride's father's birth place"
+                      },
+              "bride's father's residence place": {
+                  "type": "string",
+                  "description": "bride's father's birth place"
+                      },
+              "bride's mother's name": {
+                  "type": "string",
+                  "description": "bride's mother's whole name"
+                      },
+              "bride's mother's age": {
+                  "type": "string",
+                  "description": "bride's mother's age"
+                      },
+              "bride's mother's job": {
+                  "type": "string",
+                  "description": "bride's mother's job"
+                      },
+              "bride's mother's birth place": {
+                  "type": "string",
+                  "description": "bride's mother's birth place"
+                      },
+              "bride's mother's residence place": {
+                  "type": "string",
+                  "description": "bride's mother's birth place"
+                      }
+                        },
+          "required": ["groom's name", "groom's age", "groom's job", "groom's birth place", "groom's residence place",
+                       "bride's name", "bride's age", "bride's job", "bride's birth place", "bride's residence place",
+                       "groom's father's name", "groom's father's age",
+                       "groom's father's job", "groom's father's birth place",
+                       "groom's father's residence place",
+                       "groom's mother's name", "groom's mother's age",
+                       "groom's mother's job", "groom's mother's birth place",
+                       "groom's mother's residence place",
+                       "bride's father's name", "bride's father's age",
+                       "bride's father's job", "bride's father's birth place",
+                       "bride's father's residence place",
+                       "bride's mother's name", "bride's mother's age",
+                       "bride's mother's job", "bride's mother's birth place",
+                       "bride's mother's residence place"]
+          }
+}

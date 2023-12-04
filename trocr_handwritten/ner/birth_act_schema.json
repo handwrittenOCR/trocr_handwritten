@@ -1,0 +1,72 @@
+{
+    "name": "birth_act",
+    "description": "extract entities",
+    "parameters": {
+        "type": "object",
+        "properties": {
+              "name": {
+                  "type": "string",
+                  "description": "newborn's name"
+                      },
+              "sex": {
+                  "type": "string",
+                  "enum": ["homme", "femme"]
+                      },
+              "birth date": {
+                  "type": "string",
+                  "description": "newborn's birth date"
+                      },
+              "birth place": {
+                  "type": "string",
+                  "description": "newborn's birth place"
+                      },
+              "father's name": {
+                  "type": "string",
+                  "description": "father's whole name"
+                      },
+              "father's age": {
+                  "type": "string",
+                  "description": "father's age"
+                      },
+              "father's job": {
+                  "type": "string",
+                  "description": "father's job"
+                      },
+              "father's birth place": {
+                  "type": "string",
+                  "description": "father's birth place"
+                      },
+              "father's residence place": {
+                  "type": "string",
+                  "description": "father's birth place"
+                      },
+              "mother's name": {
+                  "type": "string",
+                  "description": "mother's whole name"
+                      },
+              "mother's age": {
+                  "type": "string",
+                  "description": "mother's age"
+                      },
+              "mother's job": {
+                  "type": "string",
+                  "description": "mother's job"
+                      },
+              "mother's birth place": {
+                  "type": "string",
+                  "description": "mother's birth place"
+                      },
+              "mother's residence place": {
+                  "type": "string",
+                  "description": "mother's birth place"
+                      }
+                        },
+          "required": ["name", "sex", "birth date", "birth place",
+                       "father's name", "father's age",
+                       "father's job", "father's birth place",
+                       "father's residence place",
+                       "mother's name", "mother's age",
+                       "mother's job", "mother's birth place",
+                       "mother's residence place"]
+          }
+}
