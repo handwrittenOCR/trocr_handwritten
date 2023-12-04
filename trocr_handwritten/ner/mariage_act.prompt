@@ -1,0 +1,1 @@
+Extrais du texte suivant les nom et prénom, l'âge, la profession, le lieu de naissance et le lieu de résidence des nouveaux époux et de leurs parents. Si tu ne trouves pas mets la valeur None\n\nText: {{text}}\nA:

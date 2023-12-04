@@ -1,0 +1,1 @@
+Extrais du texte suivant les nom et prénom, l'âge, la profession, la date de naissance, le lieu de naissance et le lieu de résidence de la personne décédée et de ses parents. Si tu ne trouves pas mets la valeur None\n\nText: {{text}}\nA:
