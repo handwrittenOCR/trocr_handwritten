@@ -16,7 +16,7 @@ We anticipate that our contributions will greatly benefit economists in advancin
 
 ## Overview of Pipeline Components
 
-In this section, we provide a concise overview of the primary components comprising the pipeline for archival data processing.
+In this section, we provide a concise overview of the primary components comprising the pipeline for archival data processing. If you want to use any of the components, please follow the instructions in the corresponding [README file](/trocr_handwritten/README.md).
 
 ![Pipeline Diagram](images/main_pipeline.png "Main Pipeline")
 
