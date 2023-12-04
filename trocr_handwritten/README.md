@@ -9,7 +9,7 @@ In this page we explain a bit more in detail the different components of the pip
 3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
-4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner)
+4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
 
 
 ## 📦 Installation
@@ -144,8 +144,6 @@ python trocr_handwritten/parse/train_trocr.py --PATH_CONFIG /path/to/config --da
 
 #### 🎯 Objective
 
-#### 🎯 Objective
-
 The objective of this script is to apply a trained Optical Character Recognition (OCR) model to transcribe handwritten text from images (in lines). The script uses the TrOCR model architecture, which is a combination of Vision and Language models, to recognize and transcribe the handwritten text. The script takes as input a set of images, processes them using the TrOCR model, and outputs the transcribed text to a specified file. The model used can be specified by the user, allowing for flexibility in the transcription process.
 
 #### 🛠️ How it works
@@ -182,10 +180,59 @@ python apply.py --PATH_DATA /path/to/data --trocr_model /path/to/model --process
 
 The script will load the specified model and processor, load and process the images, generate text from the images using the model, and write the generated text to the specified output file. The results of the transcription will be logged and can be viewed in the console.
 
-## 🗃️ Named Entity Recognition (NER)
+## 🗃️ Named Entity Recognition (NER) with LLM
 
 ### 🎯 Objective
 
+The objective of this script is to apply a Named Entity Recognition (NER) schema using a Large Language Model (LLM). The script takes as input a text file, applies a template to it, and sends it to the OpenAI API for processing. The API response is then printed. The script uses the OpenAI Python client and the Jinja2 templating engine. It also allows for customization of the input text, template, and schema files through command-line arguments.
+
 ### 🛠️ How it works
 
+The script works in the following steps:
+
+1. **Text Loading and Processing**: The script loads the text from the specified file, removes parentheses, and applies a Jinja2 template to it.
+
+2. **Schema Loading**: The script loads the schema from the specified JSON file. Schema by the LLM to output the desired entities in the desired format.
+
+3. **API Request**: The script sends a request to the OpenAI API, using the processed text and the loaded schema. The request specifies the use of the "gpt-3.5-turbo" model, and includes system and user messages.
+
+4. **Output Printing**: The script prints the arguments of the function call from the API response: the dictionary of entities.
+
 ### 📜 How to apply the script
+
+To apply the script, you need to have a text file and a specific prompt and schema.
+
+You can run the script from the command line with the following arguments:
+
+- `--PATH_DATA`: Path to the directory containing the text file.
+- `--text`: Name of the text file (without extension). Default is "example_birth_act".
+- `--PATH_CONFIG`: Path to the directory containing the config file, schema, and prompt.
+- `--prompt`: Name of the prompt file (without extension). Default is "birth_act".
+- `--schema`: Name of the schema file (without extension). Default is "birth_act_schema".
+
+Example command:
+
+```bash
+python ner_GPT.py --PATH_DATA /path/to/data --text example_birth_act --PATH_CONFIG /path/to/config --prompt birth_act --schema birth_act_schema
+```
+
+Here is the output you should get for the birth act.
+
+```json
+{
+  "name": "Justine Laurence",
+  "sex": "femme",
+  "birth date": "2 Mai",
+  "birth place": "habitation Douillard section de Caraque",
+  "father's name": "Clotilde Pierre Auguste",
+  "father's age": "29",
+  "father's job": "cultivateur",
+  "father's birth place": "None",
+  "father's residence place": "Aux Abymes",
+  "mother's name": "Au can Marie Augustine",
+  "mother's age": "24",
+  "mother's job": "couturière",
+  "mother's birth place": "None",
+  "mother's residence place": "Aux Abymes"
+}
+```
