@@ -1,0 +1,7 @@
+{
+    "MAX_LENGTH": 64,
+    "EARLY_STOPPING": true,
+    "NO_REPEAT_NGRAM_SIZE": 3,
+    "LENGTH_PENALTY": 2,
+    "NUM_BEAMS": 4
+}

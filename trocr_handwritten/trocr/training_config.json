@@ -1,0 +1,15 @@
+{
+    "PREDICT_WITH_GENERATE": true,
+    "EVALUATION_STRATEGY": "epoch",
+    "SAVE_STRATEGY": "epoch",
+    "PER_DEVICE_TRAIN_BATCH_SIZE": 16,
+    "PER_DEVICE_EVAL_BATCH_SIZE": 16,
+    "GRADIENT_ACCUMULATION_STEPS": 8,
+    "OPTIM": "adafactor",
+    "NUM_TRAIN_EPOCHS": 20,
+    "FP16": false,
+    "LEARNING_RATE": 4e-05,
+    "OUTPUT_DIR": "./",
+    "LOGGING_DIR": "./logs",
+    "METRIC_FOR_BEST_MODEL": "eval_loss"
+}
