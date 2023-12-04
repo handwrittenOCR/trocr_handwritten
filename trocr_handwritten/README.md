@@ -6,10 +6,9 @@ In this page we explain a bit more in detail the different components of the pip
 
 1. [Installation](#-installation)
 2. [Parsing Layout](#-parsing-layout)
-   - [Objective](#-objective)
-   - [How it works](#-how-it-works)
-   - [How to apply the script](#-how-to-apply-the-script)
-3. [Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
+3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
+   - [Training](#-training)
+   - [Applying](#-applying)
 4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner)
 
 
@@ -97,7 +96,51 @@ Example command:
 python trocr_handwritten/parse/parse_page.py --PATH_PAGES /path/to/images --PATH_MODELS /path/to/model --PATH_XML /path/to/xml --PATH_LINES /path/to/save/bbox/images --verbose True
 ```
 
-## 🔎 Optical Character Recognition (OCR)
+## 🔎 Handwritten Optical Character Recognition (OCR)
+
+### 🚅 Training
+
+#### 🎯 Objective
+
+The objective of this script is to train a model for Optical Character Recognition (OCR) on handwritten text. The script uses the TrOCR model architecture, which is a combination of Vision and Language models, to recognize and transcribe the handwritten text from images. The script takes as input a set of images, processes them using the TrOCR model, and outputs the transcribed text. The model is trained using a dataset of handwritten texts and the performance is evaluated using Character Error Rate (CER) and Word Error Rate (WER) metrics.
+
+#### 🛠️ How it works
+
+The script works in the following steps:
+
+1. **Model and Processor Loading**: The TrOCR processor and model, and the tokenizer are loaded.
+
+2. **Data Loading and Processing**: The script loads and processes the data using the provided dataset, tokenizer, and processor. It uses by default a HandwrittenTextDataset class from the `datasets` library called French Census.
+
+3. **Model & Training Configuration**: The script configures the model parameters & training argument using the provided configuration files.
+
+4. **Metric Loading**: The script loads the Character Error Rate (CER) and Word Error Rate (WER) metrics for evaluation.
+
+5. **Trainer Setup**: The script sets up the trainer with the model, tokenizer, training arguments, metrics, and data.
+
+6. **Model Training**: The script trains the model using the configured trainer.
+
+
+#### 📜 How to apply the script
+
+To apply the script, you need to have a dataset of handwritten texts, a configuration file, and optionally a pre-trained TrOCR model.
+
+You can run the script from the command line with the following arguments:
+
+- `--PATH_CONFIG`: Path to the configuration files.
+- `--dataset`: Path to the dataset. Default is "agomberto/FrenchCensus-handwritten-texts".
+- `--processor`: Path to the processor. Default is "microsoft/trocr-large-handwritten".
+- `--trocr_model`: Path to the pre-trained TrOCR model. Default is "microsoft/trocr-large-handwritten".
+
+Example command:
+
+```bash
+python trocr_handwritten/parse/train_trocr.py --PATH_CONFIG /path/to/config --dataset /path/to/dataset --processor /path/to/processor --trocr_model /path/to/model
+```
+
+### 🧪 Testing
+
+
 
 
 ## 🗃️ Named Entity Recognition (NER)
