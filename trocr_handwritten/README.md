@@ -7,8 +7,8 @@ In this page we explain a bit more in detail the different components of the pip
 1. [Installation](#-installation)
 2. [Parsing Layout](#-parsing-layout)
 3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
-   - [Training](#-training)
-   - [Applying](#-applying)
+   - [Training](#-training-a-custom-trocr-model)
+   - [Applying](#-applying-trocr)
 4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner)
 
 
@@ -98,7 +98,7 @@ python trocr_handwritten/parse/parse_page.py --PATH_PAGES /path/to/images --PATH
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
-### 🚅 Training
+### 🚅 Training a custom TrOCR model
 
 #### 🎯 Objective
 
@@ -132,15 +132,60 @@ You can run the script from the command line with the following arguments:
 - `--processor`: Path to the processor. Default is "microsoft/trocr-large-handwritten".
 - `--trocr_model`: Path to the pre-trained TrOCR model. Default is "microsoft/trocr-large-handwritten".
 
+NB: You can modify the configuration files to change the model parameters and training arguments. Train it on GPUs if possible and then you can change the parameter `FP16`to `True` to use mixed precision training.
+
 Example command:
 
 ```bash
 python trocr_handwritten/parse/train_trocr.py --PATH_CONFIG /path/to/config --dataset /path/to/dataset --processor /path/to/processor --trocr_model /path/to/model
 ```
 
-### 🧪 Testing
+### 🧪 Applying TrOCR
+
+#### 🎯 Objective
+
+#### 🎯 Objective
+
+The objective of this script is to apply a trained Optical Character Recognition (OCR) model to transcribe handwritten text from images (in lines). The script uses the TrOCR model architecture, which is a combination of Vision and Language models, to recognize and transcribe the handwritten text. The script takes as input a set of images, processes them using the TrOCR model, and outputs the transcribed text to a specified file. The model used can be specified by the user, allowing for flexibility in the transcription process.
+
+#### 🛠️ How it works
+
+The script works in the following steps:
+
+1. **Model and Processor Loading**: The trained TrOCR processor and model, and the tokenizer are loaded.
+
+2. **Device Selection**: The script checks if a GPU is available and if so, moves the model to the GPU.
+
+3. **Data Loading and Processing**: The script loads and processes the images from the provided directory. It converts the images to RGB and processes them using the TrOCR processor.
+
+4. **Text Generation**: The script generates text from the processed images using the trained TrOCR model.
+
+5. **Output Writing**: The script writes the generated text to the specified output file.
 
 
+#### 📜 How to apply the script
 
+To apply the script, you need to have a set of images of handwritten texts, and optionally a pre-trained TrOCR model and a specific processor.
+
+You can run the script from the command line with the following arguments:
+
+- `--PATH_DATA`: Path to the directory containing the images.
+- `--trocr_model`: Path to the trained TrOCR model. Default is "agomberto/trocr-base-handwritten-fr".
+- `--processor`: Path to the processor. Default is "microsoft/trocr-large-handwritten".
+- `--output`: Path to the output file where the transcriptions will be written.
+
+Example command:
+
+```bash
+python apply.py --PATH_DATA /path/to/data --trocr_model /path/to/model --processor /path/to/processor --output /path/to/output.txt
+```
+
+The script will load the specified model and processor, load and process the images, generate text from the images using the model, and write the generated text to the specified output file. The results of the transcription will be logged and can be viewed in the console.
 
 ## 🗃️ Named Entity Recognition (NER)
+
+### 🎯 Objective
+
+### 🛠️ How it works
+
+### 📜 How to apply the script
