@@ -10,7 +10,7 @@ Our key contributions encompass the following:
 
 2. **Manually French Labeled Handwritten Dataset:** To train our model effectively, we curated a meticulously labeled dataset of handwritten data. This dataset serves as a crucial resource for training and validating the model's accuracy. We provide this dataset soon on the [Hugging Face Hub](https://huggingface.co/datasets/).
 
-3. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step and independant script](/trocr_handwritten/README.md) that allow researchers to reproduce our work. Additionally, these scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
+3. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step an independant script](/trocr_handwritten/README.md) that allow researchers to reproduce any part of our work. Additionally, these scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
 
 We anticipate that our contributions will greatly benefit economists in advancing their research and historians in efficiently processing extensive archival data across multiple languages with the help of other machine learning practionners.
 
