@@ -24,11 +24,9 @@ def lower_contrast(image):
 
 
 def augment_train(PATH_DATA, train_df):
-
     for file_name, text in tqdm(
         train_df.loc[:, ["file_name", "text"]].values, total=len(train_df)
     ):
-
         image = cv2.imread(join(PATH_DATA, f"{file_name}"))
         image = lower_contrast(image)
 
