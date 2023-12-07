@@ -2,15 +2,15 @@
 
 ## Executive Summary
 
-This documentation presents a comprehensive pipeline designed to structure scanned archives from the 19th century. Leveraging machine learning techniques, including Optical Character Recognition (OCR) and the utilization of a Large Language Model (LLM), we successfully extracted valuable data from historical scans, facilitating its utilization by economist researchers.We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives.
+This documentation presents a comprehensive pipeline designed to structure scanned French archives from the 19th century. Leveraging machine learning techniques, including Optical Character Recognition (OCR) and Large Language Models (LLM), we successfully extracted valuable data from historical scans, facilitating its utilization by economist researchers.We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives.
 
 Our key contributions encompass the following:
 
-1. **Open-Source Handwritten Data Processing Model:** We introduce an open-source model tailored for the processing of images containing handwritten French text. This model enables efficient extraction of handwritten content from scanned documents.
+1. **Open-Source Handwritten Data Processing Model:** We introduce an open-source model tailored for the processing of images containing handwritten French text. This model enables efficient transcription of handwritten content from scanned documents such as archives and extraction of key information from the transcribed text.
 
-2. **Manually French Labeled Handwritten Dataset:** To train our model effectively, we curated a meticulously labeled dataset of handwritten data. This dataset serves as a crucial resource for training and validating the model's accuracy.
+2. **Manually French Labeled Handwritten Dataset:** To train our model effectively, we curated a meticulously labeled dataset of handwritten data. This dataset serves as a crucial resource for training and validating the model's accuracy. We provide this dataset soon on the [Hugging Face Hub](https://huggingface.co/datasets/).
 
-3. **Reproducible Research Notebooks:** In an effort to promote transparency and enable further research, we provide a set of comprehensive notebooks that allow researchers to reproduce our work. Additionally, these notebooks can be adapted to accommodate other languages, thereby extending their utility beyond the scope of French archives.
+3. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step and independant script](/trocr_handwritten/README.md) that allow researchers to reproduce our work. Additionally, these scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
 
 We anticipate that our contributions will greatly benefit economists in advancing their research and historians in efficiently processing extensive archival data across multiple languages with the help of other machine learning practionners.
 
