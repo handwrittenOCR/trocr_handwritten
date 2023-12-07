@@ -28,7 +28,6 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Obtenez le chemin du répertoire du script actuel
 dir_path = dirname(realpath(__file__))
 
 with open(join(dir_path, "config.json")) as f:
