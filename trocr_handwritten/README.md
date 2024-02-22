@@ -88,7 +88,7 @@ You can run the script from the command line with the following arguments:
 - `--PATH_MODELS`: Path to the directory containing the model file.
 - `--PATH_XML`: Path to the directory containing the XML files.
 - `--PATH_LINES`: Path to the directory where the bbox images will be saved.
-- `--verbose`: (Optional) If set to `True`, the script will display the images with the bboxes drawn on them.
+- `--verbose`: (Optional) If set to `True`, the script will save the images with the bboxes drawn on them.
 
 Example command:
 
