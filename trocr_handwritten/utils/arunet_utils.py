@@ -230,7 +230,7 @@ def save_test_predictions_as_imgs(
             transform = transforms.Compose(
                 [
                     transforms.ToPILImage(),
-                    transforms.Resize(size=(height, width)),
+                    transforms.Resize(size=(height, width), antialias=True),
                     transforms.ToTensor(),
                 ]
             )
@@ -241,7 +241,7 @@ def save_test_predictions_as_imgs(
             transform = transforms.Compose(
                 [
                     transforms.ToPILImage(),
-                    transforms.Resize(size=(height, width)),
+                    transforms.Resize(size=(height, width), antialias=True),
                     transforms.ToTensor(),
                 ]
             )
@@ -435,9 +435,9 @@ def build_baseline_offset(baseline, offset=50):
         # --- TODO: check if this baselines can be saved
         return False, None
     if (
-        up_offset.type != "LineString"
+        up_offset.geom_type != "LineString"
         or up_offset.is_empty is True
-        or bot_offset.type != "LineString"
+        or bot_offset.geom_type != "LineString"
         or bot_offset.is_empty is True
     ):
         return False, None
