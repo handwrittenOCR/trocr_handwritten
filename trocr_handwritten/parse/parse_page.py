@@ -4,7 +4,6 @@ from os import listdir, makedirs
 import json
 from xml.dom import minidom
 from PIL import Image, ImageDraw
-import matplotlib.pyplot as plt
 import torch
 import logging
 from trocr_handwritten.utils.arunet_utils import (
@@ -51,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument("--PATH_XML", type=str, help="Path to the XML files")
     parser.add_argument("--PATH_LINES", type=str, help="Path to save line images")
     parser.add_argument(
-        "--verbose", action="store_true", help="Display the image with the bboxes"
+        "--verbose", action="store_true", help="Save the image with the bboxes"
     )
 
     args = parser.parse_args()
@@ -136,7 +135,7 @@ if __name__ == "__main__":
                 bbox_image.save(join(column_dir, f"{my_page}_line_{i}.jpg"))
 
         if args.verbose:
-            logging.info("Displaying image with bboxes...")
+            logging.info("Saving image with bboxes...")
             image_with_bboxes = Image.open(
                 join(args.PATH_PAGES, f"{my_page}.jpg")
             ).convert("RGB")
@@ -149,5 +148,4 @@ if __name__ == "__main__":
                     draw.rectangle(bbox, outline=colors[column], width=5)
 
             # display image_with_bboxes:
-            plt.imshow(image_with_bboxes)
-            plt.show()
+            image_with_bboxes.save(join(args.PATH_PAGES, f"{my_page}_with_bbox.jpg"))
