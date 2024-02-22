@@ -51,7 +51,7 @@ if __name__ == "__main__":
     model.to(device)
 
     logging.info("Loading images...")
-    images = [x for x in listdir(args.PATH_DATA) if ".jpg" in x][:5]
+    images = [x for x in listdir(args.PATH_DATA) if ".jpg" in x]
     images = [Image.open(join(args.PATH_DATA, x)).convert("RGB") for x in images]
 
     logging.info("Generating texts...")
