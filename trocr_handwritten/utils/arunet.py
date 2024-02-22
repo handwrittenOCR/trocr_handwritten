@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
 
-# pip install git+https://github.com/CyberZHG/torch-same-pad.git
-from torch_same_pad import pad
+from trocr_handwritten.utils.pad import pad
 
 
 # subclassing nn.Module and initialize neural network layers in __init__
@@ -130,7 +129,7 @@ class UNET(nn.Module):
             if x.shape != skip_connection.shape:
                 # so we do a resize
                 # shape[2:] gets the height and width, skipping batch_size and amount of channels (tensor shape is [batch_size, channels, height, width])
-                x = TF.resize(x, size=skip_connection.shape[2:])
+                x = TF.resize(x, size=skip_connection.shape[2:], antialias=True)
 
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ups[i + 1](concat_skip)
@@ -339,7 +338,7 @@ class RUNET(nn.Module):
             if x.shape != skip_connection.shape:
                 # so we do a resize
                 # shape[2:] gets the height and width, skipping batch_size and amount of channels (tensor shape is [batch_size, channels, height, width])
-                x = TF.resize(x, size=skip_connection.shape[2:])
+                x = TF.resize(x, size=skip_connection.shape[2:], antialias=True)
 
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ru_ups[i + 1](concat_skip)

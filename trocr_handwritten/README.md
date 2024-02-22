@@ -88,7 +88,7 @@ You can run the script from the command line with the following arguments:
 - `--PATH_MODELS`: Path to the directory containing the model file.
 - `--PATH_XML`: Path to the directory containing the XML files.
 - `--PATH_LINES`: Path to the directory where the bbox images will be saved.
-- `--verbose`: (Optional) If set to `True`, the script will display the images with the bboxes drawn on them.
+- `--verbose`: (Optional) If set to `True`, the script will save the images with the bboxes drawn on them.
 
 Example command:
 
@@ -137,7 +137,7 @@ NB: You can modify the configuration files to change the model parameters and tr
 Example command:
 
 ```bash
-python trocr_handwritten/parse/train_trocr.py --PATH_CONFIG /path/to/config --dataset /path/to/dataset --processor /path/to/processor --trocr_model /path/to/model
+python trocr_handwritten/trocr/train_trocr.py --PATH_CONFIG /path/to/config --dataset /path/to/dataset --processor /path/to/processor --trocr_model /path/to/model
 ```
 
 ### 🧪 Applying TrOCR
@@ -175,7 +175,7 @@ You can run the script from the command line with the following arguments:
 Example command:
 
 ```bash
-python apply.py --PATH_DATA /path/to/data --trocr_model /path/to/model --processor /path/to/processor --output /path/to/output.txt
+python trocr_handwritten/trocr/apply_trocr.py --PATH_DATA /path/to/data --trocr_model /path/to/model --processor /path/to/processor --output /path/to/output.txt
 ```
 
 The script will load the specified model and processor, load and process the images, generate text from the images using the model, and write the generated text to the specified output file. The results of the transcription will be logged and can be viewed in the console.
