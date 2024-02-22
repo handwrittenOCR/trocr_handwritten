@@ -141,11 +141,21 @@ if __name__ == "__main__":
             ).convert("RGB")
             draw = ImageDraw.Draw(image_with_bboxes, "RGB")
 
-            colors = ["red", "blue", "yellow", "green", "orange"]
+            colors = [
+                "red",
+                "blue",
+                "yellow",
+                "green",
+                "orange",
+                "purple",
+                "pink",
+                "brown",
+                "cyan",
+            ]
 
             for column, _bboxes in columns.items():
                 for j, bbox in enumerate(_bboxes):
                     draw.rectangle(bbox, outline=colors[column], width=5)
 
-            # display image_with_bboxes:
+            # save image_with_bboxes:
             image_with_bboxes.save(join(args.PATH_PAGES, f"{my_page}_with_bbox.jpg"))
