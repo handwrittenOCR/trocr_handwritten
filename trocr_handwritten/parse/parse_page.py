@@ -51,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--PATH_XML", type=str, help="Path to the XML files")
     parser.add_argument("--PATH_LINES", type=str, help="Path to save line images")
     parser.add_argument(
-        "--verbose", type=bool, help="Display the image with the bboxes", default=True
+        "--verbose", action="store_true", help="Display the image with the bboxes"
     )
 
     args = parser.parse_args()
