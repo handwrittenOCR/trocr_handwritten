@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
 
-# pip install git+https://github.com/CyberZHG/torch-same-pad.git
-from torch_same_pad import pad
+from trocr_handwritten.utils.pad import pad
 
 
 # subclassing nn.Module and initialize neural network layers in __init__
