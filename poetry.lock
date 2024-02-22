@@ -1979,8 +1979,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
 ]
 
 [[package]]
@@ -2001,8 +2001,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
 ]
 
 [[package]]
@@ -2056,8 +2056,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.2,<2", markers = "python_version == \"3.11\""},
     {version = ">=1.26.0,<2", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.2,<2", markers = "python_version == \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -3631,24 +3631,6 @@ dynamo = ["jinja2"]
 opt-einsum = ["opt-einsum (>=3.3)"]
 
 [[package]]
-name = "torch-same-pad"
-version = "0.1.0"
-description = "Paddings used for converting TensorFlow conv/pool layers to PyTorch."
-optional = false
-python-versions = "*"
-files = []
-develop = false
-
-[package.dependencies]
-torch = "*"
-
-[package.source]
-type = "git"
-url = "https://github.com/CyberZHG/torch-same-pad.git"
-reference = "HEAD"
-resolved_reference = "b60965823567046d0c100fa0e29e36cab6c4ae6b"
-
-[[package]]
 name = "torchvision"
 version = "0.16.2"
 description = "image and video datasets and models for torch deep learning"
@@ -4127,4 +4109,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "c2c907673682c0c03638bae88f47f74897d77855720223f7c6026208f9ffdf11"
+content-hash = "5bfede1f23f6b88204359fb420ba10a19d26980a53bfb3f3b3089222fdd99a15"
