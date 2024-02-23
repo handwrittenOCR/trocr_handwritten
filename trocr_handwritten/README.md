@@ -82,18 +82,50 @@ The script works in the following steps:
 
 To apply the script, you need to have a set of images and corresponding XML files containing bbox information. You also need to have a trained ARU-Net model saved as a `.tar` file.
 
+The recomanded structure would be to have
+```bash
+|-data
+  |-pages
+     |-page_1.jpg
+  |-xml
+  |-lines
+```
+
 You can run the script from the command line with the following arguments:
 
 - `--PATH_PAGES`: Path to the directory containing the images.
 - `--PATH_MODELS`: Path to the directory containing the model file.
 - `--PATH_XML`: Path to the directory containing the XML files.
 - `--PATH_LINES`: Path to the directory where the bbox images will be saved.
-- `--verbose`: (Optional) If set to `True`, the script will save the images with the bboxes drawn on them.
+- `--verbose`: (Optional) If set, the script will save the images with the bboxes drawn on them.
 
 Example command:
 
 ```bash
-python trocr_handwritten/parse/parse_page.py --PATH_PAGES /path/to/images --PATH_MODELS /path/to/model --PATH_XML /path/to/xml --PATH_LINES /path/to/save/bbox/images --verbose True
+python trocr_handwritten/parse/parse_page.py --PATH_PAGES /path/to/images --PATH_MODELS /path/to/model --PATH_XML /path/to/xml --PATH_LINES /path/to/save/bbox/images --verbose
+```
+
+This will apply the ARU-Net model to the images, save the XML files in --PATH_XML, extract the bboxes, save the bboxes as separate images if verbose is activated, and save the original images with the bboxes drawn on them.
+From the XML files, for each `page` the script will look for columns of texts. Once indentified, it will extract the bboxes and save them in the specified directory in `PATH_LINES/page/column_X/`.
+
+The final structure would be, with the recommanded data structure:
+
+The recomanded structure would be to have
+```bash
+|-data
+  |-pages
+     |-page_1.jpg
+  |-xml
+     |-page_1.xml
+  |-lines
+      |-page_1
+          |-column_0
+            |-page_1_line_0.jpg
+            |-page_1_line_1.jpg
+          |-column_1
+            |-page_1_line_0.jpg
+            |-page_1_line_1.jpg
+            |-page_1_line_2.jpg
 ```
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
@@ -170,15 +202,60 @@ You can run the script from the command line with the following arguments:
 - `--PATH_DATA`: Path to the directory containing the images.
 - `--trocr_model`: Path to the trained TrOCR model. Default is "agomberto/trocr-base-handwritten-fr".
 - `--processor`: Path to the processor. Default is "microsoft/trocr-large-handwritten".
-- `--output`: Path to the output file where the transcriptions will be written.
+- `--PATH_OUTPUT`: Path to the output file where the transcriptions will be written.
 
 Example command:
 
 ```bash
-python trocr_handwritten/trocr/apply_trocr.py --PATH_DATA /path/to/data --trocr_model /path/to/model --processor /path/to/processor --output /path/to/output.txt
+python trocr_handwritten/trocr/apply_trocr.py --PATH_DATA /path/to/data --trocr_model /path/to/model --processor /path/to/processor --PATH_OUTPUT /path/to/output
 ```
 
 The script will load the specified model and processor, load and process the images, generate text from the images using the model, and write the generated text to the specified output file. The results of the transcription will be logged and can be viewed in the console.
+
+If we take back the example of recommanded structure:
+
+The recomanded structure would be to have
+```bash
+|-data
+  |-pages
+     |-page_1.jpg
+  |-xml
+     |-page_1.xml
+  |-lines
+      |-page_1
+          |-column_0
+            |-page_1_line_0.jpg
+            |-page_1_line_1.jpg
+          |-column_1
+            |-page_1_line_0.jpg
+            |-page_1_line_1.jpg
+            |-page_1_line_2.jpg
+```
+
+The final structure will be
+
+```bash
+|-data
+  |-pages
+     |-page_1.jpg
+  |-xml
+     |-page_1.xml
+  |-lines
+      |-page_1
+          |-column_0
+            |-page_1_line_0.jpg
+            |-page_1_line_1.jpg
+          |-column_1
+            |-page_1_line_0.jpg
+            |-page_1_line_1.jpg
+            |-page_1_line_2.jpg
+  |-ocrized
+      |-page_1
+          |-column_0
+            |-ocrized.txt
+          |-column_1
+            |-ocrized.txt
+```
 
 ## 🗃️ Named Entity Recognition (NER) with LLM
 

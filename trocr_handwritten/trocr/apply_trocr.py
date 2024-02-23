@@ -8,7 +8,7 @@ import argparse
 import torch
 from PIL import Image
 from os.path import join
-from os import listdir
+from os import listdir, makedirs
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         default="microsoft/trocr-large-handwritten",
     )
     parser.add_argument(
-        "--output",
+        "--PATH_OUTPUT",
         type=str,
         help="Path to the output file",
     )
@@ -50,20 +50,44 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     model.to(device)
 
-    logging.info("Loading images...")
-    images = [x for x in listdir(args.PATH_DATA) if ".jpg" in x]
-    images = [Image.open(join(args.PATH_DATA, x)).convert("RGB") for x in images]
+    # get all the folders in the data
+    folders = [x for x in listdir(args.PATH_DATA) if "." not in x]
+    for folder in folders:
+        makedirs(join(args.PATH_OUTPUT, folder), exist_ok=True)
+        subfolders = [x for x in listdir(join(args.PATH_DATA, folder)) if "." not in x]
+        for subfolder in subfolders:
+            makedirs(join(args.PATH_OUTPUT, folder, subfolder), exist_ok=True)
 
-    logging.info("Generating texts...")
-    pixel_values = (processor(images=images, return_tensors="pt").pixel_values).to(
-        device
-    )
-    generated_ids = model.generate(pixel_values)
-    generated_texts = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+            logging.info(f"Loading {folder}/{subfolder} images...")
+            images = [
+                x
+                for x in listdir(join(args.PATH_DATA, folder, subfolder))
+                if ".jpg" in x
+            ]
+            logging.info(f"{len(images)} images found.")
+            images = [
+                Image.open(join(args.PATH_DATA, folder, subfolder, x)).convert("RGB")
+                for x in images
+            ]
 
-    logging.info("Writing output to {}".format(args.output))
-    logging.info("Generated texts:")
-    with open(args.output, "w") as f:
-        for generated_text in generated_texts:
-            logging.info(generated_text)
-            f.write(generated_text + "\n")
+            logging.info("Generating texts...")
+            pixel_values = (
+                processor(images=images, return_tensors="pt").pixel_values
+            ).to(device)
+            generated_ids = model.generate(pixel_values)
+            generated_texts = tokenizer.batch_decode(
+                generated_ids, skip_special_tokens=True
+            )
+
+            logging.info(
+                "Writing output to {}".format(
+                    join(args.PATH_OUTPUT, folder, subfolder, "ocrized.txt")
+                )
+            )
+            logging.info("Generated texts:")
+            with open(
+                join(args.PATH_OUTPUT, folder, subfolder, "ocrized.txt"), "w"
+            ) as f:
+                for generated_text in generated_texts:
+                    logging.info(generated_text)
+                    f.write(generated_text + "\n")
