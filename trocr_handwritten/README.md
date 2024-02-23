@@ -234,7 +234,6 @@ The recomanded structure would be to have
 
 The final structure will be
 
-The recomanded structure would be to have
 ```bash
 |-data
   |-pages
