@@ -4,6 +4,7 @@ from os import listdir, makedirs
 import json
 from xml.dom import minidom
 from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
 import torch
 import logging
 from trocr_handwritten.utils.arunet_utils import (
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("--PATH_XML", type=str, help="Path to the XML files")
     parser.add_argument("--PATH_LINES", type=str, help="Path to save line images")
     parser.add_argument(
-        "--verbose", action="store_true", help="Save the image with the bboxes"
+        "--verbose", type=bool, help="Display the image with the bboxes", default=True
     )
 
     args = parser.parse_args()
@@ -95,6 +96,7 @@ if __name__ == "__main__":
     }
     for my_page in pages:
         logging.info(f"Processing page {my_page}...")
+        makedirs(join(args.PATH_LINES, my_page), exist_ok=True)
         data = minidom.parse(join(args.PATH_XML, f"{my_page}.xml"))
         coords, texts = get_coords(data, with_text=False)
         image = Image.open(join(args.PATH_PAGES, f"{my_page}.jpg")).convert("RGB")
@@ -124,7 +126,7 @@ if __name__ == "__main__":
 
         for column, _bboxes in columns.items():
             # Create a directory for the column if it doesn't exist
-            column_dir = join(args.PATH_LINES, f"column_{column}")
+            column_dir = join(args.PATH_LINES, my_page, f"column_{column}")
             makedirs(column_dir, exist_ok=True)
             logging.info("Saving bbox images...")
             for i, bbox in enumerate(_bboxes):
@@ -135,27 +137,18 @@ if __name__ == "__main__":
                 bbox_image.save(join(column_dir, f"{my_page}_line_{i}.jpg"))
 
         if args.verbose:
-            logging.info("Saving image with bboxes...")
+            logging.info("Displaying image with bboxes...")
             image_with_bboxes = Image.open(
                 join(args.PATH_PAGES, f"{my_page}.jpg")
             ).convert("RGB")
             draw = ImageDraw.Draw(image_with_bboxes, "RGB")
 
-            colors = [
-                "red",
-                "blue",
-                "yellow",
-                "green",
-                "orange",
-                "purple",
-                "pink",
-                "brown",
-                "cyan",
-            ]
+            colors = ["red", "blue", "yellow", "green", "orange"]
 
             for column, _bboxes in columns.items():
                 for j, bbox in enumerate(_bboxes):
                     draw.rectangle(bbox, outline=colors[column], width=5)
 
-            # save image_with_bboxes:
-            image_with_bboxes.save(join(args.PATH_PAGES, f"{my_page}_with_bbox.jpg"))
+            # display image_with_bboxes:
+            plt.imshow(image_with_bboxes)
+            plt.show()
