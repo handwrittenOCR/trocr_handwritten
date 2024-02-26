@@ -59,15 +59,15 @@ if __name__ == "__main__":
             makedirs(join(args.PATH_OUTPUT, folder, subfolder), exist_ok=True)
 
             logging.info(f"Loading {folder}/{subfolder} images...")
-            images = [
+            images_files = [
                 x
                 for x in listdir(join(args.PATH_DATA, folder, subfolder))
                 if ".jpg" in x
             ]
-            logging.info(f"{len(images)} images found.")
+            logging.info(f"{len(images_files)} images found.")
             images = [
                 Image.open(join(args.PATH_DATA, folder, subfolder, x)).convert("RGB")
-                for x in images
+                for x in images_files
             ]
 
             logging.info("Generating texts...")
@@ -88,6 +88,6 @@ if __name__ == "__main__":
             with open(
                 join(args.PATH_OUTPUT, folder, subfolder, "ocrized.txt"), "w"
             ) as f:
-                for generated_text in generated_texts:
+                for image, generated_text in zip(images_files, generated_texts):
                     logging.info(generated_text)
-                    f.write(generated_text + "\n")
+                    f.write(generated_text + "\t" + image + "\n")
