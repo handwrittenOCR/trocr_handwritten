@@ -1,3 +1,5 @@
+# added on 23/10/2024 because encontering issues with torchvision.transforms.functional
+
 from os.path import join
 import os
 
@@ -14,6 +16,9 @@ from PIL import Image
 from tqdm import tqdm
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+
+# 23/10/2024: added shapely to avoid issues with LineString
+
 from shapely.geometry import LineString
 
 from trocr_handwritten.utils.arunet import ARUNET, RUNET, UNET

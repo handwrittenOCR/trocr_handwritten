@@ -113,7 +113,7 @@ These metrics provide insights into the model's performance and its ability to a
 
 #### Usage Instructions
 
-Below are the steps for utilizing this model within the PyTorch framework:
+Below are the steps for using this model within the PyTorch framework:
 
 ```python
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel, AutoTokenizer
@@ -179,6 +179,160 @@ Here is an example of final output we got for birth acte:
   "mother's residence place": "Abymes"
 }
 ```
+## Run the pipeline
+
+0. command prompt: Clone the repository:
+
+```bash
+git clone https://github.com/trocr_handwritten.git
+```
+
+1. command prompt: Create and activate a virtual environment using Poetry:
+
+```bash
+cd ~/trocr_handwritten
+poetry env use python3.11
+poetry shell
+```
+You should now see the (venv) at the beginning of the line in the command prompt.
+
+2. command prompt:Install the trocr_handwritten package:
+
+Install the dependencies from the pyproject.toml file:
+```bash
+poetry install
+```
+
+3. In your python script(s), set up your environment variables:
+
+```python
+import os
+from dotenv import load_dotenv
+import sys
+
+# Load environment variables
+load_dotenv()
+
+# Set up paths
+PATH_REPO = os.getenv('PATH_REPO')
+PATH_MODELS = os.getenv('PATH_MODELS')
+PATH_UTILS = os.getenv('PATH_UTILS')
+PATH_DATA = os.getenv('PATH_DATA')
+PATH_PAGES = os.getenv('PATH_PAGES')
+PATH_XML = os.getenv('PATH_XML')
+PATH_OUTPUT = os.getenv('PATH_OUTPUT')
+PATH_LINES = os.getenv('PATH_LINES')
+
+sys.path.append(PATH_UTILS)
+sys.path.append(PATH_REPO)
+
+from trocr_handwritten.utils.arunet_utils import *
+```
+
+4. Run the layout parsing script:
+
+```python
+import subprocess
+from trocr_handwritten.parse import parse_page
+
+# Define the command as a list of strings for better security
+command = [
+    "python",
+    os.path.join(PATH_REPO, "trocr_handwritten", "parse", "parse_page.py"),
+    "--PATH_PAGES", PATH_PAGES,
+    "--PATH_MODELS", PATH_MODELS,
+    "--PATH_XML", PATH_XML,
+    "--PATH_LINES", PATH_LINES,
+    "--verbose", "TRUE"
+]
+
+try:
+    # Execute the command and capture the output
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    # Print the output line by line
+    for line in process.stdout:
+        print(line.strip())
+
+    # Wait for the process to finish and get the return code
+    return_code = process.wait()
+
+    # Check if the command executed successfully
+    if return_code == 0:
+        print("Parsing completed successfully")
+    else:
+        print(f"Parsing failed with return code {return_code}")
+except Exception as e:
+    print(f"An error occurred during parsing: {str(e)}")
+```
+
+This will generate the XML files in the PATH_XML folder, and the lines in the PATH_LINES folder.
+
+5. Run the OCR script:
+
+Prepare the environment for the OCR model:
+```python
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel, AutoTokenizer
+import torch
+
+trocr_model = 'agomberto/trocr-base-handwritten-fr'
+
+processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-handwritten")
+
+model = VisionEncoderDecoderModel.from_pretrained(trocr_model)
+tokenizer = AutoTokenizer.from_pretrained(trocr_model)
+
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+  model.to(device)
+```
+
+Run it on all parsed pages:
+
+```python
+folders = [x for x in listdir(PATH_LINES) if "." not in x]
+for folder in tqdm(folders):
+    makedirs(join(PATH_OUTPUT, folder), exist_ok=True)
+    subfolders = [x for x in listdir(join(PATH_LINES, folder)) if "." not in x]
+    for subfolder in subfolders:
+        makedirs(join(PATH_OUTPUT, folder, subfolder), exist_ok=True)
+
+        images_files = [
+            x
+            for x in listdir(join(PATH_LINES, folder, subfolder))
+            if ".jpg" in x
+        ]
+
+        images_files.sort()
+
+        images = [
+            Image.open(join(PATH_LINES, folder, subfolder, x)).convert("RGB")
+            for x in images_files
+        ]
+        bboxes = [[float(y) for y in x[:-4].split('_line_')[1].split('_')] for x in images_files]
+
+        pixel_values = (
+            processor(images=images, return_tensors="pt").pixel_values
+        ).to(device)
+        generated_ids = model.generate(pixel_values)
+        generated_texts = tokenizer.batch_decode(
+            generated_ids, skip_special_tokens=True
+        )
+
+        print(generated_texts)
+        with open(join(PATH_OUTPUT, folder, subfolder, "ocrized.txt"), "w") as f:
+            for image, bbox, generated_text in zip(images_files, bboxes, generated_texts):
+                # Convert bbox list to a string
+                bbox_str = "_".join(map(str, bbox))
+        # Write generated_text, image filename, and bbox to the file
+                f.write(f"{generated_text}\t{image}\t{bbox_str}\n")
+            f.close()
+
+```
+
+
 
 ## References
 
