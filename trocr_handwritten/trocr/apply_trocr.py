@@ -50,7 +50,7 @@ if __name__ == "__main__":
         device = torch.device("cpu")
     model.to(device)
 
-    # get all the folders in the data
+    # get all the folders in the data - we need this because of the "columns" subfolders
     folders = [x for x in listdir(args.PATH_DATA) if "." not in x]
     for folder in folders:
         makedirs(join(args.PATH_OUTPUT, folder), exist_ok=True)

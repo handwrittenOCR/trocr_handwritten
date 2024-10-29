@@ -1,0 +1,32 @@
+Traceback (most recent call last):
+  File "/work/m24063/m24063bglm/trocr_handwritten/scripts/launch_layout.py", line 65, in <module>
+    from trocr_handwritten.utils import folder_utils
+ImportError: cannot import name 'folder_utils' from 'trocr_handwritten.utils' (/work/m24063/m24063bglm/trocr_handwritten/.venv/lib/python3.11/site-packages/trocr_handwritten/utils/__init__.py)
+Job Infos :
+              Job Id : 27286
+                Name : launch_layout.sh
+                User : m24063bglm
+           Partition : small
+              NNodes : 2
+               Nodes : turpancomp[5-6]
+               State : RUNNING
+              Submit : 2024-10-25T17:28:10
+               Start : 2024-10-25T17:28:11
+                 End : Unknown
+   Reserved walltime : 00:10:00
+       Used walltime : 00:00:26
+       Used CPU time : 00:00:00
+ % User Computation) : Unknown
+      % System (I/O) : Unknown
+        Mem reserved : 1008G
+        Max Mem used : Unknown
+      Max Disk Write : Unknown
+       Max Disk Read : Unknown
+  Energy consumption : Unknown
+
+Debug Infos :
+           BatchHost : turpancomp5
+             Command : /work/m24063/m24063bglm/trocr_handwritten/scripts/slurm_script/launch_layout.sh
+              StdOut : /work/m24063/m24063bglm/trocr_handwritten/scripts/slurm_script/slurm-27286.out
+              StdErr : /work/m24063/m24063bglm/trocr_handwritten/scripts/slurm_script/slurm-27286.out
+             WorkDir : /work/m24063/m24063bglm/trocr_handwritten/scripts/slurm_script

@@ -1,0 +1,20 @@
+torch==2.2.0
+transformers==4.38.1
+albumentations==1.4.0
+torchvision==0.17.0
+shapely==2.0.3
+opencv-python==4.9.0.80
+matplotlib==3.8.3
+ipykernel==6.29.2
+datasets==2.17.1
+pynvml==11.5.0
+accelerate==0.27.2
+jiwer==3.0.3
+evaluate==0.4.1
+jinja2==3.1.2
+openai==1.12.0
+
+# Development dependencies
+pre-commit==3.6.2
+ruff==0.2.2
+black==24.2.0

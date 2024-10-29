@@ -3,7 +3,24 @@ import torch
 import torch.nn as nn
 import torchvision.transforms.functional as TF
 
-from trocr_handwritten.utils.pad import pad
+# 23/10/2024: build own pad function because of issues with pad.py
+
+
+def pad(x, kernel_size, stride=1, dilation=1):
+    def _calc_pad(size, kernel_size, stride, dilation):
+        pad = (
+            ((size + stride - 1) // stride - 1) * stride + kernel_size - size
+        ) * dilation
+        return pad // 2, pad - pad // 2
+
+    size = x.size()[2:]
+    pad = []
+    for i in range(len(size)):
+        k = kernel_size[i] if isinstance(kernel_size, tuple) else kernel_size
+        s = stride[i] if isinstance(stride, tuple) else stride
+        d = dilation[i] if isinstance(dilation, tuple) else dilation
+        pad = list(_calc_pad(size[i], k, s, d)) + pad
+    return nn.functional.pad(x, pad)
 
 
 # subclassing nn.Module and initialize neural network layers in __init__
@@ -129,7 +146,7 @@ class UNET(nn.Module):
             if x.shape != skip_connection.shape:
                 # so we do a resize
                 # shape[2:] gets the height and width, skipping batch_size and amount of channels (tensor shape is [batch_size, channels, height, width])
-                x = TF.resize(x, size=skip_connection.shape[2:], antialias=True)
+                x = TF.resize(x, size=skip_connection.shape[2:])
 
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ups[i + 1](concat_skip)
@@ -338,7 +355,7 @@ class RUNET(nn.Module):
             if x.shape != skip_connection.shape:
                 # so we do a resize
                 # shape[2:] gets the height and width, skipping batch_size and amount of channels (tensor shape is [batch_size, channels, height, width])
-                x = TF.resize(x, size=skip_connection.shape[2:], antialias=True)
+                x = TF.resize(x, size=skip_connection.shape[2:])
 
             concat_skip = torch.cat((skip_connection, x), dim=1)
             x = self.ru_ups[i + 1](concat_skip)
@@ -416,7 +433,8 @@ class ARUNET(nn.Module):
         self.featRoot = featRoot
         self.filter_size = filter_size
         self.pool_size = pool_size
-        self.activation = activation
+        # 24/10/2024: slight modification to avoid error if activation is None
+        self.activation = activation if activation is not None else nn.ReLU()
         self.num_scales = num_scales
 
         self.a_net = ANET(in_channels=in_channels, activation=self.activation)
@@ -551,7 +569,7 @@ def pooling_same_padding(
             + 1
             - input_rows,
         )
-        rows_odd = padding_rows % 2
+        padding_rows % 2
 
         input_cols = input.size(3)
         filter_cols = kernel_size
@@ -563,17 +581,10 @@ def pooling_same_padding(
             + 1
             - input_cols,
         )
-        cols_odd = padding_cols % 2
+        padding_cols % 2
 
-        input = pad(
-            input,
-            [
-                padding_cols // 2,
-                padding_cols // 2 + int(cols_odd),
-                padding_rows // 2,
-                padding_rows // 2 + int(rows_odd),
-            ],
-        )
+        # 24/10/2023: changed becayse of endless issues with pad.py
+        input = pad(input, kernel_size, stride=stride, dilation=dilation)
 
     elif padding == "VALID":
         padding = 0

@@ -20,5 +20,5 @@
     "PADDING_COMMENT": "True when the model was trained with data augmentation / random downsampling",
     "PIN_MEMORY": true,
     "TEST_IMG_DIR": "PATH_DATA",
-    "NUM_WORKERS": 2
+    "NUM_WORKERS": 64
 }

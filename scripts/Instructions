@@ -1,0 +1,5 @@
+This folder contains the python scripts to launch on the remote server. 
+
+These scripts are based on the notebooks in the trocr_handwritten/notebook folder, and use the functiosn contained in the trocr_handwritten/utils folder.
+
+The use of notebooks is not recommended for production code, but they are very useful for experimentation. 

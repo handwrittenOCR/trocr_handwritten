@@ -1,3 +1,5 @@
+# added on 23/10/2024 because encontering issues with torchvision.transforms.functional
+
 from os.path import join
 import os
 
@@ -14,6 +16,9 @@ from PIL import Image
 from tqdm import tqdm
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
+
+# 23/10/2024: added shapely to avoid issues with LineString
+
 from shapely.geometry import LineString
 
 from trocr_handwritten.utils.arunet import ARUNET, RUNET, UNET
@@ -149,7 +154,7 @@ def get_test_loaders(
     image_height,
     image_width,
     padding,
-    num_workers=4,
+    num_workers=64,
     pin_memory=True,
 ):
     test_ds = TestDataset(
@@ -230,7 +235,7 @@ def save_test_predictions_as_imgs(
             transform = transforms.Compose(
                 [
                     transforms.ToPILImage(),
-                    transforms.Resize(size=(height, width), antialias=True),
+                    transforms.Resize(size=(height, width)),
                     transforms.ToTensor(),
                 ]
             )
@@ -241,7 +246,7 @@ def save_test_predictions_as_imgs(
             transform = transforms.Compose(
                 [
                     transforms.ToPILImage(),
-                    transforms.Resize(size=(height, width), antialias=True),
+                    transforms.Resize(size=(height, width)),
                     transforms.ToTensor(),
                 ]
             )
@@ -435,9 +440,9 @@ def build_baseline_offset(baseline, offset=50):
         # --- TODO: check if this baselines can be saved
         return False, None
     if (
-        up_offset.geom_type != "LineString"
+        up_offset.type != "LineString"
         or up_offset.is_empty is True
-        or bot_offset.geom_type != "LineString"
+        or bot_offset.type != "LineString"
         or bot_offset.is_empty is True
     ):
         return False, None

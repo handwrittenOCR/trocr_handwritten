@@ -1,5 +1,14 @@
 import numpy as np
-
+import logging
+import os
+from os.path import join
+from os import makedirs
+from xml.dom import minidom
+from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
+from shutil import copy
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
 
 def get_columns_coords(bboxes, nbins=150, th=5):
     """
@@ -171,3 +180,40 @@ def increase_y(bboxes):
         bboxes_updated.append(bbox)
 
     return bboxes_updated
+
+
+def save_bbox_images(my_page, columns, image, path_lines):
+    for column, _bboxes in columns.items():
+        column_dir = join(path_lines, my_page, f"column_{column}")
+        makedirs(column_dir, exist_ok=True)
+        for i, bbox in enumerate(_bboxes):
+            bbox_image = image.crop(bbox)
+            bbox_image.save(join(column_dir, f"{my_page}_line_{i}_{bbox[0]}_{bbox[1]}_{bbox[2]}_{bbox[3]}.jpg"))
+
+def display_image_with_bboxes(my_page, columns, path_pages):
+    image_with_bboxes = Image.open(join(path_pages, f"{my_page}.jpg")).convert("RGB")
+    draw = ImageDraw.Draw(image_with_bboxes, "RGB")
+
+    colors = ["red", "blue", "yellow", "green", "orange"]
+
+    for column, _bboxes in columns.items():
+        for bbox in _bboxes:
+            draw.rectangle(bbox, outline=colors[column], width=5)
+
+    plt.imshow(image_with_bboxes)
+    plt.show()
+
+def handle_error(my_page, error, path_pages, path_lines):
+    print(f"An error occurred with page {my_page}: {error}")
+    makedirs(join(path_lines, "error"), exist_ok=True)
+    copy(join(path_pages, f"{my_page}.jpg"), join(path_lines, "error"))
+    
+     
+# 25/10/2024: added batch processing: 
+# Handle subfolders in the PAGE, LINE, and XML folders by using os.walk().
+# Preserve the folder structure in the output.
+# Work with or without subfolders.
+# Implement batch processing using ProcessPoolExecutor for parallel execution on the server.
+
+
+    

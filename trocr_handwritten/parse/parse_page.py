@@ -7,7 +7,6 @@ from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 import torch
 import logging
-from shutil import copy
 from trocr_handwritten.utils.arunet_utils import (
     create_aru_net,
     get_test_loaders,
@@ -42,6 +41,7 @@ model_kwargs = dict(
     pool_size=config.get("POOL_SIZE", 2),
     activation_name=config.get("ACTIVATION_NAME", "relu"),
     model=config.get("MODEL", "aru"),
+    workers=config.get("NUM_WORKERS", 64),
     num_scales=config.get("NUM_SCALES", 5),
 )
 
@@ -76,6 +76,7 @@ if __name__ == "__main__":
     load_checkpoint(
         torch.load(
             join(args.PATH_MODELS, "cbad_2019.tar"),
+            #FIXME: careful loading on device !!
             map_location=torch.device(config.get("DEVICE", "cpu")),
         ),
         model,
@@ -89,74 +90,71 @@ if __name__ == "__main__":
         image_width=config.get("IMAGE_WIDTH", 1024),
         padding=config.get("PADDING", True),
         output_dir=args.PATH_XML,
+        #FIXME: careful loading on device !!    fmo
         device=config.get("DEVICE", "cpu"),
     )
+
+    logging.info("---- XML files are created, now processing image by line...---")
 
     pages = {
         x.split(".")[0]: {} for x in listdir(args.PATH_PAGES) if "jpg" in x.lower()
     }
+
+    ## procéder par batch
     for my_page in pages:
         logging.info(f"Processing page {my_page}...")
-        try:
-            makedirs(join(args.PATH_LINES, my_page), exist_ok=True)
-            data = minidom.parse(join(args.PATH_XML, f"{my_page}.xml"))
-            coords, texts = get_coords(data, with_text=False)
-            image = Image.open(join(args.PATH_PAGES, f"{my_page}.jpg")).convert("RGB")
+        data = minidom.parse(join(args.PATH_XML, f"{my_page}.xml"))
+        coords, texts = get_coords(data, with_text=False)
+        image = Image.open(join(args.PATH_PAGES, f"{my_page}.jpg")).convert("RGB")
 
-            bboxes = []
-            for coord in coords:
-                bboxes.append(convert_coords(coord))
+        bboxes = []
+        for coord in coords:
+            bboxes.append(convert_coords(coord))
 
-            coords, hist, indexes = get_columns_coords(bboxes, nbins=150, th=5)
-            coords = resize_columns(coords, hist, indexes, th_width=200)
-            _bboxes = [resize_bbox(bbox, coords) for bbox in bboxes]
+        coords, hist, indexes = get_columns_coords(bboxes, nbins=150, th=5)
+        coords = resize_columns(coords, hist, indexes, th_width=200)
+        _bboxes = [resize_bbox(bbox, coords) for bbox in bboxes]
 
-            my_bboxes = []
-            for bbox, index in _bboxes:
-                my_bboxes += bbox_split(bbox, coords, index)
+        my_bboxes = []
+        for bbox, index in _bboxes:
+            my_bboxes += bbox_split(bbox, coords, index)
 
-            columns = {}
+        columns = {}
 
-            for bbox, i in my_bboxes[::-1]:
-                if not columns.get(i):
-                    columns[i] = [bbox]
-                else:
-                    if not is_overlap_picture(bbox, columns[i][-1], th=0.75):
-                        columns[i].append(bbox)
+        for bbox, i in my_bboxes[::-1]:
+            if not columns.get(i):
+                columns[i] = [bbox]
+            else:
+                if not is_overlap_picture(bbox, columns[i][-1], th=0.75):
+                    columns[i].append(bbox)
 
-            pages[my_page]["columns"] = columns
+        pages[my_page]["columns"] = columns
+
+        for column, _bboxes in columns.items():
+            # Create a directory for the column if it doesn't exist
+            column_dir = join(args.PATH_LINES, f"column_{column}")
+            makedirs(column_dir, exist_ok=True)
+            logging.info("Saving bbox images...")
+            for i, bbox in enumerate(_bboxes):
+                # Crop the image to the bbox
+                bbox_image = image.crop(bbox)
+
+                # Save the bbox image in the column directory
+                bbox_image.save(join(column_dir, f"{my_page}_line_{i}.jpg"))
+
+        if args.verbose:
+            logging.info("Displaying image with bboxes...")
+            image_with_bboxes = Image.open(
+                join(args.PATH_PAGES, f"{my_page}.jpg")
+            ).convert("RGB")
+            draw = ImageDraw.Draw(image_with_bboxes, "RGB")
+
+            colors = ["red", "blue", "yellow", "green", "orange"]
 
             for column, _bboxes in columns.items():
-                # Create a directory for the column if it doesn't exist
-                column_dir = join(args.PATH_LINES, my_page, f"column_{column}")
-                makedirs(column_dir, exist_ok=True)
-                logging.info("Saving bbox images...")
-                for i, bbox in enumerate(_bboxes):
-                    # Crop the image to the bbox
-                    bbox_image = image.crop(bbox)
+                for j, bbox in enumerate(_bboxes):
+                    draw.rectangle(bbox, outline=colors[column], width=5)
 
-                    # Save the bbox image in the column directory
-                    bbox_image.save(join(column_dir, f"{my_page}_line_{i}.jpg"))
-
-            if args.verbose:
-                logging.info("Displaying image with bboxes...")
-                image_with_bboxes = Image.open(
-                    join(args.PATH_PAGES, f"{my_page}.jpg")
-                ).convert("RGB")
-                draw = ImageDraw.Draw(image_with_bboxes, "RGB")
-
-                colors = ["red", "blue", "yellow", "green", "orange"]
-
-                for column, _bboxes in columns.items():
-                    for j, bbox in enumerate(_bboxes):
-                        draw.rectangle(bbox, outline=colors[column], width=5)
-
-                # display image_with_bboxes:
-                plt.imshow(image_with_bboxes)
-                plt.show()
-        except Exception as e:
-            print(f"An error occurred with page {my_page}: {e}")
-            makedirs(join(args.PATH_LINES, "error"), exist_ok=True)
-            copy(
-                join(args.PATH_PAGES, f"{my_page}.jpg"), join(args.PATH_LINES, "error")
-            )
+            # display image_with_bboxes:
+            plt.imshow(image_with_bboxes)
+            plt.show()
