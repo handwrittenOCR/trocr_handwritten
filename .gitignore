@@ -1,5 +1,5 @@
 # Ignorer le dossier data
-data/
+data/*
 
 # Ignorer les fichiers .DS_Store
 **/.DS_Store

@@ -11,7 +11,7 @@ In $HOME directory:
    module load conda/22.11.1
    conda create -n python-3.11 python=3.11
    conda activate python-3.11
-   
+
 '''
 
 
@@ -26,7 +26,7 @@ Add Poetry to your PATH (add this to your .bashrc or .bash_profile):
 
 '''bash
    export PATH="$HOME/.local/bin:$PATH"
-''' 
+'''
 
 In $WORK/trocr_handwritten directory:
 
@@ -43,7 +43,7 @@ In $WORK/trocr_handwritten directory:
 
 ## B. To reconnect and activate the previously created environment:
 
-1. Activate Conda and Python 3.11:
+1. Activate Conda and Python 3.11 (for Turpan only):
 
 '''bash
    cd $HOME
@@ -52,9 +52,9 @@ In $WORK/trocr_handwritten directory:
    conda activate python-3.11
 '''
 
-2. Navigate to your project and activate the Poetry environment:
+2. Navigate to your project and activate the Poetry environment (en local):
 
 '''bash
    cd $WORK/trocr_handwritten
    poetry shell
-''' 
+'''

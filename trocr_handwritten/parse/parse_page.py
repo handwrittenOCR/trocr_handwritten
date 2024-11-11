@@ -41,7 +41,7 @@ model_kwargs = dict(
     pool_size=config.get("POOL_SIZE", 2),
     activation_name=config.get("ACTIVATION_NAME", "relu"),
     model=config.get("MODEL", "aru"),
-    workers=config.get("NUM_WORKERS", 64),
+    workers=config.get("NUM_WORKERS", 16),
     num_scales=config.get("NUM_SCALES", 5),
 )
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     load_checkpoint(
         torch.load(
             join(args.PATH_MODELS, "cbad_2019.tar"),
-            #FIXME: careful loading on device !!
+            # FIXME: careful loading on device !!
             map_location=torch.device(config.get("DEVICE", "cpu")),
         ),
         model,
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         image_width=config.get("IMAGE_WIDTH", 1024),
         padding=config.get("PADDING", True),
         output_dir=args.PATH_XML,
-        #FIXME: careful loading on device !!    fmo
+        # FIXME: careful loading on device !!    fmo
         device=config.get("DEVICE", "cpu"),
     )
 
@@ -132,7 +132,8 @@ if __name__ == "__main__":
 
         for column, _bboxes in columns.items():
             # Create a directory for the column if it doesn't exist
-            column_dir = join(args.PATH_LINES, f"column_{column}")
+            column_dir = join(args.PATH_LINES, my_page, f"column_{column}")
+            print(column_dir)
             makedirs(column_dir, exist_ok=True)
             logging.info("Saving bbox images...")
             for i, bbox in enumerate(_bboxes):

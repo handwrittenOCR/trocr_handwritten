@@ -85,9 +85,14 @@ if __name__ == "__main__":
                 )
             )
             logging.info("Generated texts:")
+            output_file = join(
+                args.PATH_OUTPUT, folder, subfolder, "ocrized.txt"
+            )  # Define output_file here
             with open(
-                join(args.PATH_OUTPUT, folder, subfolder, "ocrized.txt"), "w"
-            ) as f:
+                output_file, "w", encoding="utf-8"
+            ) as f:  # Use output_file directly
                 for image, generated_text in zip(images_files, generated_texts):
                     logging.info(generated_text)
-                    f.write(generated_text + "\t" + image + "\n")
+                    f.write(
+                        generated_text + "\t" + image + "\n"
+                    )  # Write to output_file
