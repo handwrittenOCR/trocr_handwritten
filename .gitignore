@@ -21,6 +21,7 @@ build/
 venv/
 *.venv
 .env
+.venv_layout/
 
 # IDEs et éditeurs
 .idea/
