@@ -1,0 +1,5 @@
+#!/work/m24063/m24063bglm/trocr_handwritten/.venv_layout/bin/python3.10
+
+import pydoc
+if __name__ == '__main__':
+    pydoc.cli()

@@ -27,7 +27,6 @@ jupyterlab = "^4.0.0"  # Add this line with the appropriate version
 doclayout-yolo = "^0.0.2"
 numpy = "<2"
 
-
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.6.2"
 ruff = "^0.2.2"

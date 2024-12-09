@@ -1,0 +1,13 @@
+prefix=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout
+exec_prefix=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout
+libdir=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout/lib
+sharedlibdir=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout/lib
+includedir=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}

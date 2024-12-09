@@ -1,0 +1,214 @@
+{
+  "build": "h1234567_1",
+  "build_number": 1,
+  "channel": "https://repo.anaconda.com/pkgs/main/linux-aarch64",
+  "constrains": [
+    "_libgcc_mutex 0.1 main",
+    "libgomp 11.2.0 h1234567_1",
+    "_openmp_mutex"
+  ],
+  "depends": [
+    "_libgcc_mutex 0.1 main",
+    "_openmp_mutex",
+    "_libgcc_mutex * main"
+  ],
+  "extracted_package_dir": "/usr/local/miniconda/22.11.1/pkgs/libgcc-ng-11.2.0-h1234567_1",
+  "features": "",
+  "files": [
+    "lib/libasan.so",
+    "lib/libasan.so.6",
+    "lib/libasan.so.6.0.0",
+    "lib/libatomic.so",
+    "lib/libatomic.so.1",
+    "lib/libatomic.so.1.2.0",
+    "lib/libgcc_s.so",
+    "lib/libgcc_s.so.1",
+    "lib/libitm.so",
+    "lib/libitm.so.1",
+    "lib/libitm.so.1.0.0",
+    "lib/liblsan.so",
+    "lib/liblsan.so.0",
+    "lib/liblsan.so.0.0.0",
+    "lib/libtsan.so",
+    "lib/libtsan.so.0",
+    "lib/libtsan.so.0.0.0",
+    "lib/libubsan.so",
+    "lib/libubsan.so.1",
+    "lib/libubsan.so.1.0.0",
+    "share/info/libgomp.info",
+    "share/info/libquadmath.info",
+    "share/licenses/gcc-libs/RUNTIME.LIBRARY.EXCEPTION"
+  ],
+  "fn": "libgcc-ng-11.2.0-h1234567_1.conda",
+  "legacy_bz2_md5": "f2da43bd5485bd5880bdc514fdcf1a53",
+  "license": "GPL-3.0-only WITH GCC-exception-3.1",
+  "link": {
+    "source": "/usr/local/miniconda/22.11.1/pkgs/libgcc-ng-11.2.0-h1234567_1",
+    "type": 1
+  },
+  "md5": "067214d7ddc39f6922b9e29be83fe8f9",
+  "name": "libgcc-ng",
+  "package_tarball_full_path": "/usr/local/miniconda/22.11.1/pkgs/libgcc-ng-11.2.0-h1234567_1.conda",
+  "paths_data": {
+    "paths": [
+      {
+        "_path": "lib/libasan.so",
+        "path_type": "softlink",
+        "sha256": "ecbe8c3ba9be4c0108f3dc0d4c79e44986d08040cefb4f0d2f27fe0a28a36425",
+        "size_in_bytes": 2505968
+      },
+      {
+        "_path": "lib/libasan.so.6",
+        "path_type": "softlink",
+        "sha256": "ecbe8c3ba9be4c0108f3dc0d4c79e44986d08040cefb4f0d2f27fe0a28a36425",
+        "size_in_bytes": 2505968
+      },
+      {
+        "_path": "lib/libasan.so.6.0.0",
+        "path_type": "hardlink",
+        "sha256": "ecbe8c3ba9be4c0108f3dc0d4c79e44986d08040cefb4f0d2f27fe0a28a36425",
+        "sha256_in_prefix": "ecbe8c3ba9be4c0108f3dc0d4c79e44986d08040cefb4f0d2f27fe0a28a36425",
+        "size_in_bytes": 2505968
+      },
+      {
+        "_path": "lib/libatomic.so",
+        "path_type": "softlink",
+        "sha256": "a0327812792637a8d87f0d8c503b30c6902d5e71774a16c1c7d1aaee4cd40e94",
+        "size_in_bytes": 217208
+      },
+      {
+        "_path": "lib/libatomic.so.1",
+        "path_type": "softlink",
+        "sha256": "a0327812792637a8d87f0d8c503b30c6902d5e71774a16c1c7d1aaee4cd40e94",
+        "size_in_bytes": 217208
+      },
+      {
+        "_path": "lib/libatomic.so.1.2.0",
+        "path_type": "hardlink",
+        "sha256": "a0327812792637a8d87f0d8c503b30c6902d5e71774a16c1c7d1aaee4cd40e94",
+        "sha256_in_prefix": "a0327812792637a8d87f0d8c503b30c6902d5e71774a16c1c7d1aaee4cd40e94",
+        "size_in_bytes": 217208
+      },
+      {
+        "_path": "lib/libgcc_s.so",
+        "path_type": "hardlink",
+        "sha256": "69a56a9993b7729b29b274e65016031c81f2397f176ed5ad44d59bd50425e0bd",
+        "sha256_in_prefix": "69a56a9993b7729b29b274e65016031c81f2397f176ed5ad44d59bd50425e0bd",
+        "size_in_bytes": 132
+      },
+      {
+        "_path": "lib/libgcc_s.so.1",
+        "path_type": "hardlink",
+        "sha256": "d98ad9cdd1319a1f3632d262aeac4b5b3b60ca9ec33e89fa4e1c4bd12fade74e",
+        "sha256_in_prefix": "d98ad9cdd1319a1f3632d262aeac4b5b3b60ca9ec33e89fa4e1c4bd12fade74e",
+        "size_in_bytes": 457280
+      },
+      {
+        "_path": "lib/libitm.so",
+        "path_type": "softlink",
+        "sha256": "4d8ce8d66d8053b5192afbb65fe4f54f3eed3e87e4e0998d0b7a1d020397ff5d",
+        "size_in_bytes": 215776
+      },
+      {
+        "_path": "lib/libitm.so.1",
+        "path_type": "softlink",
+        "sha256": "4d8ce8d66d8053b5192afbb65fe4f54f3eed3e87e4e0998d0b7a1d020397ff5d",
+        "size_in_bytes": 215776
+      },
+      {
+        "_path": "lib/libitm.so.1.0.0",
+        "path_type": "hardlink",
+        "sha256": "4d8ce8d66d8053b5192afbb65fe4f54f3eed3e87e4e0998d0b7a1d020397ff5d",
+        "sha256_in_prefix": "4d8ce8d66d8053b5192afbb65fe4f54f3eed3e87e4e0998d0b7a1d020397ff5d",
+        "size_in_bytes": 215776
+      },
+      {
+        "_path": "lib/liblsan.so",
+        "path_type": "softlink",
+        "sha256": "06138126431bef3791c13d0a89ea3378cfcb45ced81e99bf398a318cf357a386",
+        "size_in_bytes": 1132040
+      },
+      {
+        "_path": "lib/liblsan.so.0",
+        "path_type": "softlink",
+        "sha256": "06138126431bef3791c13d0a89ea3378cfcb45ced81e99bf398a318cf357a386",
+        "size_in_bytes": 1132040
+      },
+      {
+        "_path": "lib/liblsan.so.0.0.0",
+        "path_type": "hardlink",
+        "sha256": "06138126431bef3791c13d0a89ea3378cfcb45ced81e99bf398a318cf357a386",
+        "sha256_in_prefix": "06138126431bef3791c13d0a89ea3378cfcb45ced81e99bf398a318cf357a386",
+        "size_in_bytes": 1132040
+      },
+      {
+        "_path": "lib/libtsan.so",
+        "path_type": "softlink",
+        "sha256": "67810265506224fe86e081d23f17334cfaab886cceedca4239cd236f753fbb18",
+        "size_in_bytes": 2569648
+      },
+      {
+        "_path": "lib/libtsan.so.0",
+        "path_type": "softlink",
+        "sha256": "67810265506224fe86e081d23f17334cfaab886cceedca4239cd236f753fbb18",
+        "size_in_bytes": 2569648
+      },
+      {
+        "_path": "lib/libtsan.so.0.0.0",
+        "path_type": "hardlink",
+        "sha256": "67810265506224fe86e081d23f17334cfaab886cceedca4239cd236f753fbb18",
+        "sha256_in_prefix": "67810265506224fe86e081d23f17334cfaab886cceedca4239cd236f753fbb18",
+        "size_in_bytes": 2569648
+      },
+      {
+        "_path": "lib/libubsan.so",
+        "path_type": "softlink",
+        "sha256": "cc99efda66ef2efb16e110ffbb287b4ceb16ae877e3b4eec310cde86d463e486",
+        "size_in_bytes": 1085904
+      },
+      {
+        "_path": "lib/libubsan.so.1",
+        "path_type": "softlink",
+        "sha256": "cc99efda66ef2efb16e110ffbb287b4ceb16ae877e3b4eec310cde86d463e486",
+        "size_in_bytes": 1085904
+      },
+      {
+        "_path": "lib/libubsan.so.1.0.0",
+        "path_type": "hardlink",
+        "sha256": "cc99efda66ef2efb16e110ffbb287b4ceb16ae877e3b4eec310cde86d463e486",
+        "sha256_in_prefix": "cc99efda66ef2efb16e110ffbb287b4ceb16ae877e3b4eec310cde86d463e486",
+        "size_in_bytes": 1085904
+      },
+      {
+        "_path": "share/info/libgomp.info",
+        "path_type": "hardlink",
+        "sha256": "ba39cc28e074a03c0a4a78f6955da74ebea031af2348720a487eb430f14d2c74",
+        "sha256_in_prefix": "ba39cc28e074a03c0a4a78f6955da74ebea031af2348720a487eb430f14d2c74",
+        "size_in_bytes": 216462
+      },
+      {
+        "_path": "share/info/libquadmath.info",
+        "path_type": "hardlink",
+        "sha256": "a0f7476295102396a4df17eb7a579597e3934b7233de6510a7e77eb409def392",
+        "sha256_in_prefix": "a0f7476295102396a4df17eb7a579597e3934b7233de6510a7e77eb409def392",
+        "size_in_bytes": 36575
+      },
+      {
+        "_path": "share/licenses/gcc-libs/RUNTIME.LIBRARY.EXCEPTION",
+        "path_type": "hardlink",
+        "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+        "sha256_in_prefix": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+        "size_in_bytes": 3324
+      }
+    ],
+    "paths_version": 1
+  },
+  "requested_spec": "None",
+  "sha256": "7993425b8983b291c8202af70a76d8cba947a2699930ec4c098e579775e1aa24",
+  "size": 1397970,
+  "subdir": "linux-aarch64",
+  "timestamp": 1654091363933,
+  "track_features": "",
+  "url": "https://repo.anaconda.com/pkgs/main/linux-aarch64/libgcc-ng-11.2.0-h1234567_1.conda",
+  "version": "11.2.0"
+}

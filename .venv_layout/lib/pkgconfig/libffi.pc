@@ -1,0 +1,11 @@
+prefix=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+toolexeclibdir=${libdir}
+includedir=/work/m24063/m24063bglm/trocr_handwritten/.venv_layout/include
+
+Name: libffi
+Description: Library supporting Foreign Function Interfaces
+Version: 3.4.4
+Libs: -L${toolexeclibdir} -lffi
+Cflags: -I${includedir}
