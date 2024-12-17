@@ -33,5 +33,5 @@ def main(settings: LayoutParserSettings, logger):
 
 if __name__ == "__main__":
 
-    settings = LayoutParserSettings(logger=logger)
+    settings = LayoutParserSettings()
     main(settings, logger)
