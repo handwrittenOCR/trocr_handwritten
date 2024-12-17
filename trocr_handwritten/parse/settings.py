@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import logging
 
 
 @dataclass
@@ -13,7 +12,6 @@ class LayoutParserSettings:
     conf: float = 0.2
     iou: float = 0.5
     create_annotation_json: bool = True
-    logger: logging.Logger = None
 
     def __post_init__(self):
         self.class_names = {
