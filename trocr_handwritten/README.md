@@ -87,8 +87,12 @@ Our fine-tuning pipeline consists of several components:
 
 1. **Clone Repository**
 ```bash
-git clone https://github.com/agomberto/trocr_handwritten.git
-cd trocr_handwritten/parse
+git clone https://github.com/handwrittenOCR/trocr_handwritten.git
+cd trocr_handwritten
+#download poetry
+curl -sSL https://install.python-poetry.org | python3 -
+poetry install
+cd parse
 ```
 
 2. **Install Environment**
