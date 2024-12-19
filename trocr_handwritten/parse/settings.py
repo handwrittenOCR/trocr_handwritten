@@ -32,6 +32,6 @@ class LayoutParserTrainingSettings:
     model_dir: str = "models"
     model_ft: str = "juliozhao/DocLayout-YOLO-DocStructBench"
     model_ft_name: str = "doclayout_yolo_docstructbench_imgsz1024.pt"
-    pushed_model_name: str = "agomberto/historical-layout.pt"
-    hf_repo: str = "agomberto"
+    pushed_model_name: str = "test.pt"
+    hf_repo: str = "agomberto/historical-layout-ft-test"
     model_ft_dir: str = "yolo_ft"

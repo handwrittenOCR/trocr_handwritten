@@ -26,7 +26,7 @@ git clone https://github.com/handwrittenOCR/trocr_handwritten.git
 `Poetry` is a tool for dependency management in Python. Install it with the following command:
 
 ```bash
-curl -sSL https://install.python-poetry.org | python -
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
 ### Step 3: Install Dependencies
@@ -35,6 +35,14 @@ Navigate to the `trocr_handwritten` directory and install the dependencies with 
 
 ```bash
 poetry install
+```
+
+NB: If you have Python 3.10 installed, you can use the following command to install the dependencies:
+
+```bash
+sudo apt update
+sudo apt install python3.11
+poetry env use python3.11
 ```
 
 ### Step 4: Install Pre-commit Hooks
@@ -180,6 +188,7 @@ chmod +x *.sh
 
 2. **Prepare Data**
 ```bash
+conda activate doclayout_yolo # you may meed to restart your termial
 ./prepare_data.sh
 ```
 
