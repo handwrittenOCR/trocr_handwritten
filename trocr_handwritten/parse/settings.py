@@ -23,3 +23,15 @@ class LayoutParserSettings:
             "5": "Signature",
             "6": "Table",
         }
+
+
+@dataclass
+class LayoutParserTrainingSettings:
+    hf_dataset: str = "agomberto/historical-layout"
+    data_dir: str = "data"
+    model_dir: str = "models"
+    model_ft: str = "juliozhao/DocLayout-YOLO-DocStructBench"
+    model_ft_name: str = "doclayout_yolo_docstructbench_imgsz1024.pt"
+    pushed_model_name: str = "agomberto/historical-layout.pt"
+    hf_repo: str = "agomberto"
+    model_ft_dir: str = "yolo_ft"
