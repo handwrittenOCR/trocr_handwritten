@@ -16,3 +16,5 @@ PATIENCE=5
 BATCH_SIZE=8
 
 python DocLayout-YOLO/train.py --data $DATA_PATH/config --model m-doclayout --epoch $EPOCHS --image-size 1024 --batch-size $BATCH_SIZE --patience $PATIENCE --project $OUTPUT_PATH --optimizer Adam --lr0 0.001 --pretrain $MODEL_PATH --device 0
+
+python push_model.py
