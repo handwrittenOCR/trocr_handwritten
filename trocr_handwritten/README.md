@@ -55,6 +55,93 @@ poetry shell
 
 ## 🔬 Parsing Layout
 
+### 🧪 Applying layout parser
+
+#### 🎯 Objective
+
+The objective of this script is to process historical document images and parse their layout using a fine-tuned YOLOv10 model. The script identifies different document elements (such as titles, headers, margins, names, text blocks, signatures, and tables) and can output both structured cropped images and VIA-format annotations. The model goes much faster (~x10) on a GPU (1s/image on CPU vs 0.1s/image on GPU A10).
+
+#### 🛠️ How it works
+
+The script works in the following steps:
+
+1. **Model Loading**: The script loads a YOLOv10 model either from a local file or from the HuggingFace Hub.
+
+2. **Layout Detection**: The model processes input images and detects various document elements, assigning them to predefined classes:
+   - Title
+   - En-tête (Header)
+   - Marge (Margin)
+   - Nom (Name)
+   - Plein Texte (Full Text)
+   - Signature
+   - Table
+
+3. **Output Generation**: The script can generate two types of outputs:
+   - Structured cropped images organized by document element type
+   - VIA-format JSON annotations for further processing or visualization (optional)
+
+#### 📜 How to apply the script
+
+To apply the script, you need to have a set of images of historical documents in a folder.
+
+1. **Set the settings**
+
+You should configure the script using the `LayoutParserSettings` class with the following parameters in `trocr_handwritten/parse/settings.py`:
+
+- `path_folder`: Path to input images (default: "data/raw/images")
+- `path_output`: Path for processed outputs (default: "data/processed/images/")
+- `path_model`: Path to local model file (optional if None you should have a model in the HuggingFace Hub)
+- `hf_repo`: HuggingFace repository name (default: "agomberto/historical-layout-ft")
+- `hf_filename`: Model filename in HF repo (default: "20241119_v2_yolov10_50_finetuned.pt")
+- `device`: Computing device ("cpu" or "cuda")
+- `conf`: Confidence threshold (default: 0.2)
+- `iou`: Intersection over Union threshold (default: 0.5)
+- `create_annotation_json`: Whether to create a file for [VIA annotations](https://annotate.officialstatistics.org/) (default: True)
+
+2. **Run the script**
+
+```bash
+python trocr_handwritten/parse/parse_page.py
+```
+
+The final directory structure will be:
+
+```bash
+|-data
+  |-raw
+     |-images
+        |-document1.jpg
+        |-document2.jpg
+  |-processed
+     |-images
+        |-document1
+           |-Title
+              |-000.jpg
+           |-Plein Texte
+              |-000.jpg
+              |-001.jpg
+           |-metadata.json
+```
+
+#### On Notebooks
+
+Once again, be sure to set the settings in the `LayoutParserSettings` class in `trocr_handwritten/parse/settings.py`.
+Example usage:
+
+```python
+from trocr_handwritten.parse.settings import LayoutParserSettings
+from trocr_handwritten.parse.utils import YOLOv10Model
+
+settings = LayoutParserSettings()
+model = YOLOv10Model(settings, logger)
+results = model.predict(settings.path_folder)
+```
+
+The script will process all images in the input folder and create:
+1. A structured folder system containing cropped images for each detected element
+2. A metadata.json file for each processed document containing coordinates and classifications
+3. (Optional) VIA-format annotations for visualization and further processing
+
 ### 🚅 Training a customed layout parser
 
 The layout parser can be fine-tuned on your own dataset using our provided scripts. We'll guide you through the process using cloud GPU resources (specifically Lambda Labs A10/A100).
@@ -64,63 +151,41 @@ The layout parser can be fine-tuned on your own dataset using our provided scrip
 Our fine-tuning pipeline consists of several components:
 
 1. **Environment Setup** (`install_doclayout.sh`):
-   - Installs Miniconda and creates a dedicated environment
+   - Installs Miniconda and creates a dedicated environment (it uses python 3.10 instead of 3.11 that we use in the rest of the project)
    - Clones and installs DocLayout-YOLO dependencies
    - Sets up necessary Python packages
+   - Connects to HuggingFace hub
 
-2. **Data Preparation** (`prepare_data_for_training.py`):
+2. **Data Preparation** (`prepare_data.sh`):
    - Downloads dataset from Hugging Face Hub
    - Creates YOLO-format directory structure
    - Splits images and labels into train/val sets
    - Downloads configuration and pretrained model
 
-3. **Training** (`train_yolo.sh`):
+3. **Training and Model Publishing** (`train_yolo.sh`):
    - Configures training parameters
    - Runs training process with specified hyperparameters
    - Saves best model checkpoint
-
-4. **Model Publishing** (`push_model.py`):
    - Uploads trained model to Hugging Face Hub
    - Handles versioning and metadata
 
 #### Step-by-Step Guide
 
-1. **Clone Repository**
+1. **Install Doclayout Environment**
 ```bash
-git clone https://github.com/handwrittenOCR/trocr_handwritten.git
-cd trocr_handwritten
-#download poetry
-curl -sSL https://install.python-poetry.org | python3 -
-poetry install
-cd parse
-```
-
-2. **Install Environment**
-```bash
-chmod +x install_doclayout.sh
+cd trocr_handwritten/parse
+chmod +x *.sh
 ./install_doclayout.sh
 ```
 
-3. **Activate Environment**
+2. **Prepare Data**
 ```bash
-conda activate doclayout_yolo
+./prepare_data.sh
 ```
 
-4. **Prepare Data and Start Training**
+3. **Training and Push Model**
 ```bash
-# Login to Hugging Face
-python -c "from huggingface_hub import login; login()"
-
-# Prepare data
-python prepare_data_for_training.py
-
-# Start training
-bash train_yolo.sh
-```
-
-5. **Push Model to Hub**
-```bash
-python push_model.py --model-path yolo_ft/best.pt --repo-id your-username/your-model-name
+./train_yolo.sh
 ```
 
 #### Using Lambda Labs
@@ -182,96 +247,6 @@ After training, you should see:
 - Validation results including mAP scores
 
 The model can then be pushed to the Hugging Face Hub using the provided script for easy sharing and versioning.
-
-#### 🎯 Objective
-
-The objective of this script is to train a YOLOv10 model for document layout detection. The script uses the YOLOv10 model architecture, which can be found in the `DocLayout-YOLO` repository.
-
-#### 🛠️ How it works
-
-
-#### 📜 How to apply the script
-
-
-### 🧪 Applying layout parser
-
-#### 🎯 Objective
-
-The objective of this script is to process historical document images and parse their layout using a YOLOv10 model. The script identifies different document elements (such as titles, headers, margins, names, text blocks, signatures, and tables) and can output both structured cropped images and VIA-format annotations.
-
-#### 🛠️ How it works
-
-The script works in the following steps:
-
-1. **Model Loading**: The script can load a YOLOv10 model either from a local file or directly from the HuggingFace Hub.
-
-2. **Layout Detection**: The model processes input images and detects various document elements, assigning them to predefined classes:
-   - Title
-   - En-tête (Header)
-   - Marge (Margin)
-   - Nom (Name)
-   - Plein Texte (Full Text)
-   - Signature
-   - Table
-
-3. **Output Generation**: The script can generate two types of outputs:
-   - Structured cropped images organized by document element type
-   - VIA-format JSON annotations for further processing or visualization
-
-#### 📜 How to apply the script
-
-To apply the script, you need to have a set of images of historical documents.
-
-```bash
-python trocr_handwritten/parse/parse_page.py
-```
-
-The recommended directory structure is:
-
-```bash
-|-data
-  |-raw
-     |-images
-        |-document1.jpg
-        |-document2.jpg
-  |-processed
-     |-images
-        |-document1
-           |-Title
-              |-000.jpg
-           |-Plein Texte
-              |-000.jpg
-              |-001.jpg
-           |-metadata.json
-```
-
-You can configure the script using the `LayoutParserSettings` class with the following parameters in `trocr_handwritten/parse/settings.py`:
-
-- `path_folder`: Path to input images (default: "data/raw/images")
-- `path_output`: Path for processed outputs (default: "data/processed/images/")
-- `path_model`: Path to local model file (optional)
-- `hf_repo`: HuggingFace repository name (default: "agomberto/historical-layout-ft")
-- `hf_filename`: Model filename in HF repo (default: "20241119_v2_yolov10_50_finetuned.pt")
-- `device`: Computing device ("cpu" or "cuda")
-- `conf`: Confidence threshold (default: 0.2)
-- `iou`: Intersection over Union threshold (default: 0.5)
-- `create_annotation_json`: Whether to create VIA annotations (default: True)
-
-Example usage:
-
-```python
-from trocr_handwritten.parse.settings import LayoutParserSettings
-from trocr_handwritten.parse.utils import YOLOv10Model
-
-settings = LayoutParserSettings()
-model = YOLOv10Model(settings, logger)
-results = model.predict(settings.path_folder)
-```
-
-The script will process all images in the input folder and create:
-1. A structured folder system containing cropped images for each detected element
-2. A metadata.json file for each processed document containing coordinates and classifications
-3. (Optional) VIA-format annotations for visualization and further processing
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
