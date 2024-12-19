@@ -1,5 +1,6 @@
 from huggingface_hub import HfApi
 from datetime import datetime
+from settings import LayoutParserTrainingSettings
 
 
 def push_to_hub(
@@ -42,15 +43,6 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Push model to Hugging Face Hub")
-    parser.add_argument(
-        "--model-path", type=str, required=True, help="Path to the model file"
-    )
-    parser.add_argument(
-        "--repo-id",
-        type=str,
-        required=True,
-        help="Hugging Face repository ID (username/repo-name)",
-    )
     parser.add_argument("--commit-message", type=str, help="Commit message")
 
     args = parser.parse_args()
@@ -58,5 +50,13 @@ if __name__ == "__main__":
     push_to_hub(
         model_path=args.model_path,
         repo_id=args.repo_id,
+        commit_message=args.commit_message,
+    )
+
+    settings = LayoutParserTrainingSettings()
+
+    push_to_hub(
+        model_path=settings.model_ft_dir,
+        repo_id=settings.hf_repo,
         commit_message=args.commit_message,
     )
