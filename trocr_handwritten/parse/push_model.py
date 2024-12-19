@@ -47,12 +47,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    push_to_hub(
-        model_path=args.model_path,
-        repo_id=args.repo_id,
-        commit_message=args.commit_message,
-    )
-
     settings = LayoutParserTrainingSettings()
 
     push_to_hub(

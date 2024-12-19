@@ -52,7 +52,7 @@ def prepare_data(settings: LayoutParserTrainingSettings):
 
     # Download YAML config
     hf_hub_download(
-        repo_id=settings.hf_repo,
+        repo_id=settings.hf_dataset,
         filename="config.yaml",
         repo_type="dataset",
         local_dir=settings.data_dir,
