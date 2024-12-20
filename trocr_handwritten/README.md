@@ -43,6 +43,7 @@ NB: If you have Python 3.10 installed, you can use the following command to inst
 sudo apt update
 sudo apt install python3.11
 poetry env use python3.11
+poetry install
 ```
 
 ### Step 4: Install Pre-commit Hooks
