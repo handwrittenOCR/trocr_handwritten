@@ -6,4 +6,4 @@ conda install -c conda-forge datasets -y
 huggingface-cli login
 
 # Prepare data for training
-python trocr_handwritten/parse/prepare_data_for_training.py
+python prepare_data_for_training.py
