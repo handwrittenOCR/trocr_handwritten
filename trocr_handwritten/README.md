@@ -187,15 +187,13 @@ chmod +x *.sh
 ./install_doclayout.sh
 ```
 
-2. **Prepare Data**
+2. **Prepare Data, Train and Push Model**
 ```bash
-conda activate doclayout_yolo # you may meed to restart your termial
-./prepare_data.sh
-```
-
-3. **Training and Push Model**
-```bash
-./train_yolo.sh
+source ~/.bashrc
+conda activate doclayout_yolo
+cd DocLayout-YOLO
+chmod +x *.sh
+./prepare_data_and_train.sh
 ```
 
 #### Using Lambda Labs
