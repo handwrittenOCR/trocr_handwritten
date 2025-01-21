@@ -37,7 +37,7 @@ Navigate to the `trocr_handwritten` directory and install the dependencies with 
 poetry install
 ```
 
-NB: If you have Python 3.10 installed, you can use the following command to install the dependencies:
+NB: If you have Python 3.10 installed (as in Lambda), you can use the following command to install the dependencies:
 
 ```bash
 sudo apt update
@@ -77,7 +77,7 @@ The script works in the following steps:
 1. **Model Loading**: The script loads a YOLOv10 model either from a local file or from the HuggingFace Hub.
 
 2. **Layout Detection**: The model processes input images and detects various document elements, assigning them to predefined classes:
-   - Title
+   - Titre
    - En-tête (Header)
    - Marge (Margin)
    - Nom (Name)
@@ -110,7 +110,7 @@ You should configure the script using the `LayoutParserSettings` class with the 
 2. **Run the script**
 
 ```bash
-python trocr_handwritten/parse/parse_page.py
+python trocr_handwritten/parse/layout_parser.py
 ```
 
 The final directory structure will be:
@@ -188,6 +188,51 @@ chmod +x *.sh
 ```
 
 2. **Prepare Data, Train and Push Model**
+
+2.1 **Prepare the data**
+
+Settings (link to data, link to model, etc.) are defined in `trocr_handwritten/parse/DocLayout-YOLO/settings.py`. Options for running the script on a virtual machine (using ubuntu) or locally are provided.
+
+- raw data should be in the `data` folder, with the following structure:
+```
+data/
+   ├── images/
+   │   │   ├── image1.jpg
+   │   │   ├── image2.jpg
+   │   │   └── ...
+   │   ├── labels/
+   │   │   ├── image1.txt
+   │   │   ├── image2.txt
+   │   │   └── ...
+```
+- .txt files should have the following format, with x_center, y_center, width, height in YOLO format (normalized) (`convert_to_yolo_format.py`)
+
+- run the script `split_and_push.py` to split the raw data into train/val sets and push it to the HuggingFace Hub
+```
+data/
+├── images/
+│   ├── train/
+│   │   ├── image1.jpg
+│   │   ├── image2.jpg
+│   │   └── ...
+│   ├── val/
+│   │   ├── image1.jpg
+│   │   ├── image2.jpg
+│   │   └── ...
+
+└── labels/
+    ├── train/
+    │   ├── image1.txt
+    │   ├── image2.txt
+    │   └── ...
+    ├── val/
+    │   ├── image1.txt
+    │   ├── image2.txt
+    │   └── ...
+```
+
+2.2 **Run the script**
+
 ```bash
 source ~/.bashrc
 conda activate doclayout_yolo
@@ -196,6 +241,17 @@ chmod +x *.sh
 ./prepare_data_and_train.sh
 ```
 
+Once the environment is installed, close and open a new terminal and activate it with:
+```bash (windows)
+conda activate doclayout_yolo
+cd DocLayout-YOLO
+
+./prepare_data_and_train.sh
+```
+
+**NOTES**
+- Ultralytics (YOLOv10) saves, by default, the data from huggingface in a subfolder of your working directory (not home directory). Change the settings.py of the package to choose a different path. (`nano /home/ubuntu/.config/Ultralytics/settings.yaml`)
+-
 #### Using Lambda Labs
 
 To run this on Lambda Labs A10/A100:

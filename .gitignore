@@ -17,10 +17,15 @@ build/
 *.sql
 *.sqlite
 
+# models
+models/*
+trocr_handwritten/yolo_ft/*
+
 # Environnements virtuels
 venv/
 *.venv
 .env
+.venv_layout/
 
 # IDEs et éditeurs
 .idea/
@@ -57,3 +62,7 @@ venv/
 *.bak28
 *.bak29
 *.bak30
+*.pl
+/models
+/trocr_handwritten/models
+/trocr_handwritten/yolo_ft
