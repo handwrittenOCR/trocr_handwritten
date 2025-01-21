@@ -20,8 +20,11 @@ pynvml = "^11.5.0"
 accelerate = "^0.27.2"
 jiwer = "^3.0.3"
 evaluate = "^0.4.1"
-jinja2 = "^3.1.4"
 openai = "^1.12.0"
+doclayout-yolo = "^0.0.2"
+scikit-learn = "^1.6.0"
+jinja2 = "^3.1.5"
+numpy = "1.26.4"
 
 
 [tool.poetry.group.dev.dependencies]

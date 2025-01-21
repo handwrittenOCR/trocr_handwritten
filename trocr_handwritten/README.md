@@ -6,6 +6,8 @@ In this page we explain a bit more in detail the different components of the pip
 
 1. [Installation](#-installation)
 2. [Parsing Layout](#-parsing-layout)
+   - [Applying](#-applying-layout-parser)
+   - [Training](#-training-a-custom-layout-parser)
 3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
@@ -26,7 +28,7 @@ git clone https://github.com/handwrittenOCR/trocr_handwritten.git
 `Poetry` is a tool for dependency management in Python. Install it with the following command:
 
 ```bash
-curl -sSL https://install.python-poetry.org | python -
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
 ### Step 3: Install Dependencies
@@ -34,6 +36,15 @@ curl -sSL https://install.python-poetry.org | python -
 Navigate to the `trocr_handwritten` directory and install the dependencies with the following command:
 
 ```bash
+poetry install
+```
+
+NB: If you have Python 3.10 installed, you can use the following command to install the dependencies:
+
+```bash
+sudo apt update
+sudo apt install python3.11
+poetry env use python3.11
 poetry install
 ```
 
@@ -53,80 +64,201 @@ Activate the Poetry-managed virtual environment before working:
 poetry shell
 ```
 
-
 ## 🔬 Parsing Layout
 
-### 🎯 Objective
+### 🧪 Applying layout parser
 
-The objective of this script is to process images and parse it in columns and lines using a model trained with the ARU-Net architecture. The script takes as input a set of images, generate from each page an XML file then processes the XML file to extract bounding boxes (bboxes), and saves these bboxes as separate images. It also provides an option to visualize the bboxes on the original images.
+#### 🎯 Objective
 
-### 🛠️ How it works
+The objective of this script is to process historical document images and parse their layout using a fine-tuned YOLOv10 model. The script identifies different document elements (such as titles, headers, margins, names, text blocks, signatures, and tables) and can output both structured cropped images and VIA-format annotations. The model goes much faster (~x10) on a GPU (1s/image on CPU vs 0.1s/image on GPU A10).
+
+#### 🛠️ How it works
 
 The script works in the following steps:
 
-1. **Configuration**: The script reads a configuration file (`config.json`) to set up the parameters for the ARU-Net model and other processing steps.
+1. **Model Loading**: The script loads a YOLOv10 model either from a local file or from the HuggingFace Hub.
 
-2. **Model Setup**: The ARU-Net model is created and set up using the parameters from the configuration file.
+2. **Layout Detection**: The model processes input images and detects various document elements, assigning them to predefined classes:
+   - Title
+   - Header
+   - Margin
+   - Name
+   - Full Text
+   - Signature
+   - Table
+   - Section
+3. **Output Generation**: The script can generate two types of outputs:
+   - Structured cropped images organized by document element type
+   - VIA-format JSON annotations for further processing or visualization (optional)
 
-3. **Data Loading**: The script loads the images to be processed.
+#### 📜 How to apply the script
 
-4. **Model Application**: The script applies the ARU-Net model to the loaded images and saves the corresponding XML files that identify lines of texts.
+To apply the script, you need to have a set of images of historical documents in a folder.
 
-5. **Bbox Extraction**: The script parses the XML files to extract columns and in each column the bbox coordinates. It then resizes and splits the bboxes according to the column they belong to.
+1. **Set the settings**
 
-6. **Bbox Saving**: Each bbox is cropped from the original image and saved as a separate image in a specified directory. The bboxes are organized by the column they belong to.
+You should configure the script using the `LayoutParserSettings` class with the following parameters in `trocr_handwritten/parse/settings.py`:
 
-7. **Visualization**: If the verbose option is enabled, the script displays the original images with the bboxes drawn on them.
+- `path_folder`: Path to input images (default: "data/raw/images")
+- `path_output`: Path for processed outputs (default: "data/processed/images/")
+- `path_model`: Path to local model file (optional if None you should have a model in the HuggingFace Hub)
+- `hf_repo`: HuggingFace repository name (default: "agomberto/historical-layout-ft")
+- `hf_filename`: Model filename in HF repo (default: "20241119_v2_yolov10_50_finetuned.pt")
+- `device`: Computing device ("cpu" or "cuda")
+- `conf`: Confidence threshold (default: 0.2)
+- `iou`: Intersection over Union threshold (default: 0.5)
+- `create_annotation_json`: Whether to create a file for [VIA annotations](https://annotate.officialstatistics.org/) (default: True)
 
-### 📜 How to apply the script
+2. **Run the script**
 
-To apply the script, you need to have a set of images and corresponding XML files containing bbox information. You also need to have a trained ARU-Net model saved as a `.tar` file.
+```bash
+python trocr_handwritten/parse/layout_parser.py
+```
 
-The recomanded structure would be to have
+The final directory structure will be:
+
 ```bash
 |-data
-  |-pages
-     |-page_1.jpg
-  |-xml
-  |-lines
+  |-raw
+     |-images
+        |-document1.jpg
+        |-document2.jpg
+  |-processed
+     |-images
+        |-document1
+           |-Title
+              |-000.jpg
+           |-Plein Texte
+              |-000.jpg
+              |-001.jpg
+           |-metadata.json
 ```
 
-You can run the script from the command line with the following arguments:
+#### On Notebooks
 
-- `--PATH_PAGES`: Path to the directory containing the images.
-- `--PATH_MODELS`: Path to the directory containing the model file.
-- `--PATH_XML`: Path to the directory containing the XML files.
-- `--PATH_LINES`: Path to the directory where the bbox images will be saved.
-- `--verbose`: (Optional) If set, the script will save the images with the bboxes drawn on them.
+Once again, be sure to set the settings in the `LayoutParserSettings` class in `trocr_handwritten/parse/settings.py`.
+Example usage:
 
-Example command:
+```python
+from trocr_handwritten.parse.settings import LayoutParserSettings
+from trocr_handwritten.parse.utils import YOLOv10Model
 
+settings = LayoutParserSettings()
+model = YOLOv10Model(settings, logger)
+results = model.predict(settings.path_folder)
+```
+
+The script will process all images in the input folder and create:
+1. A structured folder system containing cropped images for each detected element
+2. A metadata.json file for each processed document containing coordinates and classifications
+3. (Optional) VIA-format annotations for visualization and further processing
+
+### 🚅 Training a customed layout parser
+
+The layout parser can be fine-tuned on your own dataset using our provided scripts. We'll guide you through the process using cloud GPU resources (specifically Lambda Labs A10/A100).
+
+#### Architecture Overview
+
+Our fine-tuning pipeline consists of several components:
+
+1. **Environment Setup** (`install_doclayout.sh`):
+   - Installs Miniconda and creates a dedicated environment (it uses python 3.10 instead of 3.11 that we use in the rest of the project)
+   - Clones and installs DocLayout-YOLO dependencies
+   - Sets up necessary Python packages
+   - Connects to HuggingFace hub
+
+2. **Data Preparation** (`prepare_data.sh`):
+   - Downloads dataset from Hugging Face Hub
+   - Creates YOLO-format directory structure
+   - Splits images and labels into train/val sets
+   - Downloads configuration and pretrained model
+
+3. **Training and Model Publishing** (`train_yolo.sh`):
+   - Configures training parameters
+   - Runs training process with specified hyperparameters
+   - Saves best model checkpoint
+   - Uploads trained model to Hugging Face Hub
+   - Handles versioning and metadata
+
+#### Step-by-Step Guide
+
+1. **Install Doclayout Environment**
 ```bash
-python trocr_handwritten/parse/parse_page.py --PATH_PAGES /path/to/images --PATH_MODELS /path/to/model --PATH_XML /path/to/xml --PATH_LINES /path/to/save/bbox/images --verbose
+cd trocr_handwritten/parse
+chmod +x *.sh
+./install_doclayout.sh
 ```
 
-This will apply the ARU-Net model to the images, save the XML files in --PATH_XML, extract the bboxes, save the bboxes as separate images if verbose is activated, and save the original images with the bboxes drawn on them.
-From the XML files, for each `page` the script will look for columns of texts. Once indentified, it will extract the bboxes and save them in the specified directory in `PATH_LINES/page/column_X/`.
-
-The final structure would be, with the recommanded data structure:
-
-The recomanded structure would be to have
+2. **Prepare Data, Train and Push Model**
 ```bash
-|-data
-  |-pages
-     |-page_1.jpg
-  |-xml
-     |-page_1.xml
-  |-lines
-      |-page_1
-          |-column_0
-            |-page_1_line_0.jpg
-            |-page_1_line_1.jpg
-          |-column_1
-            |-page_1_line_0.jpg
-            |-page_1_line_1.jpg
-            |-page_1_line_2.jpg
+source ~/.bashrc
+conda activate doclayout_yolo
+cd DocLayout-YOLO
+chmod +x *.sh
+./prepare_data_and_train.sh
 ```
+
+NB: you may have to modify the `~/.config/Ultralytics/settings.yaml` file to set the good path to the dataset and then run the script again.
+
+#### Using Lambda Labs
+
+To run this on Lambda Labs A10/A100:
+
+1. **Create Instance**:
+   - Visit [Lambda Labs Console](https://cloud.lambdalabs.com)
+   - Select A10 (24GB) or A100 (40GB/80GB) instance
+   - Choose Ubuntu 20.04 image
+
+2. **SSH to Instance**:
+```bash
+ssh ubuntu@<instance-ip>
+```
+
+3. **Clone and Setup**:
+```bash
+git clone https://github.com/agomberto/trocr_handwritten.git
+cd trocr_handwritten/parse
+./install_doclayout.sh
+```
+
+4. **Training Configuration**:
+For A10 (24GB), recommended settings in `train_yolo.sh`:
+```bash
+BATCH_SIZE=8
+IMAGE_SIZE=1024
+```
+
+For A100 (80GB), you can increase to:
+```bash
+BATCH_SIZE=16
+IMAGE_SIZE=1024
+```
+
+5. **Monitor Training**:
+- Training progress is logged in `yolo_ft/`
+- Use `nvidia-smi` to monitor GPU usage
+- Results will be saved in `yolo_ft/best.pt`
+
+#### Training Parameters
+
+Key parameters in `train_yolo.sh`:
+```bash
+EPOCHS=50        # Number of training epochs
+PATIENCE=5       # Early stopping patience
+BATCH_SIZE=8     # Batch size per GPU
+LR=0.001         # Initial learning rate
+```
+
+Adjust these based on your GPU memory and dataset size. For the A100, you can typically use larger batch sizes and potentially increase the image size.
+
+#### Expected Results
+
+After training, you should see:
+- Training metrics in `yolo_ft/`
+- Best model saved as `yolo_ft/best.pt`
+- Validation results including mAP scores
+
+The model can then be pushed to the Hugging Face Hub using the provided script for easy sharing and versioning.
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
