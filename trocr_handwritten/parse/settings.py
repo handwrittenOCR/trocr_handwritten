@@ -22,4 +22,5 @@ class LayoutParserSettings:
             "4": "Plein Texte",
             "5": "Signature",
             "6": "Table",
+            "7": "Section",
         }
