@@ -6,6 +6,8 @@ In this page we explain a bit more in detail the different components of the pip
 
 1. [Installation](#-installation)
 2. [Parsing Layout](#-parsing-layout)
+   - [Applying](#-applying-layout-parser)
+   - [Training](#-training-a-custom-layout-parser)
 3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
@@ -78,13 +80,13 @@ The script works in the following steps:
 
 2. **Layout Detection**: The model processes input images and detects various document elements, assigning them to predefined classes:
    - Title
-   - En-tête (Header)
-   - Marge (Margin)
-   - Nom (Name)
-   - Plein Texte (Full Text)
+   - Header
+   - Margin
+   - Name
+   - Full Text
    - Signature
    - Table
-
+   - Section
 3. **Output Generation**: The script can generate two types of outputs:
    - Structured cropped images organized by document element type
    - VIA-format JSON annotations for further processing or visualization (optional)
