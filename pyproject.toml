@@ -20,7 +20,7 @@ pynvml = "^11.5.0"
 accelerate = "^0.27.2"
 jiwer = "^3.0.3"
 evaluate = "^0.4.1"
-jinja2 = "^3.1.4"
+jinja2 = "^3.1.5"
 openai = "^1.12.0"
 
 
