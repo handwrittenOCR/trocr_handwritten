@@ -198,6 +198,8 @@ chmod +x *.sh
 ./prepare_data_and_train.sh
 ```
 
+NB: you may have to modify the `~/.config/Ultralytics/settings.yaml` file to set the good path to the dataset and then run the script again.
+
 #### Using Lambda Labs
 
 To run this on Lambda Labs A10/A100:
