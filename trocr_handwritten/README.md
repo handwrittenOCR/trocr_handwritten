@@ -112,7 +112,7 @@ You should configure the script using the `LayoutParserSettings` class with the 
 2. **Run the script**
 
 ```bash
-python trocr_handwritten/parse/parse_page.py
+python trocr_handwritten/parse/layout_parser.py
 ```
 
 The final directory structure will be:
