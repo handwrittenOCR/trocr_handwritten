@@ -16,14 +16,17 @@ class LineData:
 
 
 class LineSegmenter:
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, device: str = "cpu"):
         """
         Initialize the line segmenter
 
         Args:
             model_path: Path to the kraken model file
+            device: Device to use for inference ('cpu' or 'cuda')
         """
+        self.device = device
         self.model = vgsl.TorchVGSLModel.load_model(model_path)
+        self.model.to(self.device)
 
     def _should_merge_lines(self, line1: Any, line2: Any, y_threshold: int) -> bool:
         """Determine if two lines should be merged based on vertical position"""
@@ -146,7 +149,7 @@ class LineSegmenter:
         """
         im = Image.open(image_path)
 
-        segmentation = blla.segment(im, model=self.model)
+        segmentation = blla.segment(im, model=self.model, device=self.device)
 
         merged_lines = self._merge_lines(segmentation.lines, y_threshold)
 
