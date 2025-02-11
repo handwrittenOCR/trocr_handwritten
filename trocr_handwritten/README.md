@@ -39,7 +39,7 @@ Navigate to the `trocr_handwritten` directory and install the dependencies with 
 
 ```bash
 # Install main dependencies without kraken
-poetry install --without kraken
+poetry install
 ```
 
 NB: If you have Python 3.10 installed, you can use the following command to install the dependencies:
@@ -49,10 +49,10 @@ sudo apt update
 sudo apt install python3.11
 poetry env use python3.11
 # poetry install
-poetry install --without kraken
+poetry install
 ```
 
-Note: The kraken package for line segmentation has specific dependency requirements. It will be installed separately when needed using `poetry install --with kraken`. See the [Line Segmentation](#-line-segmentation) section for details.
+Note: The kraken package for line segmentation has specific dependency requirements. It will be installed separately when needed. See the [Line Segmentation](#-line-segmentation) section for details.
 
 ### Step 4: Install Pre-commit Hooks
 
