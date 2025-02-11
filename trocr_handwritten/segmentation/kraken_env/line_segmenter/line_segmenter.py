@@ -16,24 +16,22 @@ class LineData:
 
 
 class LineSegmenter:
-    def __init__(self, model_path: str, y_threshold: int = 10):
+    def __init__(self, model_path: str):
         """
         Initialize the line segmenter
 
         Args:
             model_path: Path to the kraken model file
-            y_threshold: Threshold for merging lines vertically
         """
         self.model = vgsl.TorchVGSLModel.load_model(model_path)
-        self.y_threshold = y_threshold
 
-    def _should_merge_lines(self, line1: Any, line2: Any) -> bool:
+    def _should_merge_lines(self, line1: Any, line2: Any, y_threshold: int) -> bool:
         """Determine if two lines should be merged based on vertical position"""
         y1 = sum(p[1] for p in line1.baseline) / len(line1.baseline)
         y2 = sum(p[1] for p in line2.baseline) / len(line2.baseline)
-        return abs(y1 - y2) < self.y_threshold
+        return abs(y1 - y2) < y_threshold
 
-    def _merge_lines(self, lines: List[Any]) -> List[Any]:
+    def _merge_lines(self, lines: List[Any], y_threshold: int) -> List[Any]:
         """Merge lines that are at similar vertical positions"""
         if not lines:
             return []
@@ -46,7 +44,7 @@ class LineSegmenter:
         current_group = [sorted_lines[0]]
 
         for line in sorted_lines[1:]:
-            if self._should_merge_lines(current_group[-1], line):
+            if self._should_merge_lines(current_group[-1], line, y_threshold):
                 # Merge with current group
                 current_group.append(line)
             else:
@@ -130,6 +128,7 @@ class LineSegmenter:
         is_margin: bool = False,
         padding: int = 15,
         iou_threshold: float = 0.5,
+        y_threshold: int = 10,
     ) -> List[LineData]:
         """
         Segment an image into lines and save them
@@ -140,6 +139,7 @@ class LineSegmenter:
             is_margin: If True, process as margin text, else as main text
             padding: Padding for line extraction (width for margins, height for main text)
             iou_threshold: IoU threshold for filtering overlapping lines (main text only)
+            y_threshold: Vertical threshold for merging lines
 
         Returns:
             List of LineData objects containing information about each line
@@ -148,7 +148,7 @@ class LineSegmenter:
 
         segmentation = blla.segment(im, model=self.model)
 
-        merged_lines = self._merge_lines(segmentation.lines)
+        merged_lines = self._merge_lines(segmentation.lines, y_threshold)
 
         line_data_list = []
         crop_boxes = []  # To store y_min, y_max for IoU calculation

@@ -3,19 +3,26 @@ import json
 from typing import Dict
 from tqdm import tqdm
 from line_segmenter.line_segmenter import LineSegmenter, LineData
+from line_segmenter.settings import SegmentationSettings
 
 
 class ImageProcessor:
-    def __init__(self, model_path: str, y_threshold: int = 10, verbose: bool = True):
+    def __init__(
+        self,
+        model_path: str,
+        settings: SegmentationSettings = None,
+        verbose: bool = True,
+    ):
         """
         Initialize the image processor
 
         Args:
             model_path: Path to the kraken model file
-            y_threshold: Threshold for merging lines vertically
+            settings: Segmentation settings (uses defaults if None)
             verbose: Whether to show progress bars and info
         """
-        self.line_segmenter = LineSegmenter(model_path, y_threshold)
+        self.settings = settings or SegmentationSettings()
+        self.line_segmenter = LineSegmenter(model_path)
         self.verbose = verbose
 
     def process_directory(self, input_dir: str) -> None:
@@ -60,12 +67,8 @@ class ImageProcessor:
         # Determine if this is a margin image
         is_margin = "Marge" in str(img_path)
 
-        # Set parameters based on image type
-        params = {
-            "is_margin": is_margin,
-            "padding": 50 if is_margin else 15,
-            "iou_threshold": 0.5 if not is_margin else 1.0,  # IOU only for main text
-        }
+        # Get parameters based on image type
+        params = self.settings.get_params(is_margin)
 
         # Segment the image and get line data
         line_data_list = self.line_segmenter.segment_image(

@@ -1,6 +1,7 @@
 from pathlib import Path
 from line_segmenter.image_processor import ImageProcessor
 import urllib.request
+from line_segmenter.settings import SegmentationSettings
 
 
 def download_model(model_path: Path):
@@ -13,22 +14,22 @@ def download_model(model_path: Path):
         print("Model downloaded successfully!")
 
 
-def main():
+def main(settings: SegmentationSettings):
     # Configure paths
-    current_dir = Path(__file__).resolve().parent.parent.parent.parent.parent
-    model_path = current_dir / "models" / "blla.mlmodel"
+    model_path = settings.model_path
 
     # Download model if needed
     download_model(model_path)
 
-    input_dir = (
-        current_dir / "data" / "processed" / "images" / "FRANOM58_078MIOM0870_0259"
-    )
+    input_dir = settings.input_dir
 
     # Create and run the processor
-    processor = ImageProcessor(str(model_path))
-    processor.process_directory(str(input_dir))
+    image_folders = list(input_dir.glob("*"))
+    for image_folder in image_folders:
+        processor = ImageProcessor(str(model_path), settings)
+        processor.process_directory(str(image_folder))
 
 
 if __name__ == "__main__":
-    main()
+    settings = SegmentationSettings()
+    main(settings)
