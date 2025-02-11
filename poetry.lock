@@ -779,14 +779,14 @@ files = [
 ]
 
 [[package]]
-name = "doclayout_yolo"
-version = "0.0.2"
+name = "doclayout-yolo"
+version = "0.0.3"
 description = "DocLayout-YOLO: an effecient and robust document layout analysis method."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "doclayout_yolo-0.0.2-py3-none-any.whl", hash = "sha256:9155d74be92c3a2441ac3dcd7263760637045480b8a4b71bde807976f9e47671"},
-    {file = "doclayout_yolo-0.0.2.tar.gz", hash = "sha256:c7ab629a8fd45eff6fb6c361cce65362b8326203fae891e17a95d731ce5c94c1"},
+    {file = "doclayout_yolo-0.0.3-py3-none-any.whl", hash = "sha256:6e19d7add78745cb28ed940f2234814db412adef16777568e8c0a9ff3dcd1d42"},
+    {file = "doclayout_yolo-0.0.3.tar.gz", hash = "sha256:5552dc137ae22c37323b5c7b801f17da4e5e40bb9c6ab34aaf1935bbd83c5a00"},
 ]
 
 [package.dependencies]
@@ -2129,8 +2129,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
 ]
 
 [[package]]
@@ -2151,8 +2151,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.5", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
 ]
 
 [[package]]
@@ -2219,8 +2219,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -4455,4 +4455,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.13"
-content-hash = "6b4a140224e17c52fe878c1d91a9cd4afafacc6016bd4566baa5d90faa129726"
+content-hash = "2b2888029df16986437e0636b231609e03bc44c0cf8a3bb9f2c94ce5b5bc17f8"
