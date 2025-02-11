@@ -8,10 +8,12 @@ In this page we explain a bit more in detail the different components of the pip
 2. [Parsing Layout](#-parsing-layout)
    - [Applying](#-applying-layout-parser)
    - [Training](#-training-a-custom-layout-parser)
-3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
+3. [Line Segmentation](#-line-segmentation)
+   - [Applying](#-applying-line-segmentation)
+4. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
-4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
+5. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
 
 
 ## 📦 Installation
@@ -36,7 +38,8 @@ curl -sSL https://install.python-poetry.org | python3 -
 Navigate to the `trocr_handwritten` directory and install the dependencies with the following command:
 
 ```bash
-poetry install
+# Install main dependencies without kraken
+poetry install --without kraken
 ```
 
 NB: If you have Python 3.10 installed, you can use the following command to install the dependencies:
@@ -45,8 +48,11 @@ NB: If you have Python 3.10 installed, you can use the following command to inst
 sudo apt update
 sudo apt install python3.11
 poetry env use python3.11
-poetry install
+# poetry install
+poetry install --without kraken
 ```
+
+Note: The kraken package for line segmentation has specific dependency requirements. It will be installed separately when needed using `poetry install --with kraken`. See the [Line Segmentation](#-line-segmentation) section for details.
 
 ### Step 4: Install Pre-commit Hooks
 
@@ -259,6 +265,126 @@ After training, you should see:
 - Validation results including mAP scores
 
 The model can then be pushed to the Hugging Face Hub using the provided script for easy sharing and versioning.
+
+## 📝 Line Segmentation
+
+### 🧪 Applying Line Segmentation
+
+#### 🎯 Objective
+
+The objective of this component is to segment document images into individual lines of text. It uses the Kraken OCR engine's line segmentation capabilities to detect and extract text lines from images, particularly useful for handwritten documents. The script can process both margin text and main text areas, organizing the extracted lines in a structured manner.
+
+#### 🛠️ How it works
+
+The script works in the following steps:
+
+1. **Model Loading**: Loads a pre-trained Kraken model for line segmentation.
+
+2. **Line Detection**: Processes input images to detect individual text lines, including:
+   - Baseline detection
+   - Line boundary detection
+   - Merging of closely spaced lines
+
+3. **Output Generation**: For each processed image:
+   - Creates individual image files for each detected line
+   - Generates metadata containing line coordinates and relationships
+   - Organizes outputs in a structured directory hierarchy
+
+#### 📜 How to apply the script
+
+First, you need to set up the Kraken environment separately due to specific dependency requirements:
+
+```bash
+# Navigate to the kraken environment directory
+cd trocr_handwritten/segmentation/kraken_env
+
+# Create a separate poetry environment for kraken
+poetry install
+
+# Configure poetry to create virtual environment in project directory
+poetry config virtualenvs.in-project true --local
+
+# Install the Jupyter kernel for the kraken environment
+poetry run python -m ipykernel install --user --name kraken_env --display-name "Kraken Environment"
+```
+
+This creates a separate environment for Kraken to avoid dependency conflicts with the main project.
+
+You can then use the notebook interface either in VS Code or Jupyter:
+
+```bash
+# Option 1: VS Code
+# Open VS Code and:
+# - Either use File > Open to navigate to notebooks/line_segmentation.ipynb
+# - Or drag and drop the notebook into VS Code
+# - When prompted for kernel, if you don't see "Kraken Environment":
+#   1. Select "Select Another Kernel..."
+#   2. Choose "Python Environments..."
+#   3. Select the Poetry environment (.venv)
+
+# Option 2: Start Jupyter notebook server
+poetry run jupyter notebook notebooks/line_segmentation.ipynb
+```
+
+Make sure to:
+1. Select the "Kraken Environment" kernel when running the notebook
+2. If using VS Code, ensure you have the Jupyter extension installed
+3. If you want to use the 'code' command in terminal:
+   - Open VS Code
+   - Press Cmd+Shift+P
+   - Type "shell command"
+   - Select "Shell Command: Install 'code' command in PATH"
+
+Note: When you run the script for the first time, it will automatically download the required Kraken model (blla.mlmodel).
+
+To apply the script, you need to have your images organized with 'Marge' and 'Plein Texte' subfolders. Run the segmentation script:
+
+```bash
+python -m line_segmenter.run_segmentation
+```
+
+The script will process all images and create the following directory structure:
+
+```bash
+|-data
+  |-processed
+     |-DOCUMENT_NAME
+        |-Marge
+           |-image.jpg
+           |-image/
+              |-lines
+                 |-line_1.jpg
+                 |-line_2.jpg
+              |-metadata.json
+         |-Plein Texte
+            |-image.jpg
+            |-image/
+               |-lines
+                  |-line_1.jpg
+                  |-line_2.jpg
+               |-metadata.json
+```
+
+The metadata.json file contains:
+- Original image path
+- Line coordinates (boundaries and baselines)
+- Relative paths to line images
+
+#### On Notebooks
+
+You can also use the line segmentation components in notebooks:
+
+```python
+from trocr_handwritten.segmentation import LineSegmenter, ImageProcessor
+
+# Initialize the processor with the path to the Kraken model
+processor = ImageProcessor("path/to/kraken/model")
+
+# Process a directory containing Marge and Plein Texte subfolders
+processor.process_directory("path/to/input/directory")
+```
+
+The script will process all images and create the structured output as described above.
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
