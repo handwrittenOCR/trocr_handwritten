@@ -20,7 +20,7 @@ jobs:
     - name: Install main dependencies
       run: |
         cd trocr_handwritten
-        poetry install --without kraken
+        poetry install
 
     - name: Run ruff and black on main project
       run: |
