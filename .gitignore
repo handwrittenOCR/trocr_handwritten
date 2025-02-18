@@ -60,3 +60,8 @@ venv/
 *.bak28
 *.bak29
 *.bak30
+
+# Environment variables
+.env
+.env.*
+!.env.template
