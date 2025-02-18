@@ -266,125 +266,123 @@ After training, you should see:
 
 The model can then be pushed to the Hugging Face Hub using the provided script for easy sharing and versioning.
 
-## 📝 Line Segmentation
+## 🔬 Line Segmentation
 
-### 🧪 Applying Line Segmentation
+### 🧪 Applying line segmentation
 
 #### 🎯 Objective
 
-The objective of this component is to segment document images into individual lines of text. It uses the Kraken OCR engine's line segmentation capabilities to detect and extract text lines from images, particularly useful for handwritten documents. The script can process both margin text and main text areas, organizing the extracted lines in a structured manner.
+The line segmentation component uses Kraken to detect and extract individual lines of text from document images. It handles both margin text and main text differently, with specific parameters for each type.
 
 #### 🛠️ How it works
 
-The script works in the following steps:
+The script works in parallel using asyncio and ThreadPoolExecutor to process multiple images efficiently:
 
-1. **Model Loading**: Loads a pre-trained Kraken model for line segmentation.
-
-2. **Line Detection**: Processes input images to detect individual text lines, including:
-   - Baseline detection
-   - Line boundary detection
-   - Merging of closely spaced lines
-
-3. **Output Generation**: For each processed image:
-   - Creates individual image files for each detected line
-   - Generates metadata containing line coordinates and relationships
-   - Organizes outputs in a structured directory hierarchy
+1. **Model Loading**: Uses Kraken's blla model for line detection
+2. **Parallel Processing**: Processes multiple images simultaneously using worker pools
+3. **Different Parameters**:
+    - Margins: Uses width padding (50px) and no IoU filtering
+    - Main Text: Uses height padding (15px) and IoU filtering (0.5)
+4. **Output Generation**: Creates structured output with:
+    - Cropped line images
+    - Metadata JSON files containing coordinates and paths
 
 #### 📜 How to apply the script
 
-First, you need to set up the Kraken environment separately due to specific dependency requirements:
+First, set up the Kraken environment:
 
 ```bash
 # Navigate to the kraken environment directory
 cd trocr_handwritten/segmentation/kraken_env
 
-# Create a separate poetry environment for kraken
+# Install dependencies
 poetry install
 
-# Configure poetry to create virtual environment in project directory
-poetry config virtualenvs.in-project true --local
-
-# Install the Jupyter kernel for the kraken environment
-poetry run python -m ipykernel install --user --name kraken_env --display-name "Kraken Environment"
+# Run the segmentation script
+poetry run python -m line_segmenter.run_segmentation
 ```
 
-This creates a separate environment for Kraken to avoid dependency conflicts with the main project.
+The script will:
+1. Download the Kraken model if needed
+2. Process all images in parallel
+3. Generate logs and timing information
+4. Create a structured output directory
 
-You can then use the notebook interface either in VS Code or Jupyter:
+The output structure will be:
 
 ```bash
-# Option 1: VS Code
-# Open VS Code and:
-# - Either use File > Open to navigate to notebooks/line_segmentation.ipynb
-# - Or drag and drop the notebook into VS Code
-# - When prompted for kernel, if you don't see "Kraken Environment":
-#   1. Select "Select Another Kernel..."
-#   2. Choose "Python Environments..."
-#   3. Select the Poetry environment (.venv)
+data/
+├── processed/
+│   └── images/
+│       └── document_folder/
+│           ├── Marge/
+│           │   └── image_name/
+│           │       ├── lines/
+│           │       │   ├── line_1.jpg
+│           │       │   └── line_2.jpg
+│           │       └── metadata.json
+│           └── Plein Texte/
+│               └── image_name/
+│                   ├── lines/
+│                   │   ├── line_1.jpg
+│                   │   └── line_2.jpg
+│                   └── metadata.json
+└── logs/
+    └── segmentation_YYYYMMDD_HHMMSS.log
+```
 
-# Option 2: Start Jupyter notebook server
+You can also use the provided Jupyter notebook for interactive processing and visualization:
+
+```bash
+# Start Jupyter notebook
 poetry run jupyter notebook notebooks/line_segmentation.ipynb
 ```
 
-Make sure to:
-1. Select the "Kraken Environment" kernel when running the notebook
-2. If using VS Code, ensure you have the Jupyter extension installed
-3. If you want to use the 'code' command in terminal:
-   - Open VS Code
-   - Press Cmd+Shift+P
-   - Type "shell command"
-   - Select "Shell Command: Install 'code' command in PATH"
+### 📦 Data Management with AWS S3
 
-Note: When you run the script for the first time, it will automatically download the required Kraken model (blla.mlmodel).
+The project includes a FileManager utility for handling data transfers between local storage and AWS S3:
 
-To apply the script, you need to have your images organized with 'Marge' and 'Plein Texte' subfolders. Run the segmentation script:
+First, create a `.env` file in the project root with your AWS credentials:
 
 ```bash
-python -m line_segmenter.run_segmentation
+# .env
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
 ```
-
-The script will process all images and create the following directory structure:
-
-```bash
-|-data
-  |-processed
-     |-DOCUMENT_NAME
-        |-Marge
-           |-image.jpg
-           |-image/
-              |-lines
-                 |-line_1.jpg
-                 |-line_2.jpg
-              |-metadata.json
-         |-Plein Texte
-            |-image.jpg
-            |-image/
-               |-lines
-                  |-line_1.jpg
-                  |-line_2.jpg
-               |-metadata.json
-```
-
-The metadata.json file contains:
-- Original image path
-- Line coordinates (boundaries and baselines)
-- Relative paths to line images
-
-#### On Notebooks
-
-You can also use the line segmentation components in notebooks:
 
 ```python
-from trocr_handwritten.segmentation import LineSegmenter, ImageProcessor
+from trocr_handwritten.utils.file_manager import FileManager, S3Config
 
-# Initialize the processor with the path to the Kraken model
-processor = ImageProcessor("path/to/kraken/model")
+# Configure S3 access
+s3_config = S3Config(
+    bucket_name="your-bucket",
+)
 
-# Process a directory containing Marge and Plein Texte subfolders
-processor.process_directory("path/to/input/directory")
+# Initialize file manager
+file_manager = FileManager(
+    local_path="data/processed",
+    s3_config=s3_config
+)
+
+# Download data from S3
+file_manager.download_from_s3(
+    s3_prefix="raw/images",
+    local_subdir="images"
+)
+
+# Upload processed data to S3
+file_manager.upload_to_s3(
+    local_dir="data/processed/images",
+    s3_prefix="processed/images",
+    include_patterns=["*.jpg", "*.json"]
+)
+
+# Clean local directory when done
+file_manager.clean_local_directory("images")
 ```
 
-The script will process all images and create the structured output as described above.
+Make sure to create a `.env` file with your AWS credentials before using the FileManager.
+The `.env` file is included in `.gitignore` to keep your credentials secure.
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
