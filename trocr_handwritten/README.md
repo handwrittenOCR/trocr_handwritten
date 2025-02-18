@@ -381,8 +381,20 @@ file_manager.upload_to_s3(
 file_manager.clean_local_directory("images")
 ```
 
-Make sure to create a `.env` file with your AWS credentials before using the FileManager.
-The `.env` file is included in `.gitignore` to keep your credentials secure.
+You can also use the command-line interface:
+
+```bash
+# Download from S3
+s3-manage download --bucket your-bucket --s3-prefix raw/images --local-dir data/processed
+
+# Upload to S3
+s3-manage upload --bucket your-bucket --s3-prefix processed/images --local-dir data/processed/images
+
+# Clean local directory
+s3-manage clean --local-dir data/processed --subdir images
+```
+
+Run `s3-manage --help` for more information about available commands and options.
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
