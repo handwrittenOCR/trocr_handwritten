@@ -69,7 +69,7 @@ async def main(settings: SegmentationSettings):
 
     # Create processor and process all directories
     processor = ImageProcessor(
-        str(model_path), settings, max_workers=5, device="cpu", logger=logger
+        str(model_path), settings, max_workers=4, device="cpu", logger=logger
     )
 
     # Process all folders at once
