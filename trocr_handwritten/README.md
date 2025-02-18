@@ -67,6 +67,7 @@ poetry run pre-commit install
 Activate the Poetry-managed virtual environment before working:
 
 ```bash
+poetry self add poetry-plugin-shell
 poetry shell
 ```
 
