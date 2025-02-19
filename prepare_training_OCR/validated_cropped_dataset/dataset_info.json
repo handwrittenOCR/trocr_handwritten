@@ -1,0 +1,54 @@
+{
+  "citation": "",
+  "description": "",
+  "features": {
+    "source_image": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "text": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "x1": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "y1": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "x2": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "y2": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "image": {
+      "_type": "Image"
+    },
+    "cropped_image": {
+      "_type": "Image"
+    },
+    "cropped_x1": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "cropped_y1": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "cropped_x2": {
+      "dtype": "float32",
+      "_type": "Value"
+    },
+    "cropped_y2": {
+      "dtype": "float32",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": ""
+}
