@@ -203,23 +203,96 @@ class OCRModel:
 
         return metrics
 
+    def _create_model_card(self, metrics: Optional[Dict[str, float]] = None) -> str:
+        """
+        Create a model card with performance metrics.
+
+        Args:
+            metrics: Evaluation metrics to include in the model card.
+
+        Returns:
+            str: The model card content.
+        """
+        self.settings.model_name.split("/")[-1]
+
+        # Basic model card template
+        model_card = f"""---
+                    language: en
+                    license: apache-2.0
+                    tags:
+                    - trocr
+                    - ocr
+                    - handwritten-text-recognition
+                    datasets:
+                    - agomberto/FrenchCensus-handwritten-texts
+                    ---
+
+                    # TrOCR for Handwritten Text Recognition
+
+                    This model is a fine-tuned version of [{self.settings.model_name}](https://huggingface.co/{self.settings.model_name}) for handwritten text recognition.
+
+                    ## Model description
+
+                    This model uses the TrOCR architecture, which combines a vision encoder with a text decoder to recognize text in images.
+
+                    ## Performance
+
+                    """
+
+        # Add metrics if available
+        if metrics:
+            model_card += "### Evaluation Results\n\n"
+            model_card += "| Metric | Value |\n"
+            model_card += "|--------|-------|\n"
+
+            for metric_name, metric_value in metrics.items():
+                if isinstance(metric_value, float):
+                    model_card += f"| {metric_name} | {metric_value:.4f} |\n"
+                else:
+                    model_card += f"| {metric_name} | {metric_value} |\n"
+
+        model_card += """
+                    ## Usage
+
+                    ```python
+                    from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+                    from PIL import Image
+
+                    processor = TrOCRProcessor.from_pretrained("REPO_ID")
+                    model = VisionEncoderDecoderModel.from_pretrained("REPO_ID")
+
+                    # Load image
+                    image = Image.open("path/to/image").convert("RGB")
+
+                    # Process image
+                    pixel_values = processor(image, return_tensors="pt").pixel_values
+
+                    # Generate text
+                    generated_ids = model.generate(pixel_values)
+                    generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                    print(generated_text)
+                    ```
+                    """
+
+        return model_card
+
     def push_to_hub(
         self,
-        trainer: Seq2SeqTrainer,
         repo_name: str,
         huggingface_api_key: str,
         private: bool = False,
         commit_message: Optional[str] = None,
+        metrics: Optional[Dict[str, float]] = None,
     ) -> str:
         """
         Push the trained model to the Hugging Face Hub.
 
         Args:
-            trainer: The trainer containing the trained model.
             repo_name: The name of the repository to push to.
             huggingface_api_key: The Hugging Face API key.
             private: Whether the repository should be private.
             commit_message: Optional commit message.
+            metrics: Optional evaluation metrics to include in the model card.
 
         Returns:
             str: The URL of the pushed model on the Hub.
@@ -237,23 +310,46 @@ class OCRModel:
                     "Upload model trained with TrOCR for handwritten text recognition"
                 )
 
-            # Push the model, tokenizer, and processor to the Hub
-            return_value = trainer.push_to_hub(
-                repo_name=repo_name, private=private, commit_message=commit_message
-            )
+            # Create a model card with metrics
+            model_card_content = self._create_model_card(metrics)
 
+            # Create README.md file with model card content
+            import os
+
+            os.makedirs("./tmp_model_card", exist_ok=True)
+            with open("./tmp_model_card/README.md", "w") as f:
+                f.write(model_card_content)
+
+            # Push the model with the model card
+            self.model.push_to_hub(
+                repo_id=repo_name,
+                use_auth_token=huggingface_api_key,
+                commit_message=commit_message,
+                create_pr=False,
+                private=private,
+                card_data=model_card_content,
+            )
             logger.info(f"Model successfully pushed to {repo_name}")
 
-            # Also push the processor
-            self.processor.push_to_hub(
-                repo_name=repo_name,
-                private=private,
-                commit_message="Upload TrOCR processor",
+            # Push the tokenizer
+            self.tokenizer.push_to_hub(
+                repo_id=repo_name,
+                use_auth_token=huggingface_api_key,
+                commit_message="Upload TrOCR tokenizer",
+                create_pr=False,
             )
+            logger.info(f"Tokenizer successfully pushed to {repo_name}")
 
+            # Push the processor
+            self.processor.push_to_hub(
+                repo_id=repo_name,
+                use_auth_token=huggingface_api_key,
+                commit_message="Upload TrOCR processor",
+                create_pr=False,
+            )
             logger.info(f"Processor successfully pushed to {repo_name}")
 
-            return return_value
+            return f"https://huggingface.co/{repo_name}"
 
         except ImportError:
             logger.error("huggingface_hub not installed. Cannot push to Hub.")
@@ -353,9 +449,11 @@ class OCRModel:
             output_dir=training_config.output_dir,
             logging_dir=training_config.logging_dir,
             metric_for_best_model=training_config.metric_for_best_model,
-            push_to_hub=self.train_settings.push_to_hub,
+            push_to_hub=False,
             hub_model_id=self.train_settings.hub_model_id,
             hub_token=self.settings.huggingface_api_key,
+            dataloader_num_workers=4,
+            dataloader_pin_memory=True,
         )
 
     def _set_model_params(self) -> None:
