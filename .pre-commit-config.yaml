@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1  # Use the specific revision you need
+    rev: v5.0.0  # Use the specific revision you need
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -8,12 +8,12 @@ repos:
       - id: check-added-large-files
         args: ['--maxkb=50000']
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: "v0.0.292"
+    rev: "v0.9.7"
     hooks:
       - id: ruff
         name: ruff (python)
         args: ["--fix", "--exit-non-zero-on-fix", '--ignore', 'E501']
   - repo: https://github.com/psf/black
-    rev: 22.10.0
+    rev: 25.1.0
     hooks:
       - id: black
