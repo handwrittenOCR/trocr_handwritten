@@ -516,9 +516,9 @@ class OCRModel:
 
                 # Replace -100 with pad token ID for proper decoding
                 label_ids_copy = label_ids.copy()
-                label_ids_copy[
-                    label_ids_copy == -100
-                ] = text_processor.tokenizer.pad_token_id
+                label_ids_copy[label_ids_copy == -100] = (
+                    text_processor.tokenizer.pad_token_id
+                )
                 label_strings = text_tokenizer.batch_decode(
                     label_ids_copy, skip_special_tokens=True
                 )
