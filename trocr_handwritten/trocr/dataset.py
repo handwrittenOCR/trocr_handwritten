@@ -76,8 +76,11 @@ class OCRDataset(Dataset):
             for label in labels
         ]
 
-        # Return the preprocessed image and labels
-        return {"pixel_values": pixel_values.squeeze(), "labels": torch.tensor(labels)}
+        # Return the preprocessed image and labels - ensure labels are Long tensors
+        return {
+            "pixel_values": pixel_values.squeeze(),
+            "labels": torch.tensor(labels, dtype=torch.long),
+        }
 
 
 class TrainerDatasets:

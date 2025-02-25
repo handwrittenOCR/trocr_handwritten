@@ -43,11 +43,39 @@ class TrOCRDataCollator:
             max_label_length = max(len(label) for label in labels)
             padded_labels = []
             for label in labels:
+                # Ensure labels are Long tensors
+                if not isinstance(label, torch.LongTensor) and not isinstance(
+                    label, torch.cuda.LongTensor
+                ):
+                    label = label.long()
                 padding = [-100] * (max_label_length - len(label))
-                padded_labels.append(torch.cat([label, torch.tensor(padding)]))
+                padded_labels.append(
+                    torch.cat([label, torch.tensor(padding, dtype=torch.long)])
+                )
             batch["labels"] = torch.stack(padded_labels)
 
+        # Ensure decoder_input_ids are properly created if needed
+        if "decoder_input_ids" not in batch and "labels" in batch:
+            batch["decoder_input_ids"] = self._shift_tokens_right(
+                batch["labels"],
+                self.tokenizer.pad_token_id,
+                self.tokenizer.cls_token_id,
+            )
+
         return batch
+
+    def _shift_tokens_right(self, input_ids, pad_token_id, decoder_start_token_id):
+        """
+        Shift input ids one token to the right.
+        """
+        shifted_input_ids = input_ids.new_zeros(input_ids.shape)
+        shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
+        shifted_input_ids[:, 0] = decoder_start_token_id
+
+        # Replace possible -100 values in labels by `pad_token_id`
+        shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
+
+        return shifted_input_ids
 
 
 class TrOCRTrainer(Seq2SeqTrainer):
