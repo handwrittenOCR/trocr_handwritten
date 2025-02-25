@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class OCRModelSettings(BaseModel):
@@ -15,7 +18,7 @@ class OCRModelSettings(BaseModel):
         default=None, description="Hugging Face Hub repository to load the model from"
     )
     huggingface_api_key: Optional[str] = Field(
-        default=None,
+        default=os.getenv("HUGGINGFACE_API_KEY"),
         description="Hugging Face API key for accessing private repositories",
     )
 
@@ -44,18 +47,18 @@ class TrainingConfig(BaseModel):
     evaluation_strategy: str = Field(default="epoch", description="Evaluation strategy")
     save_strategy: str = Field(default="epoch", description="Save strategy")
     per_device_train_batch_size: int = Field(
-        default=16, description="Batch size per device during training"
+        default=32, description="Batch size per device during training"
     )
     per_device_eval_batch_size: int = Field(
-        default=16, description="Batch size per device during evaluation"
+        default=32, description="Batch size per device during evaluation"
     )
     gradient_accumulation_steps: int = Field(
-        default=8, description="Number of gradient accumulation steps"
+        default=4, description="Number of gradient accumulation steps"
     )
     optim: str = Field(default="adafactor", description="Optimizer to use")
     num_train_epochs: int = Field(default=20, description="Number of training epochs")
     fp16: bool = Field(
-        default=False, description="Whether to use 16-bit floating point precision"
+        default=True, description="Whether to use 16-bit floating point precision"
     )
     learning_rate: float = Field(default=4e-5, description="Learning rate")
     output_dir: str = Field(default="./", description="Output directory")
