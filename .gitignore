@@ -1,6 +1,9 @@
 # Ignorer le dossier data
 data/
 
+# Ignorer les modèles
+models/
+
 # Ignorer les fichiers .DS_Store
 **/.DS_Store
 
@@ -57,3 +60,8 @@ venv/
 *.bak28
 *.bak29
 *.bak30
+
+# Environment variables
+.env
+.env.*
+!.env.template

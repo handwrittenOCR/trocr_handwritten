@@ -219,6 +219,7 @@ def create_structured_crops(detection_results, class_names, path_output, iou=0.5
 
     # Create the base output directory if it doesn't exist
     base_output = Path(path_output)
+    base_output.parent.mkdir(parents=True, exist_ok=True)
     base_output.mkdir(exist_ok=True)
 
     for res in detection_results:

@@ -1,24 +1,40 @@
-
 name: Lint
 
 on: [push, pull_request]
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python 3.11
       uses: actions/setup-python@v2
       with:
         python-version: 3.11
+
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python -
-    - name: Install dependencies
+
+    - name: Install main dependencies
       run: |
+        cd trocr_handwritten
         poetry install
-    - name: Run ruff and black
+
+    - name: Run ruff and black on main project
       run: |
+        cd trocr_handwritten
+        poetry run black --check .
+        poetry run ruff check .
+
+    - name: Install Kraken environment dependencies
+      run: |
+        cd trocr_handwritten/segmentation/kraken_env
+        poetry install
+
+    - name: Run ruff and black on Kraken environment
+      run: |
+        cd trocr_handwritten/segmentation/kraken_env
         poetry run black --check .
         poetry run ruff check .

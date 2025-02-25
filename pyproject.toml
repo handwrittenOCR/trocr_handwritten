@@ -6,7 +6,8 @@ authors = ["mbeigelman, agombert"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.13"
+python-dotenv = "^1.0.0"
 torch = "^2.2.0"
 transformers = "^4.38.1"
 albumentations = "^1.4.0"
@@ -21,10 +22,12 @@ accelerate = "^0.27.2"
 jiwer = "^3.0.3"
 evaluate = "^0.4.1"
 openai = "^1.12.0"
-doclayout-yolo = "^0.0.2"
-scikit-learn = "^1.6.0"
+scikit-learn = ">=1.5.0,<1.6.0"
 jinja2 = "^3.1.5"
 numpy = "1.26.4"
+doclayout-yolo = "^0.0.3"
+boto3 = "^1.36.22"
+click = "^8.1.7"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -35,3 +38,6 @@ black = "^24.3.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+s3-manage = "trocr_handwritten.utils.s3_cli:cli"

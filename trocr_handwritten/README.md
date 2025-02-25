@@ -8,10 +8,12 @@ In this page we explain a bit more in detail the different components of the pip
 2. [Parsing Layout](#-parsing-layout)
    - [Applying](#-applying-layout-parser)
    - [Training](#-training-a-custom-layout-parser)
-3. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
+3. [Line Segmentation](#-line-segmentation)
+   - [Applying](#-applying-line-segmentation)
+4. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
-4. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
+5. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
 
 
 ## 📦 Installation
@@ -36,6 +38,7 @@ curl -sSL https://install.python-poetry.org | python3 -
 Navigate to the `trocr_handwritten` directory and install the dependencies with the following command:
 
 ```bash
+# Install main dependencies without kraken
 poetry install
 ```
 
@@ -45,8 +48,11 @@ NB: If you have Python 3.10 installed, you can use the following command to inst
 sudo apt update
 sudo apt install python3.11
 poetry env use python3.11
+# poetry install
 poetry install
 ```
+
+Note: The kraken package for line segmentation has specific dependency requirements. It will be installed separately when needed. See the [Line Segmentation](#-line-segmentation) section for details.
 
 ### Step 4: Install Pre-commit Hooks
 
@@ -61,6 +67,7 @@ poetry run pre-commit install
 Activate the Poetry-managed virtual environment before working:
 
 ```bash
+poetry self add poetry-plugin-shell
 poetry shell
 ```
 
@@ -259,6 +266,136 @@ After training, you should see:
 - Validation results including mAP scores
 
 The model can then be pushed to the Hugging Face Hub using the provided script for easy sharing and versioning.
+
+## 🔬 Line Segmentation
+
+### 🧪 Applying line segmentation
+
+#### 🎯 Objective
+
+The line segmentation component uses Kraken to detect and extract individual lines of text from document images. It handles both margin text and main text differently, with specific parameters for each type.
+
+#### 🛠️ How it works
+
+The script works in parallel using asyncio and ThreadPoolExecutor to process multiple images efficiently:
+
+1. **Model Loading**: Uses Kraken's blla model for line detection
+2. **Parallel Processing**: Processes multiple images simultaneously using worker pools
+3. **Different Parameters**:
+    - Margins: Uses width padding (50px) and no IoU filtering
+    - Main Text: Uses height padding (15px) and IoU filtering (0.5)
+4. **Output Generation**: Creates structured output with:
+    - Cropped line images
+    - Metadata JSON files containing coordinates and paths
+
+#### 📜 How to apply the script
+
+First, set up the Kraken environment:
+
+```bash
+# Navigate to the kraken environment directory
+cd trocr_handwritten/segmentation/kraken_env
+
+# Install dependencies
+poetry install
+
+# Run the segmentation script
+poetry run python -m line_segmenter.run_segmentation
+```
+
+The script will:
+1. Download the Kraken model if needed
+2. Process all images in parallel
+3. Generate logs and timing information
+4. Create a structured output directory
+
+The output structure will be:
+
+```bash
+data/
+├── processed/
+│   └── images/
+│       └── document_folder/
+│           ├── Marge/
+│           │   └── image_name/
+│           │       ├── lines/
+│           │       │   ├── line_1.jpg
+│           │       │   └── line_2.jpg
+│           │       └── metadata.json
+│           └── Plein Texte/
+│               └── image_name/
+│                   ├── lines/
+│                   │   ├── line_1.jpg
+│                   │   └── line_2.jpg
+│                   └── metadata.json
+└── logs/
+    └── segmentation_YYYYMMDD_HHMMSS.log
+```
+
+You can also use the provided Jupyter notebook for interactive processing and visualization:
+
+```bash
+# Start Jupyter notebook
+poetry run jupyter notebook notebooks/line_segmentation.ipynb
+```
+
+### 📦 Data Management with AWS S3
+
+The project includes a FileManager utility for handling data transfers between local storage and AWS S3:
+
+First, create a `.env` file in the project root with your AWS credentials:
+
+```bash
+# .env
+AWS_ACCESS_KEY_ID=your_access_key_id
+AWS_SECRET_ACCESS_KEY=your_secret_access_key
+```
+
+```python
+from trocr_handwritten.utils.file_manager import FileManager, S3Config
+
+# Configure S3 access
+s3_config = S3Config(
+    bucket_name="your-bucket",
+)
+
+# Initialize file manager
+file_manager = FileManager(
+    local_path="data/processed",
+    s3_config=s3_config
+)
+
+# Download data from S3
+file_manager.download_from_s3(
+    s3_prefix="raw/images",
+    local_subdir="images"
+)
+
+# Upload processed data to S3
+file_manager.upload_to_s3(
+    local_dir="data/processed/images",
+    s3_prefix="processed/images",
+    include_patterns=["*.jpg", "*.json"]
+)
+
+# Clean local directory when done
+file_manager.clean_local_directory("images")
+```
+
+You can also use the command-line interface:
+
+```bash
+# Download from S3
+s3-manage download --bucket your-bucket --s3-prefix raw/images --local-dir data/processed
+
+# Upload to S3
+s3-manage upload --bucket your-bucket --s3-prefix processed/images --local-dir data/processed/images
+
+# Clean local directory
+s3-manage clean --local-dir data/processed --subdir images
+```
+
+Run `s3-manage --help` for more information about available commands and options.
 
 ## 🔎 Handwritten Optical Character Recognition (OCR)
 
