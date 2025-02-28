@@ -3,6 +3,7 @@ from typing import Dict, Any, Tuple, Callable, Optional
 from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
 from transformers import TrOCRProcessor, AutoTokenizer, VisionEncoderDecoderModel
 from huggingface_hub import login
+from transformers import GenerationConfig
 
 import evaluate
 from trocr_handwritten.trocr.settings import OCRModelSettings, TrainSettings
@@ -151,7 +152,8 @@ class OCRModel:
             )
             self.tokenizer = AutoTokenizer.from_pretrained(self.settings.model_name)
             self.processor = TrOCRProcessor.from_pretrained(
-                self.settings.processor_name
+                self.settings.processor_name,
+                use_fast=True,
             )
             logger.info(
                 f"Successfully loaded default model: {self.settings.model_name}"
@@ -392,7 +394,6 @@ class OCRModel:
             repo_name: The name of the repository to load from.
             processor_name: The name of the processor to load from.
             huggingface_api_key: Optional Hugging Face API key for private repositories.
-            config_path: Optional path to configuration files.
 
         Returns:
             OCRModel: An OCRModel instance with the loaded model.
@@ -418,7 +419,9 @@ class OCRModel:
             self.tokenizer = AutoTokenizer.from_pretrained(repo_name)
 
             logger.info(f"Loading processor from {processor_name}...")
-            self.processor = TrOCRProcessor.from_pretrained(processor_name)
+            self.processor = TrOCRProcessor.from_pretrained(
+                processor_name, use_fast=True
+            )
 
         except Exception as e:
             logger.error(f"Error loading model from Hub: {str(e)}")
@@ -493,11 +496,19 @@ class OCRModel:
 
         # Set the beam search parameters
         self.model.config.eos_token_id = self.processor.tokenizer.sep_token_id
-        self.model.config.max_length = beam_config.max_length
-        self.model.config.early_stopping = beam_config.early_stopping
-        self.model.config.no_repeat_ngram_size = beam_config.no_repeat_ngram_size
-        self.model.config.length_penalty = beam_config.length_penalty
-        self.model.config.num_beams = beam_config.num_beams
+
+        generation_config = GenerationConfig(
+            max_length=beam_config.max_length,
+            early_stopping=beam_config.early_stopping,
+            no_repeat_ngram_size=beam_config.no_repeat_ngram_size,
+            length_penalty=beam_config.length_penalty,
+            num_beams=beam_config.num_beams,
+            pad_token_id=self.model.config.pad_token_id,
+            bos_token_id=self.model.config.decoder_start_token_id,
+            eos_token_id=self.model.config.eos_token_id,
+        )
+
+        self.model.generation_config = generation_config
 
     @staticmethod
     def compute_metrics(
