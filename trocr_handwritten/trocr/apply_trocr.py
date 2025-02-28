@@ -3,20 +3,15 @@ import argparse
 import torch
 from PIL import Image
 import os
-from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel, AutoTokenizer
 from huggingface_hub import login
 from tqdm import tqdm
-import threading
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-# Global semaphore for GPU access
-gpu_semaphore = None
 
 
 def find_lines_folders(root_dir: str) -> List[str]:
@@ -37,23 +32,22 @@ def process_images_batch(
 ) -> Dict[str, str]:
     """Process a batch of images and return their transcriptions."""
     try:
-        # Acquire semaphore before GPU operations
-        with gpu_semaphore:
-            # Load and preprocess images
-            images = [Image.open(path).convert("RGB") for path in image_paths]
-            pixel_values = processor(
-                images=images, return_tensors="pt"
-            ).pixel_values.to(device)
+        # Load and preprocess images
+        images = [Image.open(path).convert("RGB") for path in image_paths]
+        pixel_values = processor(images=images, return_tensors="pt").pixel_values.to(
+            device
+        )
 
-            # Generate text
+        # Generate text
+        with torch.no_grad():  # Disable gradient computation for inference
             generated_ids = model.generate(pixel_values)
-            generated_texts = tokenizer.batch_decode(
-                generated_ids, skip_special_tokens=True
-            )
+        generated_texts = tokenizer.batch_decode(
+            generated_ids, skip_special_tokens=True
+        )
 
-            # Create results dictionary
-            results = {path: text for path, text in zip(image_paths, generated_texts)}
-            return results
+        # Create results dictionary
+        results = {path: text for path, text in zip(image_paths, generated_texts)}
+        return results
     except Exception as e:
         logger.error(f"Error processing batch: {str(e)}")
         return {path: "ERROR" for path in image_paths}
@@ -65,7 +59,7 @@ def process_folder(
     processor: TrOCRProcessor,
     tokenizer: AutoTokenizer,
     device: torch.device,
-    batch_size: int = 16,
+    batch_size: int = 32,
 ) -> None:
     """Process all images in a folder and save results."""
     try:
@@ -80,9 +74,13 @@ def process_folder(
             logger.warning(f"No images found in {folder_path}")
             return
 
-        # Process images in batches
+        # Process images in batches with progress bar
         results = {}
-        for i in range(0, len(image_files), batch_size):
+        for i in tqdm(
+            range(0, len(image_files), batch_size),
+            desc=f"Processing {os.path.basename(folder_path)}",
+            unit="batch",
+        ):
             batch = image_files[i : i + batch_size]
             batch_results = process_images_batch(
                 batch, model, processor, tokenizer, device
@@ -120,25 +118,9 @@ def main():
         "--hf_token", type=str, help="HuggingFace token for private models"
     )
     parser.add_argument(
-        "--max_concurrent",
-        type=int,
-        default=3,
-        help="Maximum number of concurrent processes",
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=16, help="Batch size for processing images"
-    )
-    parser.add_argument(
-        "--gpu_concurrent",
-        type=int,
-        default=1,
-        help="Maximum number of concurrent GPU operations",
+        "--batch_size", type=int, default=32, help="Batch size for processing images"
     )
     args = parser.parse_args()
-
-    # Initialize global semaphore
-    global gpu_semaphore
-    gpu_semaphore = threading.Semaphore(args.gpu_concurrent)
 
     # Login to HuggingFace if token provided
     if args.hf_token:
@@ -150,7 +132,7 @@ def main():
     processor = TrOCRProcessor.from_pretrained(args.model_name)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-    # Set device
+    # Set device and model to evaluation mode
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
@@ -158,27 +140,11 @@ def main():
     lines_folders = find_lines_folders(args.root_dir)
     logger.info(f"Found {len(lines_folders)} 'lines' folders to process")
 
-    # Process folders in parallel
-    with ThreadPoolExecutor(max_workers=args.max_concurrent) as executor:
-        futures = []
-        for folder in lines_folders:
-            future = executor.submit(
-                process_folder,
-                folder,
-                model,
-                processor,
-                tokenizer,
-                device,
-                args.batch_size,
-            )
-            futures.append(future)
+    # Process folders sequentially
+    for folder in tqdm(lines_folders, desc="Processing folders"):
+        process_folder(folder, model, processor, tokenizer, device, args.batch_size)
 
-        # Show progress bar
-        for future in tqdm(futures, total=len(futures), desc="Processing folders"):
-            try:
-                future.result()  # This will raise any exceptions that occurred
-            except Exception as e:
-                logger.error(f"Error in folder processing: {str(e)}")
+    logger.info("All folders processed successfully!")
 
 
 if __name__ == "__main__":
