@@ -5,6 +5,7 @@ from datasets import load_dataset
 import logging
 from collections import Counter
 import random
+import numpy as np
 from typing import Dict, Tuple
 from huggingface_hub import login
 from trocr_handwritten.trocr.settings import TrainerDatasetsSettings
@@ -13,6 +14,13 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+RANDOM_SEED = 42
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
+torch.manual_seed(RANDOM_SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(RANDOM_SEED)
 
 
 class OCRDataset(Dataset):
@@ -109,6 +117,8 @@ class TrainerDatasets:
         self.huggingface_api_key = settings.huggingface_api_key
         self.datasets = {}
 
+        self.seed = RANDOM_SEED
+
     def load_and_process_data(self) -> Dict[str, Dataset]:
         """
         Load and process the datasets.
@@ -169,10 +179,16 @@ class TrainerDatasets:
         """
         dataset_size = len(dataset)
         indices = list(range(dataset_size))
+
+        rng = np.random.RandomState(self.seed)
+        rng.shuffle(indices)
+
         split = int(test_size * dataset_size)
-        random.shuffle(indices)
 
         train_indices, test_indices = indices[split:], indices[:split]
+
+        train_indices.sort()
+        test_indices.sort()
 
         train_subset = torch.utils.data.Subset(dataset, train_indices)
         test_subset = torch.utils.data.Subset(dataset, test_indices)
@@ -205,26 +221,46 @@ class TrainerDatasets:
         # Create missing splits from the training data
         train_dataset = datasets["train"]
 
-        for split in missing_splits:
-            logger.warning(
-                f"{split.capitalize()} split is missing. Creating from training data."
+        logger.info(
+            "Creating missing splits with fixed random seed for reproducibility"
+        )
+
+        if "validation" in missing_splits and "test" in missing_splits:
+            # First split: 80% train, 20% temp
+            train_dataset, temp_dataset = self._split_dataset(
+                train_dataset, test_size=0.2
             )
 
-            if split == "validation":
-                # Use 10% of training data for validation
-                train_dataset, val_dataset = self._split_dataset(
-                    train_dataset, test_size=0.1
-                )
-                datasets["train"] = train_dataset
-                datasets["validation"] = val_dataset
+            # Second split of temp: 50% validation, 50% test (10% each of original)
+            validation_dataset, test_dataset = self._split_dataset(
+                temp_dataset, test_size=0.5
+            )
 
-            elif split == "test":
-                # Use 10% of training data for testing
-                train_dataset, test_dataset = self._split_dataset(
-                    train_dataset, test_size=0.1
-                )
-                datasets["train"] = train_dataset
-                datasets["test"] = test_dataset
+            datasets["train"] = train_dataset
+            datasets["validation"] = validation_dataset
+            datasets["test"] = test_dataset
+
+            logger.info(
+                "Created validation and test splits (10% each) from training data"
+            )
+
+        elif "validation" in missing_splits:
+            # Use 10% of training data for validation
+            train_dataset, validation_dataset = self._split_dataset(
+                train_dataset, test_size=0.1
+            )
+            datasets["train"] = train_dataset
+            datasets["validation"] = validation_dataset
+            logger.info("Created validation split (10%) from training data")
+
+        elif "test" in missing_splits:
+            # Use 10% of training data for testing
+            train_dataset, test_dataset = self._split_dataset(
+                train_dataset, test_size=0.1
+            )
+            datasets["train"] = train_dataset
+            datasets["test"] = test_dataset
+            logger.info("Created test split (10%) from training data")
 
         return datasets
 
