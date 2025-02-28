@@ -124,7 +124,9 @@ class OCRModel:
             )
             try:
                 self.load_from_hub(
-                    self.settings.hub_repo, self.settings.huggingface_api_key
+                    self.settings.hub_repo,
+                    self.settings.processor_name,
+                    self.settings.huggingface_api_key,
                 )
             except Exception as e:
                 logger.error(f"Error loading model from Hub: {str(e)}")
@@ -148,7 +150,9 @@ class OCRModel:
                 self.settings.model_name
             )
             self.tokenizer = AutoTokenizer.from_pretrained(self.settings.model_name)
-            self.processor = TrOCRProcessor.from_pretrained(self.settings.model_name)
+            self.processor = TrOCRProcessor.from_pretrained(
+                self.settings.processor_name
+            )
             logger.info(
                 f"Successfully loaded default model: {self.settings.model_name}"
             )
@@ -187,7 +191,13 @@ class OCRModel:
 
         return result, trainer
 
-    def evaluate(self, trainer: Seq2SeqTrainer, test_dataset) -> Dict[str, float]:
+    def evaluate(
+        self,
+        train_dataset,
+        eval_dataset,
+        test_dataset,
+        compute_metrics_fn: Optional[Callable] = None,
+    ) -> Dict[str, float]:
         """
         Evaluate the model on the test dataset.
 
@@ -198,6 +208,17 @@ class OCRModel:
         Returns:
             Dict[str, float]: A dictionary containing the evaluation metrics.
         """
+        trainer = TrOCRTrainer(
+            model=self.model,
+            tokenizer=self.tokenizer,
+            args=self.training_args,
+            compute_metrics=compute_metrics_fn,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=TrOCRDataCollator(
+                processor=self.processor, tokenizer=self.tokenizer
+            ),
+        )
         logger.info("Evaluating on test dataset...")
         metrics = trainer.evaluate(test_dataset)
 
@@ -361,6 +382,7 @@ class OCRModel:
     def load_from_hub(
         self,
         repo_name: str,
+        processor_name: str,
         huggingface_api_key: Optional[str] = None,
     ) -> "OCRModel":
         """
@@ -395,8 +417,8 @@ class OCRModel:
             logger.info(f"Loading tokenizer from {repo_name}...")
             self.tokenizer = AutoTokenizer.from_pretrained(repo_name)
 
-            logger.info(f"Loading processor from {repo_name}...")
-            self.processor = TrOCRProcessor.from_pretrained(repo_name)
+            logger.info(f"Loading processor from {processor_name}...")
+            self.processor = TrOCRProcessor.from_pretrained(processor_name)
 
         except Exception as e:
             logger.error(f"Error loading model from Hub: {str(e)}")
