@@ -403,43 +403,158 @@ Run `s3-manage --help` for more information about available commands and options
 
 #### 🎯 Objective
 
-The objective of this script is to train a model for Optical Character Recognition (OCR) on handwritten text. The script uses the TrOCR model architecture, which is a combination of Vision and Language models, to recognize and transcribe the handwritten text from images. The script takes as input a set of images, processes them using the TrOCR model, and outputs the transcribed text. The model is trained using a dataset of handwritten texts and the performance is evaluated using Character Error Rate (CER) and Word Error Rate (WER) metrics.
+The objective is to train a TrOCR model for handwritten text recognition. The training pipeline uses a combination of Vision and Language models to recognize and transcribe handwritten text from images. The model's performance is evaluated using Character Error Rate (CER) and Word Error Rate (WER) metrics.
 
 #### 🛠️ How it works
 
-The script works in the following steps:
+The training pipeline consists of several components:
 
-1. **Model and Processor Loading**: The TrOCR processor and model, and the tokenizer are loaded.
+1. **Configuration Management**:
+   - Uses Pydantic models for type-safe configuration
+   - Supports both model and training settings
+   - Handles Hugging Face Hub integration
 
-2. **Data Loading and Processing**: The script loads and processes the data using the provided dataset, tokenizer, and processor. It uses by default a HandwrittenTextDataset class from the `datasets` library called French Census.
+2. **Dataset Handling**:
+   - Processes both census and private datasets
+   - Supports automatic train/validation/test splitting
+   - Implements custom data collation for TrOCR inputs
 
-3. **Model & Training Configuration**: The script configures the model parameters & training argument using the provided configuration files.
+3. **Model Training**:
+   - Uses a custom TrOCR trainer for proper loss computation
+   - Supports mixed precision training (FP16)
+   - Implements early stopping and model checkpointing
+   - Provides comprehensive logging and metrics tracking
 
-4. **Metric Loading**: The script loads the Character Error Rate (CER) and Word Error Rate (WER) metrics for evaluation.
+4. **Model Evaluation**:
+   - Computes CER and WER metrics
+   - Supports validation during training
+   - Provides detailed evaluation reports
 
-5. **Trainer Setup**: The script sets up the trainer with the model, tokenizer, training arguments, metrics, and data.
+#### 📜 How to train a model
 
-6. **Model Training**: The script trains the model using the configured trainer.
+1. **Configure Settings**
 
+First, create or modify the settings in your configuration files:
 
-#### 📜 How to apply the script
+```python
+from trocr_handwritten.trocr.settings import (
+    TrainSettings,
+    OCRModelSettings,
+    TrainerDatasetsSettings
+)
 
-To apply the script, you need to have a dataset of handwritten texts, a configuration file, and optionally a pre-trained TrOCR model.
+# Configure model settings
+model_settings = OCRModelSettings(
+    model_name="microsoft/trocr-large-handwritten",
+    hub_repo=None  # Set if loading from Hub
+)
 
-You can run the script from the command line with the following arguments:
+# Configure training settings
+train_settings = TrainSettings(
+    output_dir="./results",
+    push_to_hub=True,
+    hub_model_id="your-model-name",
+    private_hub_repo=True
+)
 
-- `--PATH_CONFIG`: Path to the configuration files.
-- `--dataset`: Path to the dataset. Default is "agomberto/FrenchCensus-handwritten-texts".
-- `--processor`: Path to the processor. Default is "microsoft/trocr-large-handwritten".
-- `--trocr_model`: Path to the pre-trained TrOCR model. Default is "microsoft/trocr-large-handwritten".
-
-NB: You can modify the configuration files to change the model parameters and training arguments. Train it on GPUs if possible and then you can change the parameter `FP16`to `True` to use mixed precision training.
-
-Example command:
-
-```bash
-python trocr_handwritten/trocr/train_trocr.py --PATH_CONFIG /path/to/config --dataset /path/to/dataset --processor /path/to/processor --trocr_model /path/to/model
+# Configure dataset settings
+dataset_settings = TrainerDatasetsSettings(
+    census_data=True,
+    private_repo="your-private-dataset",  # Optional
+    max_label_length=64
+)
 ```
+
+2. **Train the Model**
+
+```python
+from trocr_handwritten.trocr.model import OCRModel
+from trocr_handwritten.trocr.dataset import TrainerDatasets
+
+# Initialize model
+ocr_model = OCRModel(
+    settings=model_settings,
+    train_settings=train_settings
+)
+
+# Initialize datasets
+trainer_datasets = TrainerDatasets(
+    settings=dataset_settings,
+    tokenizer=ocr_model.tokenizer,
+    processor=ocr_model.processor
+)
+
+# Load and process data
+datasets = trainer_datasets.load_and_process_data()
+
+# Set up metrics
+compute_metrics_fn = OCRModel.setup_compute_metrics(
+    ocr_model.tokenizer,
+    ocr_model.processor
+)
+
+# Train the model
+result, trainer = ocr_model.train(
+    train_dataset=datasets["train"],
+    eval_dataset=datasets["validation"],
+    compute_metrics_fn=compute_metrics_fn
+)
+
+# Evaluate on test set
+test_metrics = ocr_model.evaluate(trainer, datasets["test"])
+```
+
+3. **Push to Hugging Face Hub**
+
+If configured, the model will be automatically pushed to the Hub after training. You can also push manually:
+
+```python
+ocr_model.push_to_hub(
+    repo_name="your-model-name",
+    huggingface_api_key="your-api-key",
+    private=True,
+    metrics=test_metrics
+)
+```
+
+#### 🔧 Training Parameters
+
+Key training parameters that can be configured:
+
+```python
+training_config = TrainingConfig(
+    per_device_train_batch_size=32,
+    per_device_eval_batch_size=32,
+    gradient_accumulation_steps=4,
+    learning_rate=4e-5,
+    num_train_epochs=20,
+    fp16=True,  # Enable mixed precision training
+    evaluation_strategy="epoch",
+    save_strategy="epoch"
+)
+```
+
+Beam search parameters for generation:
+
+```python
+beam_config = BeamConfig(
+    max_length=64,
+    num_beams=4,
+    length_penalty=2.0,
+    early_stopping=True
+)
+```
+
+#### 📊 Expected Outputs
+
+After training, you'll get:
+- Training metrics (loss, CER, WER)
+- Evaluation results on validation and test sets
+- Saved model checkpoints
+- Training logs
+- (Optional) Model card and files on Hugging Face Hub
+
+The model can then be used for inference using the `apply_trocr.py` script as described in the next section.
 
 ### 🧪 Applying TrOCR
 
