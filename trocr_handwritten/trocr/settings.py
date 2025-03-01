@@ -11,6 +11,10 @@ class OCRModelSettings(BaseModel):
         default="microsoft/trocr-large-handwritten",
         description="Name of the pre-trained model to use",
     )
+    processor_name: str = Field(
+        default="microsoft/trocr-large-handwritten",
+        description="Name of the processor to use",
+    )
     config_path: str = Field(
         default="./config", description="Path to the configuration files"
     )
