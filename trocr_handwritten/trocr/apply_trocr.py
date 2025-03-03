@@ -23,7 +23,7 @@ def find_lines_folders(root_dir: str) -> List[str]:
     """Find all folders named 'lines' recursively."""
     lines_folders = []
     for root, dirs, _ in os.walk(root_dir):
-        if "lines" in dirs:
+        if "lines" in dirs or "Nom" in dirs:
             lines_folders.append(os.path.join(root, "lines"))
     return lines_folders
 
