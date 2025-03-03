@@ -98,7 +98,10 @@ def process_folder(
 
         # Save results
         output_dir = os.path.dirname(folder_path)
-        output_file = os.path.join(output_dir, "transcriptions.txt")
+        if "Nom" in folder_path:
+            output_file = os.path.join(output_dir, "Nom", "transcriptions.txt")
+        else:
+            output_file = os.path.join(output_dir, "transcriptions.txt")
 
         with open(output_file, "w", encoding="utf-8") as f:
             for image_path, text in results.items():
