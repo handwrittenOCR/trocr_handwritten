@@ -9,6 +9,9 @@ import numpy as np
 from typing import Dict, Tuple
 from huggingface_hub import login
 from trocr_handwritten.trocr.settings import TrainerDatasetsSettings
+import cv2
+
+from PIL import Image
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -21,6 +24,17 @@ np.random.seed(RANDOM_SEED)
 torch.manual_seed(RANDOM_SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(RANDOM_SEED)
+
+
+def apply_denoise(img):
+    """Apply median blur for denoising"""
+    return cv2.medianBlur(img, 3)
+
+
+def apply_morph_open(img):
+    """Apply morphological opening"""
+    kernel = np.ones((3, 3), np.uint8)
+    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
 
 
 class OCRDataset(Dataset):
@@ -73,7 +87,11 @@ class OCRDataset(Dataset):
         """
         # Get the item and extract the image and text
         item = self.data[index]
-        image = item["image"].convert("RGB")
+        image = np.array(item["image"])
+        image = apply_denoise(image)
+        image = apply_morph_open(image)
+        image = Image.fromarray(image)
+
         text = item["text"]
 
         # Preprocess the image
@@ -97,20 +115,9 @@ class OCRDataset(Dataset):
         result = {
             "pixel_values": pixel_values.squeeze(),
             "labels": torch.tensor(labels, dtype=torch.long),
+            "image": image,
+            "dataset_source": self.dataset_source,
         }
-
-        # Add image path if available
-        if "image_path" in item:
-            result["image_path"] = item["image_path"]
-        elif "file_name" in item:
-            result["image_path"] = item["file_name"]
-
-        if "text" in item:
-            result["text"] = item["text"]
-
-        # Add dataset source
-        result["dataset_source"] = self.dataset_source
-
         return result
 
 
