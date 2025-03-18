@@ -7,18 +7,18 @@ from pathlib import Path
 class MarginSettings:
     """Settings for margin text segmentation"""
 
-    padding: int = 50  # Width padding for margin text
+    padding: int = 20  # Width padding for margin text
     iou_threshold: float = 1.0  # No IoU filtering for margins
-    y_threshold: int = 10  # Vertical threshold for merging lines
+    y_threshold: int = 20  # Vertical threshold for merging lines
 
 
 @dataclass
 class MainTextSettings:
     """Settings for main text segmentation"""
 
-    padding: int = 15  # Height padding for main text
+    padding: int = 20  # Height padding for main text
     iou_threshold: float = 0.5  # IoU threshold for filtering overlapping lines
-    y_threshold: int = 10  # Vertical threshold for merging lines
+    y_threshold: int = 20  # Vertical threshold for merging lines
 
 
 @dataclass
@@ -35,8 +35,8 @@ class SegmentationSettings:
 
     def __post_init__(self):
         """Initialize paths after root_dir is set"""
-        self.input_dir = self.root_dir / "data" / "processed" / "images"
-        self.model_path = self.root_dir / "models" / "blla.mlmodel"
+        self.input_dir = self.root_dir / "data" / "processed"
+        self.model_path = self.root_dir / "models" / "ft_kraken.mlmodel"
 
     def get_params(self, is_margin: bool) -> Dict[str, Any]:
         """Get parameters based on text type"""
