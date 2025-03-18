@@ -10,7 +10,6 @@ from typing import Dict, Tuple
 from huggingface_hub import login
 from trocr_handwritten.trocr.settings import TrainerDatasetsSettings
 import cv2
-
 from PIL import Image
 
 logging.basicConfig(
@@ -26,16 +25,15 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed_all(RANDOM_SEED)
 
 
-def apply_denoise(img):
-    """Apply median blur for denoising"""
-    return cv2.medianBlur(img, 3)
-
-
 def apply_gray(img):
     """Convert to grayscale"""
     if len(img.shape) == 3:
         return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     return img
+
+
+def apply_denoise(img, h=5, templateWindowSize=5, searchWindowSize=21):
+    return cv2.fastNlMeansDenoising(img, None, h, templateWindowSize, searchWindowSize)
 
 
 class OCRDataset(Dataset):
@@ -88,11 +86,11 @@ class OCRDataset(Dataset):
         """
         # Get the item and extract the image and text
         item = self.data[index]
-        image = np.array(item["image"])
-        image = apply_gray(image)
+        image_init = item["image"].convert("RGB")
+        image = np.array(item["image"].convert("RGB"))
+        # image = apply_gray(image)
         image = apply_denoise(image)
-        image = Image.fromarray(image)
-
+        image = Image.fromarray(image).convert("RGB")
         text = item["text"]
 
         # Preprocess the image
@@ -117,6 +115,7 @@ class OCRDataset(Dataset):
             "pixel_values": pixel_values.squeeze(),
             "labels": torch.tensor(labels, dtype=torch.long),
             "image": image,
+            "image_init": image_init,
             "dataset_source": self.dataset_source,
         }
         return result
