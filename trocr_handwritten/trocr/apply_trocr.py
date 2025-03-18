@@ -1,93 +1,179 @@
-from transformers import (
-    TrOCRProcessor,
-    VisionEncoderDecoderModel,
-    AutoTokenizer,
-)
 import logging
 import argparse
 import torch
 from PIL import Image
-from os.path import join
-from os import listdir, makedirs
+import os
+from typing import List, Dict
+from transformers import (
+    TrOCRProcessor,
+    VisionEncoderDecoderModel,
+    AutoTokenizer,
+    GenerationConfig,
+)
+from huggingface_hub import login
+from tqdm import tqdm
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
+logger = logging.getLogger(__name__)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Apply a handwritten OCR model.")
-    parser.add_argument("--PATH_DATA", type=str, help="Path to the data files")
+
+def find_lines_folders(root_dir: str) -> List[str]:
+    """Find all folders named 'lines' recursively."""
+    lines_folders = []
+    for root, dirs, _ in os.walk(root_dir):
+        if "lines" in dirs or "Nom" in dirs:
+            lines_folders.append(os.path.join(root, "lines"))
+    return lines_folders
+
+
+def process_images_batch(
+    image_paths: List[str],
+    model: VisionEncoderDecoderModel,
+    processor: TrOCRProcessor,
+    tokenizer: AutoTokenizer,
+    device: torch.device,
+    generation_config: GenerationConfig,
+) -> Dict[str, str]:
+    """Process a batch of images and return their transcriptions."""
+    try:
+        # Load and preprocess images
+        images = [Image.open(path).convert("RGB") for path in image_paths]
+        pixel_values = processor(images=images, return_tensors="pt").pixel_values.to(
+            device
+        )
+
+        # Generate text using generation config
+        with torch.no_grad():
+            generated_ids = model.generate(
+                pixel_values, generation_config=generation_config
+            )
+        generated_texts = tokenizer.batch_decode(
+            generated_ids, skip_special_tokens=True
+        )
+
+        # Create results dictionary
+        results = {path: text for path, text in zip(image_paths, generated_texts)}
+        return results
+    except Exception as e:
+        logger.error(f"Error processing batch: {str(e)}")
+        return {path: "ERROR" for path in image_paths}
+
+
+def process_folder(
+    folder_path: str,
+    model: VisionEncoderDecoderModel,
+    processor: TrOCRProcessor,
+    tokenizer: AutoTokenizer,
+    device: torch.device,
+    generation_config: GenerationConfig,
+    batch_size: int = 32,
+) -> None:
+    """Process all images in a folder and save results."""
+    try:
+        # Get all image files
+        image_files = [
+            os.path.join(folder_path, f)
+            for f in os.listdir(folder_path)
+            if f.lower().endswith((".png", ".jpg", ".jpeg"))
+        ]
+
+        if not image_files:
+            logger.warning(f"No images found in {folder_path}")
+            return
+
+        # Process images in batches with progress bar
+        results = {}
+        for i in tqdm(
+            range(0, len(image_files), batch_size),
+            desc=f"Processing {os.path.basename(folder_path)}",
+            unit="batch",
+        ):
+            batch = image_files[i : i + batch_size]
+            batch_results = process_images_batch(
+                batch, model, processor, tokenizer, device, generation_config
+            )
+            results.update(batch_results)
+
+        # Save results
+        output_dir = os.path.dirname(folder_path)
+        if "Nom" in folder_path:
+            output_file = os.path.join(output_dir, "Nom", "transcriptions.txt")
+        else:
+            output_file = os.path.join(output_dir, "transcriptions.txt")
+
+        with open(output_file, "w", encoding="utf-8") as f:
+            for image_path, text in results.items():
+                f.write(f"{os.path.basename(image_path)}\t{text}\n")
+
+        logger.info(f"Saved transcriptions to {output_file}")
+    except Exception as e:
+        logger.error(f"Error processing folder {folder_path}: {str(e)}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Apply TrOCR model to images.")
     parser.add_argument(
-        "--trocr_model",
+        "--root_dir",
         type=str,
-        help="Path to the model",
-        default="agomberto/trocr-base-handwritten-fr",
+        required=True,
+        help="Root directory to search for 'lines' folders",
     )
     parser.add_argument(
-        "--processor",
+        "--model_name",
         type=str,
-        help="Path to the processor",
         default="microsoft/trocr-large-handwritten",
+        help="Model name or path",
     )
     parser.add_argument(
-        "--PATH_OUTPUT",
-        type=str,
-        help="Path to the output file",
+        "--hf_token", type=str, help="HuggingFace token for private models"
     )
-
+    parser.add_argument(
+        "--batch_size", type=int, default=32, help="Batch size for processing images"
+    )
     args = parser.parse_args()
 
-    logging.info("Loading model and processor...")
-    processor = TrOCRProcessor.from_pretrained(args.processor)
+    # Login to HuggingFace if token provided
+    if args.hf_token:
+        login(token=args.hf_token)
 
-    model = VisionEncoderDecoderModel.from_pretrained(args.trocr_model)
-    tokenizer = AutoTokenizer.from_pretrained(args.trocr_model)
+    # Load model and processor
+    logger.info(f"Loading model from {args.model_name}")
+    model = VisionEncoderDecoderModel.from_pretrained(args.model_name)
+    processor = TrOCRProcessor.from_pretrained(args.model_name, use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
-    # device gpu if available
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
+    # Set up generation configuration
+    generation_config = GenerationConfig.from_pretrained(args.model_name)
+
+    # Ensure required tokens are set
+    generation_config.pad_token_id = tokenizer.pad_token_id
+    generation_config.bos_token_id = tokenizer.cls_token_id
+    generation_config.eos_token_id = tokenizer.sep_token_id
+
+    # Set device and model to evaluation mode
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    # get all the folders in the data
-    folders = [x for x in listdir(args.PATH_DATA) if "." not in x]
-    for folder in folders:
-        makedirs(join(args.PATH_OUTPUT, folder), exist_ok=True)
-        subfolders = [x for x in listdir(join(args.PATH_DATA, folder)) if "." not in x]
-        for subfolder in subfolders:
-            makedirs(join(args.PATH_OUTPUT, folder, subfolder), exist_ok=True)
+    # Find all 'lines' folders
+    lines_folders = find_lines_folders(args.root_dir)
+    logger.info(f"Found {len(lines_folders)} 'lines' folders to process")
 
-            logging.info(f"Loading {folder}/{subfolder} images...")
-            images_files = [
-                x
-                for x in listdir(join(args.PATH_DATA, folder, subfolder))
-                if ".jpg" in x
-            ]
-            logging.info(f"{len(images_files)} images found.")
-            images = [
-                Image.open(join(args.PATH_DATA, folder, subfolder, x)).convert("RGB")
-                for x in images_files
-            ]
+    # Process folders sequentially
+    for folder in tqdm(lines_folders, desc="Processing folders"):
+        process_folder(
+            folder,
+            model,
+            processor,
+            tokenizer,
+            device,
+            generation_config,
+            args.batch_size,
+        )
 
-            logging.info("Generating texts...")
-            pixel_values = (
-                processor(images=images, return_tensors="pt").pixel_values
-            ).to(device)
-            generated_ids = model.generate(pixel_values)
-            generated_texts = tokenizer.batch_decode(
-                generated_ids, skip_special_tokens=True
-            )
+    logger.info("All folders processed successfully!")
 
-            logging.info(
-                "Writing output to {}".format(
-                    join(args.PATH_OUTPUT, folder, subfolder, "ocrized.txt")
-                )
-            )
-            logging.info("Generated texts:")
-            with open(
-                join(args.PATH_OUTPUT, folder, subfolder, "ocrized.txt"), "w"
-            ) as f:
-                for image, generated_text in zip(images_files, generated_texts):
-                    logging.info(generated_text)
-                    f.write(generated_text + "\t" + image + "\n")
+
+if __name__ == "__main__":
+    main()
