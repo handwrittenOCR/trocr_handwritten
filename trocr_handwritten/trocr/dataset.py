@@ -31,10 +31,11 @@ def apply_denoise(img):
     return cv2.medianBlur(img, 3)
 
 
-def apply_morph_open(img):
-    """Apply morphological opening"""
-    kernel = np.ones((3, 3), np.uint8)
-    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
+def apply_gray(img):
+    """Convert to grayscale"""
+    if len(img.shape) == 3:
+        return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    return img
 
 
 class OCRDataset(Dataset):
@@ -88,8 +89,8 @@ class OCRDataset(Dataset):
         # Get the item and extract the image and text
         item = self.data[index]
         image = np.array(item["image"])
+        image = apply_gray(image)
         image = apply_denoise(image)
-        image = apply_morph_open(image)
         image = Image.fromarray(image)
 
         text = item["text"]
