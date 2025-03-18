@@ -570,3 +570,120 @@ class OCRModel:
                 return {"cer": float("nan"), "wer": float("nan")}
 
         return compute_predictions
+
+    def predict(
+        self,
+        train_dataset,
+        eval_dataset,
+        test_dataset,
+        compute_metrics_fn: Optional[Callable] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate predictions on a dataset and calculate metrics for each item individually.
+
+        Args:
+            train_dataset: The training dataset.
+            eval_dataset: The evaluation dataset.
+            test_dataset: The dataset to generate predictions on.
+            compute_metrics_fn: Function to compute metrics (from setup_compute_metrics).
+
+        Returns:
+            Dict[str, Any]: A dictionary containing predictions, labels, and metrics.
+        """
+        logger.info(
+            f"Generating predictions on dataset with {len(test_dataset)} items..."
+        )
+
+        # Create a trainer instance
+        trainer = TrOCRTrainer(
+            model=self.model,
+            tokenizer=self.tokenizer,
+            args=self.training_args,
+            compute_metrics=compute_metrics_fn,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=TrOCRDataCollator(
+                processor=self.processor, tokenizer=self.tokenizer
+            ),
+        )
+
+        # Get predictions from the trainer
+        predictions = trainer.predict(test_dataset, metric_key_prefix="predict")
+
+        # Get raw predictions and labels
+        prediction_ids = predictions.predictions
+        label_ids = predictions.label_ids
+
+        # Calculate loss per item (if available)
+        per_item_loss = None
+        if hasattr(predictions, "losses") and predictions.losses is not None:
+            per_item_loss = predictions.losses.tolist()
+
+        # Decode predictions and labels
+        predicted_texts = self.tokenizer.batch_decode(
+            prediction_ids, skip_special_tokens=True
+        )
+
+        # Replace -100 values in label_ids with pad_token_id for decoding
+        label_ids_copy = label_ids.copy()
+        label_ids_copy[label_ids_copy == -100] = self.processor.tokenizer.pad_token_id
+        true_texts = self.tokenizer.batch_decode(
+            label_ids_copy, skip_special_tokens=True
+        )
+
+        # Initialize results structure
+        results = {
+            "predictions": predicted_texts,
+            "labels": true_texts,
+            "item_metrics": [],
+        }
+
+        # Calculate metrics for each item individually
+        if compute_metrics_fn is not None:
+            # Get metrics calculators from the existing setup
+            cer_metric = evaluate.load("cer")
+            wer_metric = evaluate.load("wer")
+
+            # Process each prediction/label pair
+            for idx, (pred_text, true_text) in enumerate(
+                zip(predicted_texts, true_texts)
+            ):
+                # Calculate metrics for this individual item
+                cer = cer_metric.compute(
+                    predictions=[pred_text], references=[true_text]
+                )
+                wer = wer_metric.compute(
+                    predictions=[pred_text], references=[true_text]
+                )
+
+                # Create basic metrics
+                item_metrics = {
+                    "prediction": pred_text,
+                    "label": true_text,
+                    "cer": cer,
+                    "wer": wer,
+                    "data_source": (
+                        test_dataset[idx]["dataset_source"]
+                        if "dataset_source" in test_dataset[idx]
+                        else None
+                    ),
+                    "file_name": (
+                        test_dataset[idx]["image_path"]
+                        if "image_path" in test_dataset[idx]
+                        else None
+                    ),
+                }
+
+                # Add loss if available
+                if per_item_loss is not None and idx < len(per_item_loss):
+                    item_metrics["loss"] = per_item_loss[idx]
+
+                results["item_metrics"].append(item_metrics)
+
+        # Include overall metrics
+        results["overall_metrics"] = {
+            key.replace("predict_", ""): value
+            for key, value in predictions.metrics.items()
+        }
+
+        return results

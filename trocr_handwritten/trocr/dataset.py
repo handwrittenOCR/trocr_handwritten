@@ -28,7 +28,14 @@ class OCRDataset(Dataset):
     A PyTorch Dataset for Optical Character Recognition (OCR).
     """
 
-    def __init__(self, data, image_processor, text_tokenizer, max_label_length=32):
+    def __init__(
+        self,
+        data,
+        image_processor,
+        text_tokenizer,
+        max_label_length=32,
+        dataset_source=None,
+    ):
         """
         Initialize the dataset with data, an image processor, a text tokenizer, and a maximum label length.
 
@@ -37,11 +44,13 @@ class OCRDataset(Dataset):
             image_processor (Processor): The processor to use for image preprocessing.
             text_tokenizer (Tokenizer): The tokenizer to use for text tokenization.
             max_label_length (int): The maximum length of the tokenized text labels.
+            dataset_source (str): The source of the dataset (e.g., 'census', 'private').
         """
         self.data = data
         self.image_processor = image_processor
         self.max_label_length = max_label_length
         self.text_tokenizer = text_tokenizer
+        self.dataset_source = dataset_source
 
     def __len__(self):
         """
@@ -84,11 +93,25 @@ class OCRDataset(Dataset):
             for label in labels
         ]
 
-        # Return the preprocessed image and labels - ensure labels are Long tensors
-        return {
+        # Create the return dictionary
+        result = {
             "pixel_values": pixel_values.squeeze(),
             "labels": torch.tensor(labels, dtype=torch.long),
         }
+
+        # Add image path if available
+        if "image_path" in item:
+            result["image_path"] = item["image_path"]
+        elif "file_name" in item:
+            result["image_path"] = item["file_name"]
+
+        if "text" in item:
+            result["text"] = item["text"]
+
+        # Add dataset source
+        result["dataset_source"] = self.dataset_source
+
+        return result
 
 
 class TrainerDatasets:
@@ -287,6 +310,7 @@ class TrainerDatasets:
                     image_processor=self.processor,
                     text_tokenizer=self.tokenizer,
                     max_label_length=self.max_label_length,
+                    dataset_source="census",
                 )
 
             if "validation" in available_splits:
@@ -296,6 +320,7 @@ class TrainerDatasets:
                     image_processor=self.processor,
                     text_tokenizer=self.tokenizer,
                     max_label_length=self.max_label_length,
+                    dataset_source="census",
                 )
 
             if "test" in available_splits:
@@ -305,6 +330,7 @@ class TrainerDatasets:
                     image_processor=self.processor,
                     text_tokenizer=self.tokenizer,
                     max_label_length=self.max_label_length,
+                    dataset_source="census",
                 )
 
             return datasets
@@ -385,6 +411,7 @@ class TrainerDatasets:
                     image_processor=self.processor,
                     text_tokenizer=self.tokenizer,
                     max_label_length=self.max_label_length,
+                    dataset_source="private",
                 )
 
             if "validation" in available_splits:
@@ -396,6 +423,7 @@ class TrainerDatasets:
                     image_processor=self.processor,
                     text_tokenizer=self.tokenizer,
                     max_label_length=self.max_label_length,
+                    dataset_source="private",
                 )
 
             if "test" in available_splits:
@@ -405,6 +433,7 @@ class TrainerDatasets:
                     image_processor=self.processor,
                     text_tokenizer=self.tokenizer,
                     max_label_length=self.max_label_length,
+                    dataset_source="private",
                 )
 
             return datasets
