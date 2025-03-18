@@ -1,6 +1,6 @@
 import logging
-from typing import Dict, Any, Tuple, Callable, Optional
-from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
+from typing import Dict, Any, Tuple, Callable, Optional, List
+from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer, TrainerCallback
 from transformers import TrOCRProcessor, AutoTokenizer, VisionEncoderDecoderModel
 from huggingface_hub import login
 from transformers import GenerationConfig
@@ -163,7 +163,11 @@ class OCRModel:
             raise ValueError("Failed to load default model and no model was provided.")
 
     def train(
-        self, train_dataset, eval_dataset, compute_metrics_fn: Optional[Callable] = None
+        self,
+        train_dataset,
+        eval_dataset,
+        compute_metrics_fn: Optional[Callable] = None,
+        callbacks: Optional[List[TrainerCallback]] = None,
     ) -> Tuple[Any, TrOCRTrainer]:
         """
         Train the model.
@@ -183,6 +187,7 @@ class OCRModel:
             compute_metrics=compute_metrics_fn,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
+            callbacks=callbacks,
             data_collator=TrOCRDataCollator(
                 processor=self.processor, tokenizer=self.tokenizer
             ),
@@ -509,6 +514,8 @@ class OCRModel:
         )
 
         self.model.generation_config = generation_config
+        self.model.encoder.gradient_checkpointing_enable()
+        self.model.decoder.gradient_checkpointing_enable()
 
     @staticmethod
     def compute_metrics(
