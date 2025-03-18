@@ -1,8 +1,8 @@
 from pathlib import Path
-from line_segmenter.image_processor import ImageProcessor
+from image_processor import ImageProcessor
 import urllib.request
 from datetime import datetime
-from line_segmenter.settings import SegmentationSettings
+from settings import SegmentationSettings
 import asyncio
 import time
 from datetime import timedelta
@@ -58,7 +58,7 @@ async def main(settings: SegmentationSettings):
 
     # Configure paths
     model_path = settings.model_path
-    download_model(model_path, logger)
+    # download_model(model_path, logger)
     input_dir = settings.input_dir
 
     # Collect all valid directories

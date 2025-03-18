@@ -6,8 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 from datetime import datetime, timedelta
 import logging
-from line_segmenter.line_segmenter import LineSegmenter, LineData
-from line_segmenter.settings import SegmentationSettings
+from line_segmenter import LineSegmenter, LineData
+from settings import SegmentationSettings
 
 
 class ImageTask(NamedTuple):
