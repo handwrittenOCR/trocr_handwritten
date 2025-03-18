@@ -597,85 +597,101 @@ loaded_model = OCRModel(
 
 #### 🎯 Objective
 
-The objective of this script is to apply a trained Optical Character Recognition (OCR) model to transcribe handwritten text from images (in lines). The script uses the TrOCR model architecture, which is a combination of Vision and Language models, to recognize and transcribe the handwritten text. The script takes as input a set of images, processes them using the TrOCR model, and outputs the transcribed text to a specified file. The model used can be specified by the user, allowing for flexibility in the transcription process.
+The objective of this script is to apply a trained Optical Character Recognition (OCR) model to transcribe handwritten text from images (in lines). The script uses the TrOCR model architecture, which is a combination of Vision and Language models, to recognize and transcribe the handwritten text. The script takes as input a set of images, processes them using the TrOCR model, and outputs the transcribed text to a specified file. The model used can be specified by the user, allowing for flexibility in the transcription process.The project offers two approaches:
 
-#### 🛠️ How it works
+1. **Batch Processing (`apply_trocr.py`)**: Processes folders containing line images in batch mode, saving transcriptions to text files.
+2. **Sample Evaluation (`example_trocr_apply.py`)**: Visualizes random samples from a test dataset with their predicted transcriptions.
 
-The script works in the following steps:
+#### 🛠️ How the Batch Processor Works
 
-1. **Model and Processor Loading**: The trained TrOCR processor and model, and the tokenizer are loaded.
+The batch processor (`apply_trocr.py`) works in the following steps:
 
-2. **Device Selection**: The script checks if a GPU is available and if so, moves the model to the GPU.
+1. **Recursive Folder Search**: Finds all "lines" folders in the provided directory structure.
+2. **Model Loading**: Loads the specified TrOCR model, processor, and tokenizer.
+3. **Batch Processing**: Processes images in batches to optimize performance.
+4. **Transcription Generation**: Generates text transcriptions for each line image.
+5. **Output Organization**: Saves transcriptions to structured text files.
 
-3. **Data Loading and Processing**: The script loads and processes the images from the provided directory. It converts the images to RGB and processes them using the TrOCR processor.
+#### 📜 How to Apply the Batch Processor
 
-4. **Text Generation**: The script generates text from the processed images using the trained TrOCR model.
-
-5. **Output Writing**: The script writes the generated text to the specified output file.
-
-
-#### 📜 How to apply the script
-
-To apply the script, you need to have a set of images of handwritten texts, and optionally a pre-trained TrOCR model and a specific processor.
-
-You can run the script from the command line with the following arguments:
-
-- `--PATH_DATA`: Path to the directory containing the images.
-- `--trocr_model`: Path to the trained TrOCR model. Default is "agomberto/trocr-base-handwritten-fr".
-- `--processor`: Path to the processor. Default is "microsoft/trocr-large-handwritten".
-- `--PATH_OUTPUT`: Path to the output file where the transcriptions will be written.
-
-Example command:
+To transcribe multiple line images:
 
 ```bash
-python trocr_handwritten/trocr/apply_trocr.py --PATH_DATA /path/to/data --trocr_model /path/to/model --processor /path/to/processor --PATH_OUTPUT /path/to/output
+python trocr_handwritten/trocr/apply_trocr.py \
+    --root_dir "data/processed/images" \
+    --model_name "microsoft/trocr-large-handwritten" \
+    --batch_size 32
 ```
 
-The script will load the specified model and processor, load and process the images, generate text from the images using the model, and write the generated text to the specified output file. The results of the transcription will be logged and can be viewed in the console.
+Optional arguments:
+- `--hf_token`: HuggingFace token for private models
+- `--batch_size`: Number of images to process at once (default: 32)
 
-If we take back the example of recommanded structure:
+The script will:
+1. Find all "lines" folders recursively in the root directory
+2. Process images in batches
+3. Save transcriptions to "transcriptions.txt" files beside each lines folder
 
-The recomanded structure would be to have
+#### 🔍 Sample Evaluation and Visualization
+
+The `example_trocr_apply.py` script provides a way to visualize model performance on random samples:
+
 ```bash
-|-data
-  |-pages
-     |-page_1.jpg
-  |-xml
-     |-page_1.xml
-  |-lines
-      |-page_1
-          |-column_0
-            |-page_1_line_0.jpg
-            |-page_1_line_1.jpg
-          |-column_1
-            |-page_1_line_0.jpg
-            |-page_1_line_1.jpg
-            |-page_1_line_2.jpg
+python trocr_handwritten/trocr/example_trocr_apply.py \
+    --model_name "your-model-name" \
+    --num_samples 20 \
+    --seed 42 \
+    --census_data
 ```
 
-The final structure will be
+This will:
+- Load the specified model
+- Select random samples from the test dataset
+- Generate predictions for each sample
+- Create a visualization showing images with their predicted text
+- Save the visualization as a PNG file
+
+Optional arguments:
+- `--num_samples`: Number of random samples to process (default: 20)
+- `--seed`: Random seed for reproducibility (default: 42)
+- `--census_data`: Whether to use census data for evaluation
+- `--private_repo`: Private dataset repository
+- `--max_label_length`: Maximum label length (default: 64)
+
+#### 🔄 Directory Structure
+
+For the batch processor, the expected input structure is:
 
 ```bash
-|-data
-  |-pages
-     |-page_1.jpg
-  |-xml
-     |-page_1.xml
-  |-lines
-      |-page_1
-          |-column_0
-            |-page_1_line_0.jpg
-            |-page_1_line_1.jpg
-          |-column_1
-            |-page_1_line_0.jpg
-            |-page_1_line_1.jpg
-            |-page_1_line_2.jpg
-  |-ocrized
-      |-page_1
-          |-column_0
-            |-ocrized.txt
-          |-column_1
-            |-ocrized.txt
+data/
+└── processed/
+└── images/
+└── document_folder/
+   ├── lines/
+      │ ├── line_1.jpg
+      │ └── line_2.jpg
+   └── Nom/
+      └── lines/
+         ├── line_1.jpg
+         └── line_2.jpg
+```
+
+After processing, the structure will include:
+
+```bash
+data/
+└── processed/
+└── images/
+└── document_folder/
+   ├── lines/
+      │ ├── line_1.jpg
+      │ └── line_2.jpg
+      ├── transcriptions.txt
+   └── Nom/
+      └── lines/
+         ├── line_1.jpg
+         └── line_2.jpg
+        └── transcriptions.txt
 ```
 
 ## 🗃️ Named Entity Recognition (NER) with LLM
