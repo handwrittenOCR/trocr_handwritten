@@ -182,7 +182,7 @@ class OCRModel:
         """
         trainer = TrOCRTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
+            processing_class=self.processor,
             args=self.training_args,
             compute_metrics=compute_metrics_fn,
             train_dataset=train_dataset,
@@ -217,7 +217,7 @@ class OCRModel:
         """
         trainer = TrOCRTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
+            processing_class=self.processor,
             args=self.training_args,
             compute_metrics=compute_metrics_fn,
             train_dataset=train_dataset,
@@ -467,7 +467,7 @@ class OCRModel:
 
         return Seq2SeqTrainingArguments(
             predict_with_generate=training_config.predict_with_generate,
-            evaluation_strategy=training_config.evaluation_strategy,
+            eval_strategy=training_config.eval_strategy,
             save_strategy=training_config.save_strategy,
             per_device_train_batch_size=training_config.per_device_train_batch_size,
             per_device_eval_batch_size=training_config.per_device_eval_batch_size,
@@ -604,7 +604,7 @@ class OCRModel:
         # Create a trainer instance
         trainer = TrOCRTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
+            processing_class=self.processor,
             args=self.training_args,
             compute_metrics=compute_metrics_fn,
             train_dataset=train_dataset,
