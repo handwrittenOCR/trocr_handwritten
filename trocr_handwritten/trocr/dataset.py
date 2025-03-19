@@ -86,11 +86,7 @@ class OCRDataset(Dataset):
         """
         # Get the item and extract the image and text
         item = self.data[index]
-        image_init = item["image"].convert("RGB")
-        image = np.array(item["image"].convert("RGB"))
-        # image = apply_gray(image)
-        image = apply_denoise(image)
-        image = Image.fromarray(image).convert("RGB")
+        image = item["image"].convert("RGB")  # Use the preprocessed image
         text = item["text"]
 
         # Preprocess the image
@@ -114,8 +110,6 @@ class OCRDataset(Dataset):
         result = {
             "pixel_values": pixel_values.squeeze(),
             "labels": torch.tensor(labels, dtype=torch.long),
-            "image": image,
-            "image_init": image_init,
             "dataset_source": self.dataset_source,
         }
         return result
@@ -312,6 +306,7 @@ class TrainerDatasets:
             # Process available splits
             if "train" in available_splits:
                 train_data = self._preprocess_census_data(raw_datasets["train"])
+                train_data = self._preprocess_images(train_data)
                 datasets["train"] = OCRDataset(
                     data=train_data,
                     image_processor=self.processor,
@@ -322,6 +317,7 @@ class TrainerDatasets:
 
             if "validation" in available_splits:
                 valid_data = self._preprocess_census_data(raw_datasets["validation"])
+                valid_data = self._preprocess_images(valid_data)
                 datasets["validation"] = OCRDataset(
                     data=valid_data,
                     image_processor=self.processor,
@@ -332,6 +328,7 @@ class TrainerDatasets:
 
             if "test" in available_splits:
                 test_data = self._preprocess_census_data(raw_datasets["test"])
+                test_data = self._preprocess_images(test_data)
                 datasets["test"] = OCRDataset(
                     data=test_data,
                     image_processor=self.processor,
@@ -383,6 +380,26 @@ class TrainerDatasets:
 
         return dataset
 
+    def _preprocess_images(self, dataset):
+        """
+        Preprocess images in the dataset using map.
+
+        Args:
+            dataset (Dataset): The dataset to preprocess.
+
+        Returns:
+            Dataset: The dataset with preprocessed images.
+        """
+
+        def preprocess_image(item):
+            image = item["image"].convert("RGB")
+            image = apply_gray(np.array(image))
+            image = apply_denoise(image)
+            item["image"] = Image.fromarray(image).convert("RGB")
+            return item
+
+        return dataset.map(preprocess_image)
+
     def _load_private_data(self) -> Dict[str, Dataset]:
         """
         Load and process the private dataset.
@@ -413,6 +430,7 @@ class TrainerDatasets:
             # Process available splits
             if "train" in available_splits:
                 train_data = self._preprocess_private_dataset(raw_datasets["train"])
+                train_data = self._preprocess_images(train_data)
                 datasets["train"] = OCRDataset(
                     data=train_data,
                     image_processor=self.processor,
@@ -425,6 +443,7 @@ class TrainerDatasets:
                 valid_data = self._preprocess_private_dataset(
                     raw_datasets["validation"]
                 )
+                valid_data = self._preprocess_images(valid_data)
                 datasets["validation"] = OCRDataset(
                     data=valid_data,
                     image_processor=self.processor,
@@ -435,6 +454,7 @@ class TrainerDatasets:
 
             if "test" in available_splits:
                 test_data = self._preprocess_private_dataset(raw_datasets["test"])
+                test_data = self._preprocess_images(test_data)
                 datasets["test"] = OCRDataset(
                     data=test_data,
                     image_processor=self.processor,
