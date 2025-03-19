@@ -26,7 +26,7 @@ class PushToHubCallback(TrainerCallback):
         self.huggingface_api_key = huggingface_api_key
         self.private = private
 
-    def on_epoch_end(self, state):
+    def on_epoch_end(self, args, state, control, **kwargs):
         """Push model, tokenizer, and processor to Hub after each epoch."""
         epoch = state.epoch
         logger.info(f"Pushing model to Hub after epoch {epoch}")
@@ -59,6 +59,8 @@ class PushToHubCallback(TrainerCallback):
             )
         except Exception as e:
             logger.error(f"Error pushing to Hub after epoch {epoch}: {str(e)}")
+
+        return control
 
 
 def train_model():
