@@ -51,7 +51,7 @@ class TrainingConfig(BaseModel):
     predict_with_generate: bool = Field(
         default=True, description="Whether to predict with generate"
     )
-    evaluation_strategy: str = Field(default="epoch", description="Evaluation strategy")
+    eval_strategy: str = Field(default="epoch", description="Evaluation strategy")
     save_strategy: str = Field(default="epoch", description="Save strategy")
     per_device_train_batch_size: int = Field(
         default=32, description="Batch size per device during training"
