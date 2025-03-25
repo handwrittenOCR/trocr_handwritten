@@ -84,6 +84,7 @@ def train_model():
         settings=trainer_datasets_settings,
         tokenizer=ocr_model.tokenizer,
         processor=ocr_model.processor,
+        preprocess_images=trainer_datasets_settings.preprocess_images,
     )
 
     # Load and process the data

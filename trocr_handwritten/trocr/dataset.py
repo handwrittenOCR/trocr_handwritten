@@ -125,6 +125,7 @@ class TrainerDatasets:
         settings: TrainerDatasetsSettings,
         tokenizer: AutoTokenizer,
         processor: TrOCRProcessor,
+        preprocess_images: bool = True,
     ):
         """
         Initialize the TrainerDatasets class.
@@ -142,6 +143,7 @@ class TrainerDatasets:
         self.datasets = {}
 
         self.seed = RANDOM_SEED
+        self.preprocess_images = preprocess_images
 
     def load_and_process_data(self) -> Dict[str, Dataset]:
         """
@@ -392,10 +394,11 @@ class TrainerDatasets:
         """
 
         def preprocess_image(item):
-            image = item["image"].convert("RGB")
-            image = apply_gray(np.array(image))
-            image = apply_denoise(image)
-            item["image"] = Image.fromarray(image).convert("RGB")
+            if self.preprocess_images:
+                image = item["image"].convert("RGB")
+                image = apply_gray(np.array(image))
+                image = apply_denoise(image)
+                item["image"] = Image.fromarray(image).convert("RGB")
             return item
 
         return dataset.map(preprocess_image)

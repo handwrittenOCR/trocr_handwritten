@@ -42,6 +42,9 @@ class TrainerDatasetsSettings(BaseModel):
         default=os.getenv("HUGGINGFACE_API_KEY"),
         description="Hugging Face API key for accessing private repositories",
     )
+    preprocess_images: bool = Field(
+        default=True, description="Whether to preprocess the images"
+    )
 
 
 class TrainingConfig(BaseModel):
