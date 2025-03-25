@@ -43,7 +43,13 @@ class TrainerDatasetsSettings(BaseModel):
         description="Hugging Face API key for accessing private repositories",
     )
     preprocess_images: bool = Field(
-        default=True, description="Whether to preprocess the images"
+        default=False, description="Whether to preprocess the images"
+    )
+    rimes_data: bool = Field(
+        default=True, description="Whether to use the Rimes dataset"
+    )
+    belfort_data: bool = Field(
+        default=True, description="Whether to use the Belfort dataset"
     )
 
 
@@ -57,7 +63,7 @@ class TrainingConfig(BaseModel):
         default=32, description="Batch size per device during training"
     )
     per_device_eval_batch_size: int = Field(
-        default=32, description="Batch size per device during evaluation"
+        default=8, description="Batch size per device during evaluation"
     )
     gradient_accumulation_steps: int = Field(
         default=4, description="Number of gradient accumulation steps"
@@ -95,7 +101,8 @@ class TrainSettings(BaseModel):
         default=True, description="Whether to push the model to the Hugging Face Hub"
     )
     hub_model_id: Optional[str] = Field(
-        default=None, description="The model ID on the Hugging Face Hub"
+        default="agomberto/trocr-handwritten-ocr-processed-and-rimes-20250325",
+        description="The model ID on the Hugging Face Hub",
     )
     private_hub_repo: bool = Field(
         default=True, description="Whether the Hub repository should be private"

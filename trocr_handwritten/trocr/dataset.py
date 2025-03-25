@@ -137,13 +137,15 @@ class TrainerDatasets:
         self.tokenizer = tokenizer
         self.processor = processor
         self.census_data = settings.census_data
+        self.rimes_data = settings.rimes_data
+        self.belfort_data = settings.belfort_data
         self.private_repo = settings.private_repo
         self.max_label_length = settings.max_label_length
         self.huggingface_api_key = settings.huggingface_api_key
+        self.preprocess_images = settings.preprocess_images
         self.datasets = {}
 
         self.seed = RANDOM_SEED
-        self.preprocess_images = preprocess_images
 
     def load_and_process_data(self) -> Dict[str, Dataset]:
         """
@@ -153,6 +155,20 @@ class TrainerDatasets:
             Dict[str, Dataset]: A dictionary containing the training, validation, and test datasets.
         """
         all_datasets = {}
+
+        # Load Rimes dataset if requested
+        if self.rimes_data:
+            logger.info("Loading Rimes dataset...")
+            rimes_datasets = self._load_rimes_data()
+            rimes_datasets = self._ensure_all_splits_exist(rimes_datasets)
+            all_datasets["rimes"] = rimes_datasets
+
+        # Load Belfort dataset if requested
+        if self.belfort_data:
+            logger.info("Loading Belfort dataset...")
+            belfort_datasets = self._load_belfort_data()
+            belfort_datasets = self._ensure_all_splits_exist(belfort_datasets)
+            all_datasets["belfort"] = belfort_datasets
 
         # Load census data if requested
         if self.census_data:
@@ -169,20 +185,11 @@ class TrainerDatasets:
             all_datasets["private"] = private_datasets
 
         # Combine datasets if both are present
-        if self.census_data and self.private_repo:
-            logger.info("Combining census and private datasets...")
-            combined_datasets = self._combine_datasets(
-                all_datasets["census"], all_datasets["private"]
-            )
-            self.datasets = combined_datasets
-        elif self.census_data:
-            self.datasets = all_datasets["census"]
-        elif self.private_repo:
-            self.datasets = all_datasets["private"]
-        else:
-            raise ValueError(
-                "No datasets specified. Set census_data=True or provide private_repo."
-            )
+
+        args = [all_datasets[key] for key in all_datasets.keys()]
+        logger.info("Combining downloaded datasets...")
+        combined_datasets = self._combine_datasets(*args)
+        self.datasets = combined_datasets
 
         logger.info(
             f"Final dataset sizes - Train: {len(self.datasets['train'])}, "
@@ -290,6 +297,110 @@ class TrainerDatasets:
 
         return datasets
 
+    def _load_belfort_data(self) -> Dict[str, Dataset]:
+        """
+        Load and process the Belfort dataset.
+        """
+        # Load the Belfort dataset
+        try:
+            raw_datasets = load_dataset("Teklia/Belfort-line")
+
+            # Check which splits are available
+            available_splits = raw_datasets.keys()
+            datasets = {}
+
+            # Process available splits
+            if "train" in available_splits:
+                train_data = raw_datasets["train"]
+                train_data = self._preprocess_images(train_data)
+                datasets["train"] = OCRDataset(
+                    data=train_data,
+                    image_processor=self.processor,
+                    text_tokenizer=self.tokenizer,
+                    max_label_length=self.max_label_length,
+                    dataset_source="belfort",
+                )
+
+            if "validation" in available_splits:
+                valid_data = raw_datasets["validation"]
+                valid_data = self._preprocess_images(valid_data)
+                datasets["validation"] = OCRDataset(
+                    data=valid_data,
+                    image_processor=self.processor,
+                    text_tokenizer=self.tokenizer,
+                    max_label_length=self.max_label_length,
+                    dataset_source="belfort",
+                )
+
+            if "test" in available_splits:
+                test_data = raw_datasets["test"]
+                test_data = self._preprocess_images(test_data)
+                datasets["test"] = OCRDataset(
+                    data=test_data,
+                    image_processor=self.processor,
+                    text_tokenizer=self.tokenizer,
+                    max_label_length=self.max_label_length,
+                    dataset_source="belfort",
+                )
+
+            return datasets
+
+        except Exception as e:
+            logger.error(f"Error loading Belfort dataset: {str(e)}")
+            raise
+
+    def _load_rimes_data(self) -> Dict[str, Dataset]:
+        """
+        Load and process the Rimes dataset.
+        """
+        # Load the Rimes dataset
+        try:
+            raw_datasets = load_dataset("Teklia/RIMES-2011-line")
+
+            # Check which splits are available
+            available_splits = raw_datasets.keys()
+            datasets = {}
+
+            # Process available splits
+            if "train" in available_splits:
+                train_data = raw_datasets["train"]
+                train_data = self._preprocess_images(train_data)
+                datasets["train"] = OCRDataset(
+                    data=train_data,
+                    image_processor=self.processor,
+                    text_tokenizer=self.tokenizer,
+                    max_label_length=self.max_label_length,
+                    dataset_source="rimes",
+                )
+
+            if "validation" in available_splits:
+                valid_data = raw_datasets["validation"]
+                valid_data = self._preprocess_images(valid_data)
+                datasets["validation"] = OCRDataset(
+                    data=valid_data,
+                    image_processor=self.processor,
+                    text_tokenizer=self.tokenizer,
+                    max_label_length=self.max_label_length,
+                    dataset_source="rimes",
+                )
+
+            if "test" in available_splits:
+                test_data = raw_datasets["test"]
+                test_data = self._preprocess_images(test_data)
+                datasets["test"] = OCRDataset(
+                    data=test_data,
+                    image_processor=self.processor,
+                    text_tokenizer=self.tokenizer,
+                    max_label_length=self.max_label_length,
+                    dataset_source="rimes",
+                )
+
+            return datasets
+
+        except Exception as e:
+            logger.error(f"Error loading Rimes dataset: {str(e)}")
+            raise
+
     def _load_census_data(self) -> Dict[str, Dataset]:
         """
         Load and process the census dataset.
@@ -379,6 +490,9 @@ class TrainerDatasets:
 
         # Filter out entries where the text length is 2
         dataset = dataset.filter(lambda x: x["len"] > 2)
+
+        # Create empty field 'source_image'
+        dataset = dataset.map(lambda x: {"source_image": ""})
 
         return dataset
 
@@ -512,9 +626,7 @@ class TrainerDatasets:
 
         return filtered_dataset
 
-    def _combine_datasets(
-        self, census_datasets: Dict[str, Dataset], private_datasets: Dict[str, Dataset]
-    ) -> Dict[str, Dataset]:
+    def _combine_datasets(self, *args: Dict[str, Dataset]) -> Dict[str, Dataset]:
         """
         Combine the census and private datasets.
 
@@ -527,17 +639,16 @@ class TrainerDatasets:
         """
         combined_datasets = {}
 
-        # Get all available splits from both datasets
-        all_splits = set(list(census_datasets.keys()) + list(private_datasets.keys()))
+        # Get all available splits from all datasets
+        all_splits = set()
+        for arg in args:
+            all_splits.update(arg.keys())
 
         for split in all_splits:
             datasets_to_combine = []
-
-            if split in census_datasets:
-                datasets_to_combine.append(census_datasets[split])
-
-            if split in private_datasets:
-                datasets_to_combine.append(private_datasets[split])
+            for dataset in args:
+                if split in dataset:
+                    datasets_to_combine.append(dataset[split])
 
             if datasets_to_combine:
                 combined_datasets[split] = ConcatDataset(datasets_to_combine)
