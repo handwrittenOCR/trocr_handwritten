@@ -126,6 +126,7 @@ class TrainerDatasets:
         tokenizer: AutoTokenizer,
         processor: TrOCRProcessor,
         preprocess_images: bool = True,
+        evaluate_only: bool = False,
     ):
         """
         Initialize the TrainerDatasets class.
@@ -144,6 +145,7 @@ class TrainerDatasets:
         self.huggingface_api_key = settings.huggingface_api_key
         self.preprocess_images = settings.preprocess_images
         self.datasets = {}
+        self.evaluate_only = evaluate_only
 
         self.seed = RANDOM_SEED
 
@@ -312,7 +314,8 @@ class TrainerDatasets:
             # Process available splits
             if "train" in available_splits:
                 train_data = raw_datasets["train"]
-                train_data = self._preprocess_images(train_data)
+                if not self.evaluate_only:
+                    train_data = self._preprocess_images(train_data)
                 datasets["train"] = OCRDataset(
                     data=train_data,
                     image_processor=self.processor,
@@ -323,7 +326,8 @@ class TrainerDatasets:
 
             if "validation" in available_splits:
                 valid_data = raw_datasets["validation"]
-                valid_data = self._preprocess_images(valid_data)
+                if not self.evaluate_only:
+                    valid_data = self._preprocess_images(valid_data)
                 datasets["validation"] = OCRDataset(
                     data=valid_data,
                     image_processor=self.processor,
@@ -364,7 +368,8 @@ class TrainerDatasets:
             # Process available splits
             if "train" in available_splits:
                 train_data = raw_datasets["train"]
-                train_data = self._preprocess_images(train_data)
+                if not self.evaluate_only:
+                    train_data = self._preprocess_images(train_data)
                 datasets["train"] = OCRDataset(
                     data=train_data,
                     image_processor=self.processor,
@@ -375,7 +380,8 @@ class TrainerDatasets:
 
             if "validation" in available_splits:
                 valid_data = raw_datasets["validation"]
-                valid_data = self._preprocess_images(valid_data)
+                if not self.evaluate_only:
+                    valid_data = self._preprocess_images(valid_data)
                 datasets["validation"] = OCRDataset(
                     data=valid_data,
                     image_processor=self.processor,
@@ -419,7 +425,8 @@ class TrainerDatasets:
             # Process available splits
             if "train" in available_splits:
                 train_data = self._preprocess_census_data(raw_datasets["train"])
-                train_data = self._preprocess_images(train_data)
+                if not self.evaluate_only:
+                    train_data = self._preprocess_images(train_data)
                 datasets["train"] = OCRDataset(
                     data=train_data,
                     image_processor=self.processor,
@@ -430,7 +437,8 @@ class TrainerDatasets:
 
             if "validation" in available_splits:
                 valid_data = self._preprocess_census_data(raw_datasets["validation"])
-                valid_data = self._preprocess_images(valid_data)
+                if not self.evaluate_only:
+                    valid_data = self._preprocess_images(valid_data)
                 datasets["validation"] = OCRDataset(
                     data=valid_data,
                     image_processor=self.processor,
@@ -547,7 +555,8 @@ class TrainerDatasets:
             # Process available splits
             if "train" in available_splits:
                 train_data = self._preprocess_private_dataset(raw_datasets["train"])
-                train_data = self._preprocess_images(train_data)
+                if not self.evaluate_only:
+                    train_data = self._preprocess_images(train_data)
                 datasets["train"] = OCRDataset(
                     data=train_data,
                     image_processor=self.processor,
@@ -560,7 +569,8 @@ class TrainerDatasets:
                 valid_data = self._preprocess_private_dataset(
                     raw_datasets["validation"]
                 )
-                valid_data = self._preprocess_images(valid_data)
+                if not self.evaluate_only:
+                    valid_data = self._preprocess_images(valid_data)
                 datasets["validation"] = OCRDataset(
                     data=valid_data,
                     image_processor=self.processor,
