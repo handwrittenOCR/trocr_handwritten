@@ -107,6 +107,7 @@ class OCRModel:
         self,
         settings: OCRModelSettings,
         train_settings: TrainSettings,
+        evaluate_only: bool = False,
     ):
         """
         Initialize the OCRModel class.
@@ -117,7 +118,7 @@ class OCRModel:
         """
         self.settings = settings
         self.train_settings = train_settings
-
+        self.evaluate_only = evaluate_only
         # Load from Hub if repository is provided
         if self.settings.hub_repo:
             logger.info(
@@ -484,6 +485,7 @@ class OCRModel:
             hub_token=self.settings.huggingface_api_key,
             dataloader_num_workers=4,
             dataloader_pin_memory=True,
+            evaluation_strategy="no" if self.evaluate_only else "epoch",
         )
 
     def _set_model_params(self) -> None:
@@ -643,6 +645,7 @@ class OCRModel:
             "predictions": predicted_texts,
             "labels": true_texts,
             "item_metrics": [],
+            "losses": per_item_loss,
         }
 
         # Calculate metrics for each item individually
