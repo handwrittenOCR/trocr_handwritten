@@ -64,4 +64,8 @@ venv/
 # Environment variables
 .env
 .env.*
-!.env.template
+!.env.dist
+
+#notebooks
+*.ipynb
+/*.ipynb

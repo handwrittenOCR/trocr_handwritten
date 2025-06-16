@@ -1,6 +1,6 @@
 import logging
-from typing import Dict, Any, Tuple, Callable, Optional
-from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
+from typing import Dict, Any, Tuple, Callable, Optional, List
+from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer, TrainerCallback
 from transformers import TrOCRProcessor, AutoTokenizer, VisionEncoderDecoderModel
 from huggingface_hub import login
 from transformers import GenerationConfig
@@ -107,6 +107,7 @@ class OCRModel:
         self,
         settings: OCRModelSettings,
         train_settings: TrainSettings,
+        evaluate_only: bool = False,
     ):
         """
         Initialize the OCRModel class.
@@ -117,7 +118,7 @@ class OCRModel:
         """
         self.settings = settings
         self.train_settings = train_settings
-
+        self.evaluate_only = evaluate_only
         # Load from Hub if repository is provided
         if self.settings.hub_repo:
             logger.info(
@@ -163,7 +164,11 @@ class OCRModel:
             raise ValueError("Failed to load default model and no model was provided.")
 
     def train(
-        self, train_dataset, eval_dataset, compute_metrics_fn: Optional[Callable] = None
+        self,
+        train_dataset,
+        eval_dataset,
+        compute_metrics_fn: Optional[Callable] = None,
+        callbacks: Optional[List[TrainerCallback]] = None,
     ) -> Tuple[Any, TrOCRTrainer]:
         """
         Train the model.
@@ -178,11 +183,12 @@ class OCRModel:
         """
         trainer = TrOCRTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
+            processing_class=self.processor,
             args=self.training_args,
             compute_metrics=compute_metrics_fn,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
+            callbacks=callbacks,
             data_collator=TrOCRDataCollator(
                 processor=self.processor, tokenizer=self.tokenizer
             ),
@@ -212,7 +218,7 @@ class OCRModel:
         """
         trainer = TrOCRTrainer(
             model=self.model,
-            tokenizer=self.tokenizer,
+            processing_class=self.processor,
             args=self.training_args,
             compute_metrics=compute_metrics_fn,
             train_dataset=train_dataset,
@@ -462,7 +468,7 @@ class OCRModel:
 
         return Seq2SeqTrainingArguments(
             predict_with_generate=training_config.predict_with_generate,
-            evaluation_strategy=training_config.evaluation_strategy,
+            eval_strategy=training_config.eval_strategy,
             save_strategy=training_config.save_strategy,
             per_device_train_batch_size=training_config.per_device_train_batch_size,
             per_device_eval_batch_size=training_config.per_device_eval_batch_size,
@@ -479,6 +485,7 @@ class OCRModel:
             hub_token=self.settings.huggingface_api_key,
             dataloader_num_workers=4,
             dataloader_pin_memory=True,
+            evaluation_strategy="no" if self.evaluate_only else "epoch",
         )
 
     def _set_model_params(self) -> None:
@@ -509,6 +516,8 @@ class OCRModel:
         )
 
         self.model.generation_config = generation_config
+        self.model.encoder.gradient_checkpointing_enable()
+        self.model.decoder.gradient_checkpointing_enable()
 
     @staticmethod
     def compute_metrics(
@@ -570,3 +579,121 @@ class OCRModel:
                 return {"cer": float("nan"), "wer": float("nan")}
 
         return compute_predictions
+
+    def predict(
+        self,
+        train_dataset,
+        eval_dataset,
+        test_dataset,
+        compute_metrics_fn: Optional[Callable] = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate predictions on a dataset and calculate metrics for each item individually.
+
+        Args:
+            train_dataset: The training dataset.
+            eval_dataset: The evaluation dataset.
+            test_dataset: The dataset to generate predictions on.
+            compute_metrics_fn: Function to compute metrics (from setup_compute_metrics).
+
+        Returns:
+            Dict[str, Any]: A dictionary containing predictions, labels, and metrics.
+        """
+        logger.info(
+            f"Generating predictions on dataset with {len(test_dataset)} items..."
+        )
+
+        # Create a trainer instance
+        trainer = TrOCRTrainer(
+            model=self.model,
+            processing_class=self.processor,
+            args=self.training_args,
+            compute_metrics=compute_metrics_fn,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=TrOCRDataCollator(
+                processor=self.processor, tokenizer=self.tokenizer
+            ),
+        )
+
+        # Get predictions from the trainer
+        predictions = trainer.predict(test_dataset, metric_key_prefix="predict")
+
+        # Get raw predictions and labels
+        prediction_ids = predictions.predictions
+        label_ids = predictions.label_ids
+
+        # Calculate loss per item (if available)
+        per_item_loss = None
+        if hasattr(predictions, "losses") and predictions.losses is not None:
+            per_item_loss = predictions.losses.tolist()
+
+        # Decode predictions and labels
+        predicted_texts = self.tokenizer.batch_decode(
+            prediction_ids, skip_special_tokens=True
+        )
+
+        # Replace -100 values in label_ids with pad_token_id for decoding
+        label_ids_copy = label_ids.copy()
+        label_ids_copy[label_ids_copy == -100] = self.processor.tokenizer.pad_token_id
+        true_texts = self.tokenizer.batch_decode(
+            label_ids_copy, skip_special_tokens=True
+        )
+
+        # Initialize results structure
+        results = {
+            "predictions": predicted_texts,
+            "labels": true_texts,
+            "item_metrics": [],
+            "losses": per_item_loss,
+        }
+
+        # Calculate metrics for each item individually
+        if compute_metrics_fn is not None:
+            # Get metrics calculators from the existing setup
+            cer_metric = evaluate.load("cer")
+            wer_metric = evaluate.load("wer")
+
+            # Process each prediction/label pair
+            for idx, (pred_text, true_text) in enumerate(
+                zip(predicted_texts, true_texts)
+            ):
+                # Calculate metrics for this individual item
+                cer = cer_metric.compute(
+                    predictions=[pred_text], references=[true_text]
+                )
+                wer = wer_metric.compute(
+                    predictions=[pred_text], references=[true_text]
+                )
+
+                # Create basic metrics
+                item_metrics = {
+                    "prediction": pred_text,
+                    "label": true_text,
+                    "cer": cer,
+                    "wer": wer,
+                    "data_source": (
+                        test_dataset[idx]["dataset_source"]
+                        if "dataset_source" in test_dataset[idx]
+                        else None
+                    ),
+                    "file_name": (
+                        test_dataset[idx]["image_path"]
+                        if "image_path" in test_dataset[idx]
+                        else None
+                    ),
+                }
+
+                # Add loss if available
+                if per_item_loss is not None and idx < len(per_item_loss):
+                    item_metrics["loss"] = per_item_loss[idx]
+
+                results["item_metrics"].append(item_metrics)
+
+        # Include overall metrics
+        results["overall_metrics"] = {
+            key.replace("predict_", ""): value
+            for key, value in predictions.metrics.items()
+        }
+
+        return results
