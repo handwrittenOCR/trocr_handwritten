@@ -2,48 +2,46 @@
 
 ## Executive Summary
 
-This documentation presents a comprehensive pipeline designed to structure scanned French archives from the 19th century. Leveraging machine learning techniques, including Optical Character Recognition (OCR) and Large Language Models (LLM), we successfully extracted valuable data from historical scans, facilitating its utilization by economist researchers.We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives.
+This documentation presents a comprehensive pipeline designed to structure scanned French archives from the 19th century. We use machine learning techniques, including Optical Character Recognition (OCR) and Large Language Models (LLM). The objective of this pipeline is to facilitate data extraction from French handwritten archives.We took advantage of [Marie Beigelman](mariebeigelman.github.io)'s case study on 19th Century French Archives.
 
 Our key contributions encompass the following:
 
 1. **Open-Source Handwritten Data Processing Model:** We introduce an open-source model tailored for the processing of images containing handwritten French text. This model enables efficient transcription of handwritten content from scanned documents such as archives and extraction of key information from the transcribed text.
 
-2. **Manually French Labeled Handwritten Dataset:** To train our model effectively, we curated a meticulously labeled dataset of handwritten data. This dataset serves as a crucial resource for training and validating the model's accuracy. We provide this dataset soon on the [Hugging Face Hub](https://huggingface.co/datasets/).
+2. **Manually French Labeled Handwritten Dataset:** To train our model effectively, we curated a labeled dataset of handwritten data. This dataset serves is used to train and validate the model's accuracy. This dataset is available at [Hugging Face Hub](https://huggingface.co/datasets/).
 
-3. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step an independant script](/trocr_handwritten/README.md) that allow researchers to reproduce any part of our work. Additionally, these scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
-
-We anticipate that our contributions will greatly benefit economists in advancing their research and historians in efficiently processing extensive archival data across multiple languages with the help of other machine learning practionners.
+3. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step an independant script](/trocr_handwritten/README.md). These scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
 
 ## Overview of Pipeline Components
 
-In this section, we provide a concise overview of the primary components comprising the pipeline for archival data processing. If you want to use any of the components, please follow the instructions in the corresponding [README file](/trocr_handwritten/README.md).
+In this section, we provide an overview of the primary components comprising the pipeline for archival data processing. If you want to use any of the components, please follow the instructions in the corresponding [README file](/trocr_handwritten/README.md).
 
 ![Pipeline Diagram](images/main_pipeline.png "Main Pipeline")
 
-The pipeline, depicted in the image above, encompasses three fundamental stages:
+The pipeline, depicted in the image above, follows three stages:
 
-1. **Parsing Layout:** The initial stage involves layout parsing, wherein global images are segmented into smaller units, each containing a single line of text.
+1. **Parsing Layout:** layout parsing, wherein global images are segmented into smaller units, each containing a single line of text.
 
-2. **Optical Character Recognition (OCR) Module:** Following layout parsing, the OCR module takes center stage, transcribing individual images into text.
+2. **Optical Character Recognition (OCR) Module:** the OCR module transcribes individual images into text.
 
-3. **Named Entity Recognition (NER) Module:** In the final stage, the Named Entity Recognition module extracts key information from the transcribed archival content.
+3. **Named Entity Recognition (NER) Module:**  the Named Entity Recognition module extracts key information from the transcribed archival content using LLM's.
 
-Each of these pipeline components has been meticulously developed and optimized independently to ensure minimal interference with other elements. Our overarching goal is to foster modularity, allowing for the replacement or enhancement of individual components without disrupting the overall input/output pipeline.
+Each of these pipeline components has been developed and optimized independently to ensure minimal interference with other elements. Our overarching goal is to foster modularity, allowing for the replacement or enhancement of individual components without disrupting the overall input/output pipeline.
 
-In the subsequent sections, we delve into a more detailed exploration of each pipeline component. We invite the community to actively engage in improving these components and sharing their advancements, thus contributing to the continuous enhancement of this open-source pipeline for the benefit of all.
+In the subsequent sections, we present in more details each pipeline component. 
 
 ### Parsing Layout of a document
 
-Layout parsing is a document processing method that segments documents or images into distinct regions, enabling the analysis of their structure and arrangement. It plays a pivotal role in tasks like OCR and information extraction by categorizing content elements based on spatial relationships and visual traits, facilitating the automated understanding and indexing of diverse document types.
+Layout parsing is a document processing method that segments documents or images into distinct regions.
 
-To facilitate document segmentation, we harness the research conducted by Gruning et al. in 2018, specifically focusing on the ARU-Net framework as referenced in [@Gruning2018]. The [@Gruning2018] study presents a two-stage method using the ARU-Net neural network for detecting text lines in historical documents. It achieves remarkable performance, improving the F-value from 0.859 to 0.922 in the cBAD: ICDAR2017 Baseline Detection Competition, and the ARU-Net framework is available as an open-source resource for further research in this domain.
+To facilitate document segmentation, we rely on the research conducted by Gruning et al. in 2018 (ARU-NET framework). The [@Gruning2018] study presents a two-stage method using the ARU-Net neural network for detecting text lines in historical documents. It achieves high performance (the F-value improves from 0.859 to 0.922 in the cBAD: ICDAR2017 Baseline Detection Competition), and the ARU-Net framework is available as an open-source resource for further research in this domain.
 Additionally, we make use of the open-source implementation available at [this GitHub repository](https://github.com/NicSenn/ARU-Net-Pytorch/tree/main), which aligns with our segmentation objectives.
 
-We customized the existing methodology to suit the characteristics of 19th-century French archives. These historical documents typically consist of one or two pages of text with distinct margins and one text column per page. Identifying these columns accurately is crucial for consolidating the text effectively, as content from different columns at the same vertical position may be unrelated. Therefore, we chose to build upon the outputs of the ARU-Net model to determine the boundaries of each column, essentially dividing the final document into these columns. We employed statistical analysis to identify areas of high text density within the ARU-Net's XML outputs. Once we pinpointed the column boundaries, we focused on parsing each line consistently, ensuring lines of the same height were processed together to enhance the accuracy of our results.
+We customized the existing methodology to suit the characteristics of 19th-century French archives. These historical documents typically consist of one or two pages of text with distinct margins and one text column per page. Identifying these columns accurately is important for consolidating the text effectively, as content from different columns at the same vertical position may be unrelated. We build upon the outputs of the ARU-Net model to determine the boundaries of each column. We employed statistical analysis to identify areas of high text density within the ARU-Net's XML outputs. Once we pinpointed the column boundaries, we focused on parsing each line consistently, ensuring lines of the same height were processed together.
 
 ![Alt Image](images/layout-parsing.png "Layout parsing of a document")
 
-As part of our ongoing research endeavors, we intend to develop a tailored layout-parser that is specifically optimized for historical archive documents. Our aim is to enhance its capacity to accurately identify the precise regions within these documents where textual content is located. This adaptation is crucial for achieving a more refined and accurate document analysis process in the context of archival materials.
+As part of our ongoing research endeavors, we intend to develop a tailored layout-parser that is specifically optimized for historical archive documents. Our aim is to improve its capacity to accurately identify the precise regions within these documents where textual content is located. 
 
 To test the layout parsing we document all steps and how to use the script: [Layout Parsing](trocr_handwritten/README.md#-parsing-layout)
 
