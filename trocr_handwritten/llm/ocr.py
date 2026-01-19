@@ -84,8 +84,8 @@ async def process_image_async(
                 image_path, prompt
             )
             cost_tracker.add_usage(input_tokens, output_tokens)
-            if transcription is None:
-                logger.warning(f"Empty response for {image_path}")
+            if transcription is None or transcription.strip() == "":
+                logger.warning(f"Empty response for {image_path} after fallbacks")
                 failed_images[str(image_path)] = "empty_response"
                 return False
             with open(output_path, "w", encoding="utf-8") as f:
@@ -171,7 +171,7 @@ def main():
     parser.add_argument(
         "--max_concurrent",
         type=int,
-        default=5,
+        default=10,
         help="Maximum number of concurrent API calls",
     )
     args = parser.parse_args()

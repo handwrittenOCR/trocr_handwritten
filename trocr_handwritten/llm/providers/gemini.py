@@ -50,20 +50,11 @@ class GeminiProvider(LLMProvider):
             }
         ]
 
-    def ocr_image(self, image_path: Path, prompt: str) -> Tuple[str, int, int]:
-        """
-        Perform OCR on an image using Gemini vision models.
-
-        Args:
-            image_path: Path to the image file.
-            prompt: Prompt template for OCR extraction.
-
-        Returns:
-            Tuple of (transcribed text, input tokens, output tokens).
-        """
+    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
+        """Make a synchronous API call."""
         response = self.client.chat.completions.create(
-            model=self.settings.model_name,
-            messages=self._build_messages(image_path, prompt),
+            model=model,
+            messages=messages,
             temperature=self.settings.temperature,
             max_tokens=self.settings.max_tokens,
         )
@@ -72,22 +63,11 @@ class GeminiProvider(LLMProvider):
         output_tokens = response.usage.completion_tokens if response.usage else 0
         return text, input_tokens, output_tokens
 
-    async def ocr_image_async(
-        self, image_path: Path, prompt: str
-    ) -> Tuple[str, int, int]:
-        """
-        Perform OCR on an image asynchronously.
-
-        Args:
-            image_path: Path to the image file.
-            prompt: Prompt template for OCR extraction.
-
-        Returns:
-            Tuple of (transcribed text, input tokens, output tokens).
-        """
+    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
+        """Make an asynchronous API call."""
         response = await self.async_client.chat.completions.create(
-            model=self.settings.model_name,
-            messages=self._build_messages(image_path, prompt),
+            model=model,
+            messages=messages,
             temperature=self.settings.temperature,
             max_tokens=self.settings.max_tokens,
         )

@@ -34,7 +34,7 @@ class LLMSettings(BaseModel):
         description="Temperature for text generation",
     )
     max_tokens: int = Field(
-        default=4096,
+        default=128000,
         description="Maximum number of tokens to generate",
     )
     prompt_path: str = Field(

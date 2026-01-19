@@ -42,32 +42,23 @@ class OpenAIProvider(LLMProvider):
             }
         ]
 
-    def _is_new_model(self) -> bool:
+    def _is_new_model(self, model: str) -> bool:
         """Check if the model uses new API parameters (GPT-5+)."""
-        model = self.settings.model_name.lower()
+        model_lower = model.lower()
         return (
-            model.startswith("gpt-5")
-            or model.startswith("o1")
-            or model.startswith("o3")
+            model_lower.startswith("gpt-5")
+            or model_lower.startswith("o1")
+            or model_lower.startswith("o3")
         )
 
-    def ocr_image(self, image_path: Path, prompt: str) -> Tuple[str, int, int]:
-        """
-        Perform OCR on an image using OpenAI vision models.
-
-        Args:
-            image_path: Path to the image file.
-            prompt: Prompt template for OCR extraction.
-
-        Returns:
-            Tuple of (transcribed text, input tokens, output tokens).
-        """
+    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
+        """Make a synchronous API call."""
         params = {
-            "model": self.settings.model_name,
-            "messages": self._build_messages(image_path, prompt),
+            "model": model,
+            "messages": messages,
             "temperature": self.settings.temperature,
         }
-        if self._is_new_model():
+        if self._is_new_model(model):
             params["max_completion_tokens"] = self.settings.max_tokens
         else:
             params["max_tokens"] = self.settings.max_tokens
@@ -78,25 +69,14 @@ class OpenAIProvider(LLMProvider):
         output_tokens = response.usage.completion_tokens
         return text, input_tokens, output_tokens
 
-    async def ocr_image_async(
-        self, image_path: Path, prompt: str
-    ) -> Tuple[str, int, int]:
-        """
-        Perform OCR on an image asynchronously.
-
-        Args:
-            image_path: Path to the image file.
-            prompt: Prompt template for OCR extraction.
-
-        Returns:
-            Tuple of (transcribed text, input tokens, output tokens).
-        """
+    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
+        """Make an asynchronous API call."""
         params = {
-            "model": self.settings.model_name,
-            "messages": self._build_messages(image_path, prompt),
+            "model": model,
+            "messages": messages,
             "temperature": self.settings.temperature,
         }
-        if self._is_new_model():
+        if self._is_new_model(model):
             params["max_completion_tokens"] = self.settings.max_tokens
         else:
             params["max_tokens"] = self.settings.max_tokens
