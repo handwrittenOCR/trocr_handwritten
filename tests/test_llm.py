@@ -28,7 +28,7 @@ class TestLLMSettings:
 
     def test_max_tokens_default(self):
         settings = LLMSettings()
-        assert settings.max_tokens == 4096
+        assert settings.max_tokens == 128000
 
     def test_custom_settings(self):
         settings = LLMSettings(
@@ -162,7 +162,7 @@ class TestOpenAIProvider:
         with patch.object(OpenAIProvider, "_init_client"):
             settings = LLMSettings(provider="openai", model_name="gpt-5.2")
             provider = OpenAIProvider(settings)
-            assert provider._is_new_model() is True
+            assert provider._is_new_model("gpt-5.2") is True
 
     def test_is_new_model_gpt4(self):
         from trocr_handwritten.llm.providers.openai import OpenAIProvider
@@ -170,7 +170,7 @@ class TestOpenAIProvider:
         with patch.object(OpenAIProvider, "_init_client"):
             settings = LLMSettings(provider="openai", model_name="gpt-4o")
             provider = OpenAIProvider(settings)
-            assert provider._is_new_model() is False
+            assert provider._is_new_model("gpt-4o") is False
 
     def test_is_new_model_o1(self):
         from trocr_handwritten.llm.providers.openai import OpenAIProvider
@@ -178,7 +178,7 @@ class TestOpenAIProvider:
         with patch.object(OpenAIProvider, "_init_client"):
             settings = LLMSettings(provider="openai", model_name="o1-preview")
             provider = OpenAIProvider(settings)
-            assert provider._is_new_model() is True
+            assert provider._is_new_model("o1-preview") is True
 
 
 class TestProviderBase:
