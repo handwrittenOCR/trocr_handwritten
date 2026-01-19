@@ -8,10 +8,10 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
 python-dotenv = "^1.0.0"
-torch = "^2.2.0"
-transformers = "^4.38.1"
+torch = "^2.5.0"
+transformers = "^4.46.0"
 albumentations = "^1.4.0"
-torchvision = "^0.17.0"
+torchvision = "^0.20.0"
 shapely = "^2.0.3"
 opencv-python = "^4.9.0.80"
 matplotlib = "^3.8.3"
@@ -30,6 +30,9 @@ boto3 = "^1.36.22"
 click = "^8.1.7"
 tabulate = "^0.9.0"
 ipywidgets = "^8.1.5"
+filelock = ">=3.20.3"
+urllib3 = ">=2.6.3"
+aiohttp = ">=3.13.3"
 
 
 [tool.poetry.group.dev.dependencies]
