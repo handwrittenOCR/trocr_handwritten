@@ -729,6 +729,25 @@ Analyse l'image fournie et transcris fidèlement le texte manuscrit qu'elle cont
 ...
 ```
 
+### 📓 Usage in Notebook
+
+To test LLM OCR on a single image in a Jupyter notebook:
+
+```python
+from pathlib import Path
+from trocr_handwritten.llm.settings import LLMSettings
+from trocr_handwritten.llm.factory import get_provider
+
+settings = LLMSettings(provider="gemini", model_name="gemini-2.0-flash")
+provider = get_provider(settings)
+
+prompt = Path("config/ocr.prompt").read_text()
+image_path = Path("data/processed/images/document/Plein Texte/000.jpg")
+
+text, input_tokens, output_tokens = provider.ocr_image(image_path, prompt)
+print(text)
+```
+
 ## 🗃️ Named Entity Recognition (NER) with LLM
 
 ### 🎯 Objective
