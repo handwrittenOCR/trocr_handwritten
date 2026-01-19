@@ -1,7 +1,7 @@
 from pathlib import Path
 from doclayout_yolo import YOLOv10
 from huggingface_hub import hf_hub_download
-from settings import LayoutParserSettings
+from trocr_handwritten.parse.settings import LayoutParserSettings
 import logging
 import cv2
 import json

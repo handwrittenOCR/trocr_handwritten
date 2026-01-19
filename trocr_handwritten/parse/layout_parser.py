@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import json
 from os.path import join
-from utils import YOLOv10Model, create_via_json, create_structured_crops
-from settings import LayoutParserSettings
-import logging
+from trocr_handwritten.parse.utils import (
+    YOLOv10Model,
+    create_via_json,
+    create_structured_crops,
+)
+from trocr_handwritten.parse.settings import LayoutParserSettings
+from trocr_handwritten.utils.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logger = get_logger(__name__)
 
 
 def main(settings: LayoutParserSettings, logger):

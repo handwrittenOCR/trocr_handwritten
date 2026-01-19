@@ -1,4 +1,3 @@
-import logging
 import argparse
 import torch
 from PIL import Image
@@ -12,11 +11,9 @@ from transformers import (
 )
 from huggingface_hub import login
 from tqdm import tqdm
+from trocr_handwritten.utils.logging_config import get_logger
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def find_lines_folders(root_dir: str) -> List[str]:
