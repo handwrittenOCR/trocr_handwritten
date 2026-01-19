@@ -622,6 +622,132 @@ data/
         └── transcriptions.txt
 ```
 
+## 🤖 LLM-based OCR
+
+### 🎯 Objective
+
+The LLM OCR module provides an alternative approach to handwritten text recognition using vision-capable Large Language Models. Instead of using TrOCR, this module sends document images directly to LLM APIs (OpenAI, Google Gemini, or Mistral) for transcription.
+
+### 🛠️ Supported Providers
+
+| Provider | Default Model | Vision Support |
+|----------|--------------|----------------|
+| OpenAI | gpt-5.2 | Yes |
+| Gemini | gemini-3-pro-preview | Yes |
+| Mistral | mistral-large-latest | Yes |
+
+### 📜 How to Use
+
+1. **Set up API keys** in your `.env` file:
+
+```bash
+OPENAI_API_KEY=your_openai_key
+GOOGLE_API_KEY=your_google_key
+MISTRAL_API_KEY=your_mistral_key
+```
+
+2. **Run the OCR script**:
+
+```bash
+python -m trocr_handwritten.llm.ocr
+```
+
+#### Command-line Options
+
+```bash
+python -m trocr_handwritten.llm.ocr \
+    --provider gemini \
+    --model gemini-3-pro-preview \
+    --input_dir data/processed/images \
+    --pattern "*/*/*.jpg" \
+    -n 10 \
+    --max_concurrent 5
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--provider` | LLM provider (openai, gemini, mistral) | gemini |
+| `--model` | Model name | Provider default |
+| `--input_dir` | Root directory with images | data/processed/images |
+| `--pattern` | Glob pattern for images | `*/*/*.jpg` |
+| `-n` | Limit number of images | None (all) |
+| `--max_concurrent` | Parallel API calls | 5 |
+| `--prompt_path` | Custom prompt file | config/ocr.prompt |
+
+### 📁 Output Structure
+
+For each image `000.jpg`, a corresponding `000.md` file is created:
+
+```bash
+data/processed/images/
+└── document_folder/
+    └── Plein Texte/
+        ├── 000.jpg
+        ├── 000.md  # Transcription
+        ├── 001.jpg
+        └── 001.md
+```
+
+### 💰 Cost Tracking
+
+The script automatically tracks API usage and displays costs at the end:
+
+```
+========================================
+Cost Summary
+========================================
+Model: gemini-3-pro-preview
+Total calls: 50
+Input tokens: 125,000
+Output tokens: 2,500
+Estimated cost: $0.2800
+```
+
+### ⚠️ Error Handling
+
+Failed transcriptions are logged to `data/processed/images/failed_ocr.json`:
+
+```json
+{
+  "timestamp": "2025-01-19T16:50:00",
+  "model": "gemini-3-pro-preview",
+  "provider": "gemini",
+  "failed_count": 2,
+  "images": {
+    "path/to/image.jpg": "error message"
+  }
+}
+```
+
+### 🔧 Custom Prompts
+
+Edit `config/ocr.prompt` to customize the transcription instructions:
+
+```
+Tu es un expert en transcription de documents manuscrits historiques français.
+Analyse l'image fournie et transcris fidèlement le texte manuscrit qu'elle contient.
+...
+```
+
+### 📓 Usage in Notebook
+
+To test LLM OCR on a single image in a Jupyter notebook:
+
+```python
+from pathlib import Path
+from trocr_handwritten.llm.settings import LLMSettings
+from trocr_handwritten.llm.factory import get_provider
+
+settings = LLMSettings(provider="gemini", model_name="gemini-2.0-flash")
+provider = get_provider(settings)
+
+prompt = Path("config/ocr.prompt").read_text()
+image_path = Path("data/processed/images/document/Plein Texte/000.jpg")
+
+text, input_tokens, output_tokens = provider.ocr_image(image_path, prompt)
+print(text)
+```
+
 ## 🗃️ Named Entity Recognition (NER) with LLM
 
 ### 🎯 Objective
