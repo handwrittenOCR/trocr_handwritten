@@ -4,6 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class LayoutParserSettings:
     path_folder: str = "data/raw/images"
+    # in the case that preprocessing works, modify to "data/raw/images/preprocess"
     path_output: str = "data/processed/images"
     path_model: str = "models/yolo_layout_model/20250111_yolov10_bagnards_EC.pt"
     hf_repo: str = None
