@@ -4,7 +4,6 @@ import random
 import shutil
 from pathlib import Path
 
-
 SPLIT_WEIGHTS = {"train": 0.7, "test": 0.2, "dev": 0.1}
 SPLITS = list(SPLIT_WEIGHTS.keys())
 
