@@ -57,9 +57,7 @@ def _read_inference(image_path, inference_ext):
     return ""
 
 
-OCR_ANNOTATE_CSS = (
-    ANNOTATE_BASE_CSS
-    + """
+OCR_ANNOTATE_CSS = ANNOTATE_BASE_CSS + """
 .main { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 .split-left { flex: 1; display: flex; justify-content: center; align-items: center;
               overflow: auto; padding: 0.5rem; background: #1a1a2e; }
@@ -73,7 +71,6 @@ OCR_ANNOTATE_CSS = (
 .info { font-size: 0.8rem; color: #8892b0; padding: 0.3rem 0.5rem; text-align: center; }
 .info strong { color: #ccd6f6; }
 """
-)
 
 OCR_ANNOTATE_JS = """
 const textarea = document.getElementById('transcription');
