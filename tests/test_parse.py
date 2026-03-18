@@ -145,11 +145,18 @@ class TestYOLOModel:
         """Create mock logger."""
         return Mock()
 
+    @patch("trocr_handwritten.parse.utils._get_hf_token", return_value=None)
     @patch("trocr_handwritten.parse.utils._detect_model_backend")
     @patch("trocr_handwritten.parse.utils.hf_hub_download")
     @patch("trocr_handwritten.parse.utils._load_model")
     def test_load_from_hf(
-        self, mock_load, mock_download, mock_detect, mock_settings, mock_logger
+        self,
+        mock_load,
+        mock_download,
+        mock_detect,
+        mock_token,
+        mock_settings,
+        mock_logger,
     ):
         """Test loading model from HuggingFace Hub."""
         mock_download.return_value = "/path/to/model.pt"
@@ -191,11 +198,18 @@ class TestYOLOModel:
         with pytest.raises(ValueError, match="Either path_model or hf_repo"):
             YOLOModel(settings, mock_logger)
 
+    @patch("trocr_handwritten.parse.utils._get_hf_token", return_value=None)
     @patch("trocr_handwritten.parse.utils._detect_model_backend")
     @patch("trocr_handwritten.parse.utils.hf_hub_download")
     @patch("trocr_handwritten.parse.utils._load_model")
     def test_predict_calls_model(
-        self, mock_load, mock_download, mock_detect, mock_settings, mock_logger
+        self,
+        mock_load,
+        mock_download,
+        mock_detect,
+        mock_token,
+        mock_settings,
+        mock_logger,
     ):
         """Test that predict calls the underlying model."""
         mock_download.return_value = "/path/to/model.pt"
