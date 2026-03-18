@@ -1,7 +1,5 @@
 import argparse
-import colorsys
 import json
-import random
 import webbrowser
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -10,80 +8,28 @@ from urllib.parse import parse_qs, urlparse
 
 from trocr_handwritten.parse.settings import CLASS_NAMES, CLASS_NAMES_LIST
 from trocr_handwritten.parse.utils import _load_model
+from trocr_handwritten.utils.annotation import (
+    assign_split,
+    generate_colors,
+    collect_images,
+    load_split_annotations,
+    save_split_annotations,
+)
 from trocr_handwritten.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
 LAYOUT_DIR = Path("data/layout")
-SPLIT_WEIGHTS = {"train": 0.7, "test": 0.2, "dev": 0.1}
-SPLITS = list(SPLIT_WEIGHTS.keys())
-
-
-def _generate_colors(n):
-    """
-    Generate n visually distinct colors using HSV spacing.
-
-    Args:
-        n: Number of colors to generate
-
-    Returns:
-        list: List of hex color strings
-    """
-    colors = []
-    for i in range(n):
-        hue = i / n
-        r, g, b = colorsys.hsv_to_rgb(hue, 0.75, 0.95)
-        colors.append(f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}")
-    return colors
-
-
-def _assign_split():
-    """Randomly assign a split based on SPLIT_WEIGHTS (train=0.7, test=0.2, dev=0.1)."""
-    r = random.random()
-    cumulative = 0.0
-    for split, weight in SPLIT_WEIGHTS.items():
-        cumulative += weight
-        if r < cumulative:
-            return split
-    return "train"
 
 
 def _load_annotations():
-    """Load existing annotations from all split JSON files into a single list."""
-    all_annotations = []
-    for split in SPLITS:
-        path = LAYOUT_DIR / split / "annotations.json"
-        if path.exists():
-            with open(path, encoding="utf-8") as f:
-                entries = json.load(f)
-                for entry in entries:
-                    entry["split"] = split
-                all_annotations.extend(entries)
-    return all_annotations
+    """Load existing layout annotations."""
+    return load_split_annotations(LAYOUT_DIR)
 
 
 def _save_annotations(annotations):
-    """Save annotations to per-split JSON files."""
-    by_split = {s: [] for s in SPLITS}
-    for a in annotations:
-        split = a.get("split", "train")
-        by_split[split].append(a)
-
-    for split, entries in by_split.items():
-        split_dir = LAYOUT_DIR / split
-        split_dir.mkdir(parents=True, exist_ok=True)
-        path = split_dir / "annotations.json"
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(entries, f, indent=2, ensure_ascii=False)
-
-
-def _collect_images(images_dir):
-    """Collect all image files from a directory."""
-    extensions = ("*.jpg", "*.jpeg", "*.png")
-    images = []
-    for ext in extensions:
-        images.extend(Path(images_dir).glob(ext))
-    return sorted(images)
+    """Save layout annotations."""
+    save_split_annotations(annotations, LAYOUT_DIR)
 
 
 def _prefill_image(image_path, model):
@@ -464,7 +410,7 @@ def _build_annotate_html(
 ):
     """Build the annotation page HTML."""
     classes_dict = {int(k): v for k, v in CLASS_NAMES.items()}
-    colors = _generate_colors(len(CLASS_NAMES))
+    colors = generate_colors(len(CLASS_NAMES))
     colors_dict = {i: colors[i] for i in range(len(CLASS_NAMES))}
 
     boxes_json = json.dumps(initial_boxes)
@@ -651,7 +597,7 @@ class AnnotationHandler(SimpleHTTPRequestHandler):
                     "image_width": img_w,
                     "image_height": img_h,
                     "boxes": boxes,
-                    "split": _assign_split(),
+                    "split": assign_split(),
                 }
             )
 
@@ -679,7 +625,7 @@ class AnnotationHandler(SimpleHTTPRequestHandler):
 
 def annotate(images_dir, prefill=False, model_path=None, port=8789):
     """Start the annotation server."""
-    images = _collect_images(images_dir)
+    images = collect_images(images_dir)
     if not images:
         logger.error(f"No images found in {images_dir}")
         return
