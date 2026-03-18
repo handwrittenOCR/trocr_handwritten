@@ -96,6 +96,7 @@ function saveText() {
         return r.json();
     }).then(data => {
         showToast('Saved');
+        setTimeout(() => { window.location.href = '/annotate?idx=' + PAGE_IDX; }, 500);
     }).catch(err => {
         showToast('Error: ' + err.message);
     });
@@ -304,7 +305,10 @@ class OCRAnnotationHandler(SimpleHTTPRequestHandler):
         self.state["n_annotated"] = sum(1 for a in annotations if a.get("text"))
         save_split_annotations(annotations, OCR_DIR)
 
-        self._send_json({"ok": True})
+        if image_path in self.state["images"]:
+            self.state["images"].remove(image_path)
+
+        self._send_json({"ok": True, "total": len(self.state["images"])})
 
     def _send_html(self, html):
         data = html.encode("utf-8")
@@ -339,16 +343,27 @@ def annotate(images_dir, inference_ext=".md", import_dir=None, port=8790):
         import_legacy_annotations(import_dir, str(OCR_DIR), logger)
 
     images_root = Path(images_dir).resolve()
-    images = collect_images_recursive(images_dir)
-    if not images:
+    all_images = collect_images_recursive(images_dir)
+    if not all_images:
         logger.error(f"No images found in {images_dir}")
         return
 
-    logger.info(f"Found {len(images)} images in {images_dir}")
-
     annotations = load_split_annotations(OCR_DIR)
-    n_annotated = sum(1 for a in annotations if a.get("text"))
-    logger.info(f"Already annotated: {n_annotated}")
+    annotated_keys = {
+        (a["filename"], a.get("subfolder", "")) for a in annotations if a.get("text")
+    }
+
+    images = [
+        img
+        for img in all_images
+        if (img.name, _get_subfolder(img, images_root)) not in annotated_keys
+    ]
+
+    n_annotated = len(annotated_keys)
+    logger.info(
+        f"Found {len(all_images)} images, {n_annotated} already annotated, "
+        f"{len(images)} remaining"
+    )
 
     state = {
         "images": images,
