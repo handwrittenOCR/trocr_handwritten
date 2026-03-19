@@ -72,195 +72,159 @@ source .venv/bin/activate
 
 #### 🎯 Objective
 
-The objective of this script is to process historical document images and parse their layout using a fine-tuned YOLOv10 model. The script identifies different document elements (such as titles, headers, margins, names, text blocks, signatures, and tables) and can output both structured cropped images and VIA-format annotations. The model goes much faster (~x10) on a GPU (1s/image on CPU vs 0.1s/image on GPU A10).
+The layout parser detects document regions using a YOLO model. It supports both legacy YOLOv10 models (via `doclayout-yolo`) and new YOLO11 models (via `ultralytics`). The backend is auto-detected from the checkpoint. The model runs ~x10 faster on GPU (0.1s/image on A10 vs 1s/image on CPU).
 
-#### 🛠️ How it works
+#### Detected classes
 
-The script works in the following steps:
+| ID | Class |
+|----|-------|
+| 0 | Title |
+| 1 | En-tête |
+| 2 | Marge |
+| 3 | Nom |
+| 4 | Plein Texte |
+| 5 | Signature |
+| 6 | Table |
+| 7 | Section |
 
-1. **Model Loading**: The script loads a YOLOv10 model either from a local file or from the HuggingFace Hub.
+#### 📜 Applying the layout parser
 
-2. **Layout Detection**: The model processes input images and detects various document elements, assigning them to predefined classes:
-   - Title
-   - Header
-   - Margin
-   - Name
-   - Full Text
-   - Signature
-   - Table
-   - Section
-3. **Output Generation**: The script can generate two types of outputs:
-   - Structured cropped images organized by document element type
-   - VIA-format JSON annotations for further processing or visualization (optional)
+Configure via `LayoutParserSettings` in `trocr_handwritten/parse/settings.py`:
 
-#### 📜 How to apply the script
-
-To apply the script, you need to have a set of images of historical documents in a folder.
-
-1. **Set the settings**
-
-You should configure the script using the `LayoutParserSettings` class with the following parameters in `trocr_handwritten/parse/settings.py`:
-
-- `path_folder`: Path to input images (default: "data/raw/images")
-- `path_output`: Path for processed outputs (default: "data/processed/images/")
-- `path_model`: Path to local model file (optional if None you should have a model in the HuggingFace Hub)
-- `hf_repo`: HuggingFace repository name (default: "agomberto/historical-layout-ft")
-- `hf_filename`: Model filename in HF repo (default: "20241119_v2_yolov10_50_finetuned.pt")
-- `device`: Computing device ("cpu" or "cuda")
+- `path_folder`: Input images directory (default: `data/raw/images`)
+- `path_output`: Output directory (default: `data/processed/images/`)
+- `path_model`: Local `.pt` model path (optional, uses HF if None)
+- `hf_repo` / `hf_filename`: HuggingFace model repo and filename
+- `device`: `"cpu"`, `"cuda"`, or `"mps"`
 - `conf`: Confidence threshold (default: 0.2)
-- `iou`: Intersection over Union threshold (default: 0.5)
-- `create_annotation_json`: Whether to create a file for [VIA annotations](https://annotate.officialstatistics.org/) (default: True)
-
-2. **Run the script**
+- `iou`: IoU threshold (default: 0.5)
 
 ```bash
-python trocr_handwritten/parse/layout_parser.py
+python -m trocr_handwritten.parse.layout_parser
 ```
 
-The final directory structure will be:
+Output structure:
 
-```bash
-|-data
-  |-raw
-     |-images
-        |-document1.jpg
-        |-document2.jpg
-  |-processed
-     |-images
-        |-document1
-           |-Title
-              |-000.jpg
-           |-Plein Texte
-              |-000.jpg
-              |-001.jpg
-           |-metadata.json
+```
+data/processed/images/
+  document1/
+    Title/
+      000.jpg
+    Plein Texte/
+      000.jpg
+      001.jpg
+    metadata.json
 ```
 
-#### On Notebooks
-
-Once again, be sure to set the settings in the `LayoutParserSettings` class in `trocr_handwritten/parse/settings.py`.
-Example usage:
+In a notebook:
 
 ```python
 from trocr_handwritten.parse.settings import LayoutParserSettings
-from trocr_handwritten.parse.utils import YOLOv10Model
+from trocr_handwritten.parse.utils import YOLOModel
 
 settings = LayoutParserSettings()
-model = YOLOv10Model(settings, logger)
+model = YOLOModel(settings, logger)
 results = model.predict(settings.path_folder)
 ```
 
-The script will process all images in the input folder and create:
-1. A structured folder system containing cropped images for each detected element
-2. A metadata.json file for each processed document containing coordinates and classifications
-3. (Optional) VIA-format annotations for visualization and further processing
+### 🏷️ Annotating data
 
-### 🚅 Training a customed layout parser
+The built-in annotation tool launches a local HTML server where you can draw, move, resize and delete bounding boxes on your images. Each annotation is randomly assigned to a split (70% train, 20% test, 10% dev) and saved to `data/layout/{split}/annotations.json`.
 
-The layout parser can be fine-tuned on your own dataset using our provided scripts. We'll guide you through the process using cloud GPU resources (specifically Lambda Labs A10/A100).
+The available classes always come from `CLASS_NAMES` in `settings.py`. When using `--prefill`, the model's detections are filtered to only keep classes matching `CLASS_NAMES` (other detections are ignored).
 
-#### Architecture Overview
-
-Our fine-tuning pipeline consists of several components:
-
-1. **Environment Setup** (`install_doclayout.sh`):
-   - Installs Miniconda and creates a dedicated environment (it uses python 3.10 instead of 3.11 that we use in the rest of the project)
-   - Clones and installs DocLayout-YOLO dependencies
-   - Sets up necessary Python packages
-   - Connects to HuggingFace hub
-
-2. **Data Preparation** (`prepare_data.sh`):
-   - Downloads dataset from Hugging Face Hub
-   - Creates YOLO-format directory structure
-   - Splits images and labels into train/val sets
-   - Downloads configuration and pretrained model
-
-3. **Training and Model Publishing** (`train_yolo.sh`):
-   - Configures training parameters
-   - Runs training process with specified hyperparameters
-   - Saves best model checkpoint
-   - Uploads trained model to Hugging Face Hub
-   - Handles versioning and metadata
-
-#### Step-by-Step Guide
-
-1. **Install Doclayout Environment**
 ```bash
-cd trocr_handwritten/parse
-chmod +x *.sh
-./install_doclayout.sh
+python -m trocr_handwritten.parse.annotate data/raw/images/
 ```
 
-2. **Prepare Data, Train and Push Model**
+To pre-fill bounding boxes using an existing model:
+
 ```bash
-source ~/.bashrc
-conda activate doclayout_yolo
-cd DocLayout-YOLO
-chmod +x *.sh
-./prepare_data_and_train.sh
+python -m trocr_handwritten.parse.annotate data/raw/images/ \
+    --prefill --model models/20241119_v2_yolov10_50_finetuned.pt
 ```
 
-NB: you may have to modify the `~/.config/Ultralytics/settings.yaml` file to set the good path to the dataset and then run the script again.
+| Shortcut | Action |
+|----------|--------|
+| 1-8 | Select class |
+| Click + drag | Draw bbox |
+| Click bbox | Select (move / resize corners) |
+| Delete | Remove selected bbox |
+| S | Save |
+| Left / Right | Navigate images |
+| Scroll | Zoom |
 
-#### Using Lambda Labs
+### 🚅 Training a layout parser
 
-To run this on Lambda Labs A10/A100:
+Training reads the `annotations.json` files from each split, creates YOLO-format images + labels, and fine-tunes a YOLO11 model.
 
-1. **Create Instance**:
-   - Visit [Lambda Labs Console](https://cloud.lambdalabs.com)
-   - Select A10 (24GB) or A100 (40GB/80GB) instance
-   - Choose Ubuntu 20.04 image
+Download a base model first (e.g. `yolo11n.pt`, `yolo11s.pt`, `yolo11m.pt`):
 
-2. **SSH to Instance**:
+```python
+from ultralytics import YOLO
+YOLO("yolo11n.pt")
+```
+
+Then train:
+
+```bash
+python -m trocr_handwritten.parse.train \
+    --path-data data/layout \
+    --images-dir data/raw/images \
+    --model-base models/yolo11n.pt \
+    --epochs 50 \
+    --batch 8 \
+    --device auto
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--path-data` | `data/layout` | Root directory with split annotations |
+| `--images-dir` | `data/raw/images` | Source directory with original images |
+| `--model-base` | `yolo11n.pt` | Base YOLO11 checkpoint (n/s/m/l/x) |
+| `--epochs` | 50 | Number of training epochs |
+| `--batch` | 8 | Batch size |
+| `--device` | `auto` | Device (auto, cpu, cuda, mps) |
+| `--patience` | 20 | Early stopping patience |
+| `--freeze` | 0 | Freeze first N layers |
+
+The best checkpoint is saved to `data/layout/models/best.pt`.
+
+#### Evaluation
+
+```bash
+python -m trocr_handwritten.parse.metrics \
+    --path-data data/layout \
+    --model data/layout/models/best.pt \
+    --split test
+```
+
+Outputs per-class Precision / Recall / F1 and overall metrics.
+
+#### Push model to HuggingFace
+
+```bash
+python -m trocr_handwritten.parse.push_model \
+    --model-path data/layout/models/best.pt \
+    --repo-id agomberto/historical-layout-ft \
+    --filename best_yolo11.pt
+```
+
+The model can then be loaded for inference by setting `hf_filename` in `LayoutParserSettings`.
+
+#### Using a cloud GPU
+
 ```bash
 ssh ubuntu@<instance-ip>
+git clone https://github.com/handwrittenOCR/trocr_handwritten.git
+cd trocr_handwritten
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+uv run python -m trocr_handwritten.parse.train \
+    --images-dir data/raw/images --device auto --batch 16
 ```
 
-3. **Clone and Setup**:
-```bash
-git clone https://github.com/agomberto/trocr_handwritten.git
-cd trocr_handwritten/parse
-./install_doclayout.sh
-```
-
-4. **Training Configuration**:
-For A10 (24GB), recommended settings in `train_yolo.sh`:
-```bash
-BATCH_SIZE=8
-IMAGE_SIZE=1024
-```
-
-For A100 (80GB), you can increase to:
-```bash
-BATCH_SIZE=16
-IMAGE_SIZE=1024
-```
-
-5. **Monitor Training**:
-- Training progress is logged in `yolo_ft/`
-- Use `nvidia-smi` to monitor GPU usage
-- Results will be saved in `yolo_ft/best.pt`
-
-#### Training Parameters
-
-Key parameters in `train_yolo.sh`:
-```bash
-EPOCHS=50        # Number of training epochs
-PATIENCE=5       # Early stopping patience
-BATCH_SIZE=8     # Batch size per GPU
-LR=0.001         # Initial learning rate
-```
-
-Adjust these based on your GPU memory and dataset size. For the A100, you can typically use larger batch sizes and potentially increase the image size.
-
-#### Expected Results
-
-After training, you should see:
-- Training metrics in `yolo_ft/`
-- Best model saved as `yolo_ft/best.pt`
-- Validation results including mAP scores
-
-The model can then be pushed to the Hugging Face Hub using the provided script for easy sharing and versioning.
+Recommended batch sizes: A10 (24GB) → 8, A100 (80GB) → 16.
 
 ### 📦 Data Management with AWS S3
 
