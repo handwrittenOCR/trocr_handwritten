@@ -707,6 +707,65 @@ text, input_tokens, output_tokens = provider.ocr_image(image_path, prompt)
 print(text)
 ```
 
+### 🏷️ Annotating OCR transcriptions
+
+The OCR annotation tool displays each image alongside a textarea pre-filled with the LLM transcription (`.md` file). You correct the text and save — each sample is assigned to a split (train 70%, test 20%, dev 10%).
+
+```bash
+python -m trocr_handwritten.llm.annotate data/processed/images/
+```
+
+To import existing annotated data from the legacy format (`{subfolder}/images/*.jpg` + `label/*.txt`):
+
+```bash
+python -m trocr_handwritten.llm.annotate data/processed/images/ \
+    --import-dir data/ocr/images/20250127-annotated/
+```
+
+Saved annotations go to `data/ocr/{split}/`:
+- `images/{subfolder}/filename.jpg`
+- `labels/{subfolder}/filename.txt`
+- `annotations.json`
+
+| Shortcut | Action |
+|----------|--------|
+| Ctrl+S | Save transcription |
+| Left / Right | Navigate images |
+
+### 📊 OCR Metrics
+
+Evaluate OCR quality by comparing predictions with reference labels. The workflow is:
+
+1. Apply the LLM OCR on the test images (generates `.md` files next to images):
+
+```bash
+python -m trocr_handwritten.llm.ocr \
+    --input_dir data/ocr/test/images \
+    --provider gemini
+```
+
+2. Compare predictions vs labels:
+
+```bash
+python -m trocr_handwritten.llm.metrics \
+    --predictions data/ocr/test/images \
+    --labels data/ocr/test/labels
+```
+
+Metrics computed per image and per subfolder:
+- **CER** (Character Error Rate)
+- **WER** (Word Error Rate)
+- **Levenshtein distance** (character edits)
+- **Exact match** (% perfectly identical)
+
+Output:
+```
+      Subfolder      CER     WER     Lev  Exact%     N
+    Plein Texte   0.0450  0.1210    12.3    8.0%    25
+          Marge   0.0820  0.1950    18.7    4.0%    10
+            ALL   0.0520  0.1380    14.2    6.5%    35
+```
+
 ## 🗃️ Named Entity Recognition (NER) with LLM
 
 ### 🎯 Objective
