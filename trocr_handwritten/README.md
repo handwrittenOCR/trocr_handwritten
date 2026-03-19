@@ -26,11 +26,11 @@ Start by cloning the GitHub repository to your local machine. Open a terminal an
 git clone https://github.com/handwrittenOCR/trocr_handwritten.git
 ```
 
-### Step 2: Install Poetry
-`Poetry` is a tool for dependency management in Python. Install it with the following command:
+### Step 2: Install uv
+`uv` is a fast Python package manager. Install it with the following command:
 
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ### Step 3: Install Dependencies
@@ -38,18 +38,14 @@ curl -sSL https://install.python-poetry.org | python3 -
 Navigate to the `trocr_handwritten` directory and install the dependencies with the following command:
 
 ```bash
-# Install main dependencies without kraken
-poetry install
+uv sync
 ```
 
-NB: If you have Python 3.10 installed, you can use the following command to install the dependencies:
+NB: If you need a specific Python version:
 
 ```bash
-sudo apt update
-sudo apt install python3.11
-poetry env use python3.11
-# poetry install
-poetry install
+uv venv --python 3.11
+uv sync
 ```
 
 Note: The kraken package for line segmentation has specific dependency requirements. It will be installed separately when needed. See the [Line Segmentation](#-line-segmentation) section for details.
@@ -59,16 +55,15 @@ Note: The kraken package for line segmentation has specific dependency requireme
 Pre-commit hooks help to catch issues before code is committed to the repository. Install the pre-commit package and set up the pre-commit hooks with the following commands:
 
 ```bash
-poetry run pre-commit install
+uv run pre-commit install
 ```
 
 ### Step 5: Activate the environment
 
-Activate the Poetry-managed virtual environment before working:
+Activate the virtual environment before working:
 
 ```bash
-poetry self add poetry-plugin-shell
-poetry shell
+source .venv/bin/activate
 ```
 
 ## 🔬 Parsing Layout

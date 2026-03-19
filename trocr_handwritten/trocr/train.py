@@ -10,7 +10,6 @@ from trocr_handwritten.trocr.settings import (
     TrainerDatasetsSettings,
 )
 
-
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )

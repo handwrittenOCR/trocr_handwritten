@@ -4,7 +4,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
-
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_FORMAT_SIMPLE = "%(levelname)s - %(message)s"
 DEFAULT_LEVEL = logging.INFO
