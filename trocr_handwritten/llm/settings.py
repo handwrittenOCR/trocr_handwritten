@@ -14,7 +14,7 @@ class LLMSettings(BaseModel):
         description="LLM provider to use for OCR",
     )
     model_name: str = Field(
-        default="gemini-2.0-flash",
+        default="gemini-3-pro-preview",
         description="Model name to use for inference",
     )
     openai_api_key: Optional[str] = Field(
@@ -46,10 +46,8 @@ class LLMSettings(BaseModel):
 class OCRSettings(BaseModel):
     """Configuration settings for OCR processing pipeline."""
 
-    input_dir: str = Field(
-        default="data/processed/images",
-        description="Root directory containing processed images",
-    )
+    input_dir: str = "data/processed/images"
+
     image_pattern: str = Field(
         default="*/*/*.jpg",
         description="Glob pattern to find images relative to input_dir",

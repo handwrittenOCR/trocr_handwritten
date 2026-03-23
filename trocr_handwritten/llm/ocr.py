@@ -30,10 +30,11 @@ def find_images(
     Returns:
         List of paths to image files.
     """
-    images = sorted(input_dir.glob(pattern))
+    images = sorted(input_dir.rglob(pattern))
     if limit:
         images = images[:limit]
     return images
+    # modified to use .rglob, works better with testing file organization
 
 
 def load_prompt(prompt_path: str) -> str:
@@ -140,8 +141,9 @@ def main():
     parser.add_argument(
         "--pattern",
         type=str,
-        default="*/*/*.jpg",
+        default="*.jpg",
         help="Glob pattern to find images",
+        # modified to use *.jpg, works better with testing file organization
     )
     parser.add_argument(
         "-n",

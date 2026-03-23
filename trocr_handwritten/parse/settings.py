@@ -17,10 +17,11 @@ CLASS_NAMES_LIST = [CLASS_NAMES[str(i)] for i in range(len(CLASS_NAMES))]
 @dataclass
 class LayoutParserSettings:
     path_folder: str = "data/raw/images"
-    path_output: str = "data/processed/images/"
-    path_model: str = None
-    hf_repo: str = "agomberto/historical-layout-ft"
-    hf_filename: str = "20241119_v2_yolov10_50_finetuned.pt"
+    # in the case that preprocessing works, modify to "data/raw/images/preprocess"
+    path_output: str = "data/processed/images"
+    path_model: str = "models/yolo_layout_model/20250111_yolov10_bagnards_EC.pt"
+    hf_repo: str = None
+    hf_filename: str = None
     device: str = "cpu"
     conf: float = 0.2
     iou: float = 0.5

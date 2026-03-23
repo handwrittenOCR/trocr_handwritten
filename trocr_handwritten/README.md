@@ -14,6 +14,8 @@ In this page we explain a bit more in detail the different components of the pip
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
 5. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
+6. [Direct YOLO Parse to Gemini 3 OCR Pipeline]
+(#-direct-yolo-parse-to-gemini-3-ocr-pipeline)
 
 
 ## 📦 Installation
@@ -822,4 +824,31 @@ Here is the output you should get for the birth act.
   "mother's birth place": "None",
   "mother's residence place": "Aux Abymes"
 }
+```
+
+## Direct YOLO Parse to Gemini 3 OCR Pipeline
+
+There are a number of solutions in this repository, in case any of them break:
+
+**Makefile**
+Steps are split into `yolo` (the layout parser) and `llm` (llm-based OCR). To run them together:
+
+```bash
+make run
+```
+
+To run each step separately,
+```bash
+make yolo
+```
+or
+
+```bash
+make llm
+```
+
+Alternatively, to run both scripts together, call the shell script `pipeline.sh`
+
+```bash
+bash pipeline.sh
 ```
