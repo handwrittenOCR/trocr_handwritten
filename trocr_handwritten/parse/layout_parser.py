@@ -53,7 +53,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--no-annotation-json", action="store_true", help="Skip VIA JSON generation"
     )
+    parser.add_argument(
+        "--classes",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Filter to specific class names (e.g. --classes Marge 'Plein Texte')",
+    )
     args = parser.parse_args()
+
+    from trocr_handwritten.parse.settings import CLASS_NAMES
+
+    class_names = dict(CLASS_NAMES)
+    if args.classes:
+        class_names = {k: v for k, v in class_names.items() if v in args.classes}
 
     settings = LayoutParserSettings(
         path_folder=args.path_folder,
@@ -65,6 +78,7 @@ if __name__ == "__main__":
         conf=args.conf,
         iou=args.iou,
         create_annotation_json=not args.no_annotation_json,
+        class_names=class_names,
     )
 
     main(settings, logger)
