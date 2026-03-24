@@ -1,5 +1,9 @@
+import json
 from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
 from typing import Dict
+
 from trocr_handwritten.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -18,6 +22,8 @@ PRICING = {
     "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
     "gemini-3-pro-preview": {"input": 2.00, "output": 12.00},
     "gemini-3-flash-preview": {"input": 0.50, "output": 3.00},
+    "gemini-3.1-pro-preview": {"input": 2.50, "output": 15.00},
+    "gemini-3.1-flash-lite-preview": {"input": 0.15, "output": 0.60},
     "mistral-large-latest": {"input": 0.50, "output": 1.50},
     "pixtral-large-latest": {"input": 2.00, "output": 6.00},
     "ministral-3b-2512": {"input": 0.10, "output": 0.10},
@@ -76,6 +82,27 @@ class CostTracker:
             f"Estimated cost: ${cost:.4f}"
         )
 
-    def log_summary(self) -> None:
-        """Log the usage summary."""
+    def log_summary(self, log_dir: str = "logs") -> None:
+        """Log the usage summary and append to persistent cost log."""
         logger.info(f"\n{'='*40}\nCost Summary\n{'='*40}\n{self.summary()}")
+        self._append_to_cost_log(log_dir)
+
+    def _append_to_cost_log(self, log_dir: str = "logs") -> None:
+        """Append cost entry to a persistent JSON Lines log file."""
+        log_path = Path(log_dir)
+        log_path.mkdir(parents=True, exist_ok=True)
+        cost_log = log_path / "api_costs.jsonl"
+
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "model": self.model_name,
+            "total_calls": self.total_calls,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "estimated_cost_usd": round(self.get_cost(), 6),
+        }
+
+        with open(cost_log, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+
+        logger.info(f"Cost entry appended to {cost_log}")
