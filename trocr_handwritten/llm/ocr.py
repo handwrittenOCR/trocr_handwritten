@@ -106,9 +106,14 @@ async def process_all_images(
     output_extension: str,
     cost_tracker: CostTracker,
     max_concurrent: int = 10,
+    backoff_threshold: int = 3,
+    backoff_seconds: int = 30,
 ) -> None:
     """
-    Process all images concurrently with rate limiting.
+    Process all images concurrently with rate limiting and backoff.
+
+    When multiple consecutive failures occur, pauses before continuing
+    to let the API recover.
 
     Args:
         images: List of image paths to process.
@@ -117,15 +122,32 @@ async def process_all_images(
         output_extension: Extension for output file.
         cost_tracker: Cost tracker instance.
         max_concurrent: Maximum number of concurrent requests.
+        backoff_threshold: Number of failures in a batch to trigger a pause.
+        backoff_seconds: Seconds to pause when backoff is triggered.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [
-        process_image_async(
-            image_path, provider, prompt, output_extension, cost_tracker, semaphore
-        )
-        for image_path in images
-    ]
-    await tqdm_asyncio.gather(*tasks, desc="Processing images")
+    batch_size = max_concurrent * 2
+    pbar = tqdm_asyncio(total=len(images), desc="Processing images")
+
+    for i in range(0, len(images), batch_size):
+        batch = images[i : i + batch_size]
+        tasks = [
+            process_image_async(
+                image_path, provider, prompt, output_extension, cost_tracker, semaphore
+            )
+            for image_path in batch
+        ]
+        results = await asyncio.gather(*tasks)
+        pbar.update(len(batch))
+
+        failures = sum(1 for r in results if not r)
+        if failures >= backoff_threshold:
+            logger.warning(
+                f"{failures}/{len(batch)} failed in batch — pausing {backoff_seconds}s"
+            )
+            await asyncio.sleep(backoff_seconds)
+
+    pbar.close()
 
 
 def main():
@@ -176,6 +198,12 @@ def main():
         default=10,
         help="Maximum number of concurrent API calls",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=60,
+        help="Per-request timeout in seconds before retry (default: 60)",
+    )
     args = parser.parse_args()
 
     model_defaults = {
@@ -190,6 +218,7 @@ def main():
         provider=args.provider,
         model_name=model_name,
         prompt_path=args.prompt_path,
+        request_timeout=args.timeout,
     )
 
     ocr_settings = OCRSettings(
