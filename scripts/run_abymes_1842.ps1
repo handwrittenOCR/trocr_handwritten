@@ -9,7 +9,7 @@ $OUTPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP
 
 $HF_REPO = "MarieBgl/historical-layout-bagnards-EC"
 $HF_FILE = "20250111_yolov10_bagnards_EC.pt"
-$MODEL = "gemini-3-flash-preview"
+$MODEL = "gemini-3.1-pro-preview"
 $MAX_CONCURRENT = 15
 $TIMEOUT = 60
 

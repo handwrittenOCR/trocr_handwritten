@@ -5,7 +5,7 @@ param(
     [string]$OutputDir = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed\abymes\1842",
     [int]$Timeout = 120,
     [int]$MaxConcurrent = 10,
-    [string]$Model = "gemini-3-flash-preview"
+    [string]$Model = "gemini-3.1-pro-preview"
 )
 
 $VENV = ".venv\Scripts\python.exe"
