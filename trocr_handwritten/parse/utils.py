@@ -221,6 +221,84 @@ def create_predictions_json(detection_results, class_names, iou=0.5):
     return output
 
 
+def build_reading_order(metadata):
+    """
+    Build reading order from metadata and associate Marge with Plein Texte regions.
+
+    Groups regions into registry entries by matching Marge and Plein Texte
+    that overlap vertically (same "latitude" on the page). Entries are sorted
+    top-to-bottom by their vertical center.
+
+    Args:
+        metadata: Dict with class names as keys, lists of region dicts as values.
+                  Each region has "cropped_image_name" and "coordinates" (x, y, width, height).
+
+    Returns:
+        list: Ordered list of registry entries, each a dict with:
+            - "order": 1-based reading position
+            - "plein_texte": filename or None
+            - "marge": filename or None
+            - "y_center": vertical center used for sorting
+    """
+    marges = metadata.get("Marge", [])
+    textes = metadata.get("Plein Texte", [])
+
+    def y_center(region):
+        c = region["coordinates"]
+        return c["y"] + c["height"] / 2
+
+    def y_range(region):
+        c = region["coordinates"]
+        return c["y"], c["y"] + c["height"]
+
+    # Match each Plein Texte with the Marge that overlaps it vertically
+    matched_marges = set()
+    entries = []
+
+    for texte in textes:
+        t_top, t_bot = y_range(texte)
+        best_marge = None
+        best_overlap = 0
+
+        for i, marge in enumerate(marges):
+            if i in matched_marges:
+                continue
+            m_top, m_bot = y_range(marge)
+            overlap = max(0, min(t_bot, m_bot) - max(t_top, m_top))
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_marge = i
+
+        entry = {
+            "plein_texte": texte["cropped_image_name"],
+            "marge": None,
+            "y_center": y_center(texte),
+        }
+        if best_marge is not None and best_overlap > 0:
+            entry["marge"] = marges[best_marge]["cropped_image_name"]
+            matched_marges.add(best_marge)
+
+        entries.append(entry)
+
+    # Add unmatched Marges as standalone entries
+    for i, marge in enumerate(marges):
+        if i not in matched_marges:
+            entries.append(
+                {
+                    "plein_texte": None,
+                    "marge": marge["cropped_image_name"],
+                    "y_center": y_center(marge),
+                }
+            )
+
+    # Sort top-to-bottom and assign order
+    entries.sort(key=lambda e: e["y_center"])
+    for idx, entry in enumerate(entries):
+        entry["order"] = idx + 1
+
+    return entries
+
+
 def create_structured_crops(detection_results, class_names, path_output, iou=0.5):
     """
     Create a structured folder system with cropped images and metadata from YOLO detection results
@@ -294,6 +372,9 @@ def create_structured_crops(detection_results, class_names, path_output, iou=0.5
                     "coordinates": {"x": x1, "y": y1, "width": w, "height": h},
                 }
             )
+
+        reading_order = build_reading_order(metadata)
+        metadata["reading_order"] = reading_order
 
         metadata_path = image_folder / "metadata.json"
         with open(metadata_path, "w") as f:
