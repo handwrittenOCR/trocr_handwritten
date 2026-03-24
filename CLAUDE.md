@@ -70,7 +70,7 @@ make preprocess   # image preprocessing only
 - Run tests with `pytest`.
 - Keep settings in their respective `settings.py` files (Pydantic for llm/, dataclass for parse/).
 - LLM provider for this project: **Gemini** (via OpenAI-compatible SDK).
-- Target model: **gemini-3-flash-preview** (not pro — Flash is sufficient and cheaper for batch transcription).
+- Target model: **gemini-3.1-pro-preview** (best OCR quality for handwritten documents).
 - Only crop **Marge** and **Plein Texte** classes from YOLO output; ignore Title, En-tete, Nom, Signature, Table, Section.
 - All paths on this Windows machine use forward slashes in shell commands.
 - Do not delete any file
