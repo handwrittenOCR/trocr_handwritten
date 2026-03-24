@@ -40,6 +40,26 @@ def _get_subfolder(image_path, images_root):
     return ""
 
 
+def _unique_filename(image_path, images_root):
+    """
+    Build a unique filename by prepending the document folder name.
+    e.g. data/processed/DOC_NAME/Plein Texte/000.jpg → "DOC_NAME_000.jpg"
+
+    Args:
+        image_path: Full path to the image
+        images_root: Root images directory
+
+    Returns:
+        str: Unique filename like "FRAD971_1E35_002_101_003_C_000.jpg"
+    """
+    rel = image_path.relative_to(Path(images_root).resolve())
+    parts = rel.parts
+    if len(parts) >= 3:
+        doc_name = parts[-3]
+        return f"{doc_name}_{image_path.name}"
+    return image_path.name
+
+
 def _read_inference(image_path, inference_ext):
     """
     Read the inference file next to an image.
@@ -295,8 +315,9 @@ class OCRAnnotationHandler(SimpleHTTPRequestHandler):
         dst_images.mkdir(parents=True, exist_ok=True)
         dst_labels.mkdir(parents=True, exist_ok=True)
 
-        shutil.copy2(image_path, dst_images / filename)
-        label_path = dst_labels / (image_path.stem + ".txt")
+        unique_name = _unique_filename(image_path, self.state["images_root"])
+        shutil.copy2(image_path, dst_images / unique_name)
+        label_path = dst_labels / (Path(unique_name).stem + ".txt")
         label_path.write_text(text, encoding="utf-8")
 
         self.state["n_annotated"] = sum(1 for a in annotations if a.get("text"))
