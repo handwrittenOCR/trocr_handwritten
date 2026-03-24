@@ -1,0 +1,6 @@
+{"timestamp": "2026-03-23T14:20:43.274940", "model": "gemini-3-flash-preview", "total_calls": 1, "input_tokens": 8610, "output_tokens": 761, "estimated_cost_usd": 0.006588}
+{"timestamp": "2026-03-23T15:04:42.119936", "model": "gemini-3-flash-preview", "total_calls": 37, "input_tokens": 45053, "output_tokens": 3665, "estimated_cost_usd": 0.033522}
+{"timestamp": "2026-03-23T16:42:49.030570", "model": "gemini-3-flash-preview", "total_calls": 36, "input_tokens": 43959, "output_tokens": 3643, "estimated_cost_usd": 0.032909}
+{"timestamp": "2026-03-23T17:00:00.148263", "model": "gemini-3-flash-preview", "total_calls": 36, "input_tokens": 37380, "output_tokens": 3671, "estimated_cost_usd": 0.029703}
+{"timestamp": "2026-03-24T10:15:22.245795", "model": "gemini-3-flash-preview", "total_calls": 322, "input_tokens": 345128, "output_tokens": 32895, "estimated_cost_usd": 0.271249}
+{"timestamp": "2026-03-24T10:40:56.352311", "model": "gemini-3-flash-preview", "total_calls": 20, "input_tokens": 16888, "output_tokens": 2148, "estimated_cost_usd": 0.014888}
