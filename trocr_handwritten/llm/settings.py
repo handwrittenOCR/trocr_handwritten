@@ -41,6 +41,10 @@ class LLMSettings(BaseModel):
         default="config/ocr.prompt",
         description="Path to the OCR prompt template",
     )
+    request_timeout: int = Field(
+        default=60,
+        description="Per-request timeout in seconds before retry",
+    )
 
 
 class OCRSettings(BaseModel):
