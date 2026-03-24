@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Tuple, Optional
@@ -10,8 +11,7 @@ logger = get_logger(__name__)
 
 FALLBACK_MODELS = {
     "gemini-3-pro-preview": "gemini-3-flash-preview",
-    "gemini-3-flash-preview": "gemini-2.5-pro",
-    "gemini-2.5-pro": "gemini-2.0-flash",
+    "gemini-2.5-flash": "gemini-2.0-flash",
     "gpt-5.2": "gpt-5",
     "gpt-5": "gpt-4o",
     "mistral-large-latest": "pixtral-large-latest",
@@ -68,17 +68,24 @@ class LLMProvider(ABC):
         return None, total_input, total_output
 
     async def _call_with_retry_async(
-        self, model: str, messages: list, max_retries: int = 3
+        self, model: str, messages: list, max_retries: int = 3, timeout: int = 60
     ) -> Tuple[str, int, int]:
-        """Make an asynchronous API call with retries."""
+        """Make an asynchronous API call with retries and per-request timeout."""
         total_input = 0
         total_output = 0
-        for _ in range(max_retries):
-            text, inp, out = await self._call_api_async(model, messages)
-            total_input += inp
-            total_output += out
-            if text and text.strip():
-                return text, total_input, total_output
+        for attempt in range(max_retries):
+            try:
+                text, inp, out = await asyncio.wait_for(
+                    self._call_api_async(model, messages), timeout=timeout
+                )
+                total_input += inp
+                total_output += out
+                if text and text.strip():
+                    return text, total_input, total_output
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"Request to {model} timed out after {timeout}s (attempt {attempt + 1}/{max_retries})"
+                )
         return None, total_input, total_output
 
     def ocr_image(self, image_path: Path, prompt: str) -> Tuple[str, int, int]:
@@ -121,9 +128,10 @@ class LLMProvider(ABC):
         Returns:
             Tuple of (transcribed text, input tokens, output tokens).
         """
+        timeout = self.settings.request_timeout
         messages = self._build_messages(image_path, prompt)
         text, input_tokens, output_tokens = await self._call_with_retry_async(
-            self.settings.model_name, messages
+            self.settings.model_name, messages, timeout=timeout
         )
         current_model = self.settings.model_name
         while (text is None or text.strip() == "") and current_model in FALLBACK_MODELS:
@@ -132,7 +140,7 @@ class LLMProvider(ABC):
                 f"Empty response from {current_model} after retries, trying fallback {fallback}"
             )
             text, fb_input, fb_output = await self._call_with_retry_async(
-                fallback, messages
+                fallback, messages, timeout=timeout
             )
             input_tokens += fb_input
             output_tokens += fb_output
