@@ -1,0 +1,323 @@
+"""Build a structured dataset of civil acts from YOLO crop transcriptions.
+
+Reads metadata.json + .md transcription files from the OCR output directory,
+pairs Marge and Plein Texte crops using reading_order, detects act type,
+and produces one ActRecord per act.
+
+Usage:
+    python -m trocr_handwritten.ner.dataset \
+        --input_dir <transcription_dir> \
+        --output_dir <output_dir> \
+        --commune abymes --year 1842
+"""
+
+import argparse
+import csv
+import json
+import logging
+import re
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+from trocr_handwritten.ner.schemas import ActRecord
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Act type detection from Marge text
+# ---------------------------------------------------------------------------
+
+_ACT_TYPE_PATTERNS = [
+    (re.compile(r"d[ée]c[eè]s", re.IGNORECASE), "deces"),
+    (re.compile(r"naissance", re.IGNORECASE), "naissance"),
+    (re.compile(r"mariage", re.IGNORECASE), "mariage"),
+]
+
+_ACT_NUMBER_PATTERN = re.compile(r"(?:n[°ᵒo˚]|16°)\s*(\d+)", re.IGNORECASE)
+
+# Preamble pattern: detects the start of a new act.
+# All acts begin with "L'An mil huit cent ..." with OCR variations:
+#   - L'/L'/l' or missing entirely ("An Mil...")
+#   - Capitalization varies (Mil/mil, Huit/huit)
+#   - Punctuation varies (huit-cent, huit cent)
+#   - Optional prefix before L'An (e.g. "V: David\nL'An...")
+_PREAMBLE_PATTERN = re.compile(
+    r"(?:^|\n)\s*(?:.*\n\s*)?L['\u2019]\s*[Aa]n\s+[Mm]il\s+huit[\s\-]cent",
+    re.IGNORECASE,
+)
+_PREAMBLE_PATTERN_NO_L = re.compile(
+    r"^[Aa]n\s+[Mm]il\s+huit[\s\-]cent",
+    re.IGNORECASE,
+)
+# Registry header page (not an act)
+_REGISTRY_HEADER_PATTERN = re.compile(r"r[ée]gistre\s+contenant", re.IGNORECASE)
+
+
+def is_new_act(plein_texte_text: str) -> bool:
+    """Check if a Plein Texte crop is the start of a new act (vs. a continuation).
+
+    A new act starts with the formulaic preamble 'L'An mil huit cent...'
+    A continuation is any text that does not start with this preamble.
+    Registry header pages are treated as new (standalone) records.
+    """
+    text = plein_texte_text.strip()
+    if _PREAMBLE_PATTERN.match(text):
+        return True
+    if _PREAMBLE_PATTERN_NO_L.match(text):
+        return True
+    if _REGISTRY_HEADER_PATTERN.search(text[:200]):
+        return True
+    return False
+
+
+def detect_act_type(marge_text: str) -> str:
+    """Detect act type from Marge text. Returns 'deces', 'naissance', 'mariage', or 'unknown'."""
+    for pattern, act_type in _ACT_TYPE_PATTERNS:
+        if pattern.search(marge_text):
+            return act_type
+    return "unknown"
+
+
+def extract_act_number(marge_text: str) -> Optional[str]:
+    """Extract act number from Marge text (e.g. 'N° 2' -> '2')."""
+    match = _ACT_NUMBER_PATTERN.search(marge_text)
+    if match:
+        return match.group(1)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Read a .md transcription file
+# ---------------------------------------------------------------------------
+
+
+def _read_md_file(page_dir: Path, subfolder: str, jpg_filename: str) -> Optional[str]:
+    """Read the .md transcription corresponding to a .jpg crop filename."""
+    md_filename = jpg_filename.replace(".jpg", ".md")
+    md_path = page_dir / subfolder / md_filename
+    if md_path.exists():
+        return md_path.read_text(encoding="utf-8").strip()
+    logger.warning("Missing transcription: %s", md_path)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Build dataset from a single transcription directory
+# ---------------------------------------------------------------------------
+
+
+def build_dataset(
+    input_dir: str,
+    commune: str,
+    year: str,
+) -> List[ActRecord]:
+    """Walk page folders and reconstruct acts from reading_order.
+
+    Args:
+        input_dir: Path to the transcription directory (e.g. .../abymes/1842).
+        commune: Commune name for act IDs.
+        year: Year for act IDs.
+
+    Returns:
+        List of ActRecord, one per act.
+    """
+    input_path = Path(input_dir)
+    records: List[ActRecord] = []
+    continuation_count = 0
+
+    # Collect and sort page folders
+    page_dirs = sorted(
+        [
+            d
+            for d in input_path.iterdir()
+            if d.is_dir() and (d / "metadata.json").exists()
+        ]
+    )
+
+    if not page_dirs:
+        logger.warning("No page folders with metadata.json found in %s", input_dir)
+        return records
+
+    logger.info("Found %d page folders in %s", len(page_dirs), input_dir)
+
+    for page_dir in page_dirs:
+        page_name = page_dir.name
+
+        # Load metadata
+        metadata_path = page_dir / "metadata.json"
+        with open(metadata_path, encoding="utf-8") as f:
+            metadata = json.load(f)
+
+        reading_order = metadata.get("reading_order", [])
+        if not reading_order:
+            logger.warning("No reading_order in %s", metadata_path)
+            continue
+
+        for entry in reading_order:
+            order = entry.get("order", 0)
+            plein_texte_jpg = entry.get("plein_texte")
+            marge_jpg = entry.get("marge")  # can be None
+
+            # Read Plein Texte (required)
+            if not plein_texte_jpg:
+                logger.warning(
+                    "No plein_texte in reading_order entry %s order %d",
+                    page_name,
+                    order,
+                )
+                continue
+
+            plein_texte_text = _read_md_file(page_dir, "Plein Texte", plein_texte_jpg)
+            if plein_texte_text is None:
+                continue
+
+            # Read Marge (optional)
+            marge_text = ""
+            source_marge_file = None
+            if marge_jpg:
+                marge_content = _read_md_file(page_dir, "Marge", marge_jpg)
+                if marge_content:
+                    marge_text = marge_content
+                    source_marge_file = marge_jpg.replace(".jpg", ".md")
+
+            # Check if this is a new act or a continuation of the previous one.
+            # A new act starts with the preamble "L'An mil huit cent..."
+            # A continuation is any crop whose text does NOT start with the preamble.
+            if not is_new_act(plein_texte_text) and records:
+                # Continuation: append text to the previous record
+                prev = records[-1]
+                records[-1] = prev.model_copy(
+                    update={
+                        "plein_texte_text": prev.plein_texte_text
+                        + "\n"
+                        + plein_texte_text,
+                    }
+                )
+                continuation_count += 1
+                logger.debug(
+                    "Continuation merged: %s order %d -> %s",
+                    page_name,
+                    order,
+                    prev.act_id,
+                )
+                continue
+
+            # New act: detect type and number from Marge
+            act_type = detect_act_type(marge_text) if marge_text else "unknown"
+            act_number = extract_act_number(marge_text) if marge_text else None
+
+            # Build act ID
+            act_id = f"{commune}_{year}_{page_name}_order{order}"
+
+            record = ActRecord(
+                act_id=act_id,
+                act_type=act_type,
+                act_number=act_number,
+                marge_text=marge_text,
+                plein_texte_text=plein_texte_text,
+                source_page=page_name,
+                source_marge_file=source_marge_file,
+                source_plein_texte_file=plein_texte_jpg.replace(".jpg", ".md"),
+                commune=commune,
+                year=year,
+                order_on_page=order,
+            )
+            records.append(record)
+
+    if continuation_count:
+        logger.info(
+            "Merged %d continuation crops into previous acts", continuation_count
+        )
+
+    logger.info(
+        "Built %d act records (%s)",
+        len(records),
+        ", ".join(
+            f"{t}: {sum(1 for r in records if r.act_type == t)}"
+            for t in ["deces", "naissance", "mariage", "unknown"]
+            if sum(1 for r in records if r.act_type == t) > 0
+        ),
+    )
+    return records
+
+
+# ---------------------------------------------------------------------------
+# Save dataset
+# ---------------------------------------------------------------------------
+
+
+def save_dataset(records: List[ActRecord], output_dir: str) -> Tuple[Path, Path]:
+    """Save act records as JSON and CSV.
+
+    Returns:
+        Tuple of (json_path, csv_path).
+    """
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # JSON
+    json_path = output_path / "acts_dataset.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump([r.model_dump() for r in records], f, ensure_ascii=False, indent=2)
+
+    # CSV
+    csv_path = output_path / "acts_dataset.csv"
+    if records:
+        fieldnames = list(records[0].model_dump().keys())
+        with open(csv_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for r in records:
+                writer.writerow(r.model_dump())
+
+    logger.info("Saved dataset: %s (%d records)", json_path, len(records))
+    return json_path, csv_path
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build structured act dataset from OCR transcriptions."
+    )
+    parser.add_argument(
+        "--input_dir",
+        type=str,
+        required=True,
+        help="Path to transcription directory (e.g. .../Gemini3_transcribed/abymes/1842)",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Output directory (defaults to input_dir)",
+    )
+    parser.add_argument("--commune", type=str, default="abymes")
+    parser.add_argument("--year", type=str, default="1842")
+
+    args = parser.parse_args()
+    output_dir = args.output_dir or args.input_dir
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+    records = build_dataset(args.input_dir, args.commune, args.year)
+    if records:
+        json_path, csv_path = save_dataset(records, output_dir)
+        print(f"Dataset saved: {json_path} ({len(records)} acts)")
+
+        # Print summary
+        from collections import Counter
+
+        type_counts = Counter(r.act_type for r in records)
+        for act_type, count in type_counts.most_common():
+            print(f"  {act_type}: {count}")
+    else:
+        print("No acts found.")
+
+
+if __name__ == "__main__":
+    main()
