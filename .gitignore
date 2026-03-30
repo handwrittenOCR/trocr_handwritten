@@ -69,3 +69,4 @@ venv/
 #notebooks
 *.ipynb
 /*.ipynb
+.env.dist
