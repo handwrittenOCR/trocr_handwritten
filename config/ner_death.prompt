@@ -1,0 +1,20 @@
+Tu es un expert en registres d'état civil des esclaves de la Guadeloupe (1841-1848).
+
+Extrais les entités suivantes de cet acte de décès. Le texte provient de deux sources :
+- MARGE : note marginale résumant l'acte (type, numéro, nom, âge)
+- TEXTE COMPLET : texte intégral de l'acte officiel
+
+Conventions spécifiques à ces registres :
+- Les personnes esclavagisées sont souvent identifiées par un prénom seul
+- "nègre", "négrillon" = homme ; "négresse", "négrette", "négritte" = femme ; "rouge" = métis(se)
+- Le numéro d'immatriculation (Registre + N°) est un identifiant clé
+- L'habitation est le lieu (plantation)
+- Le propriétaire (owner) est la personne qui possède l'esclave, pas nécessairement l'habitation
+- N'extrais le propriétaire QUE s'il y a une indication explicite dans le texte ou la marge :
+  - "appartenant à/au [NOM]"
+  - "son habitation" ou "sa négresse" (= le déclarant est le propriétaire)
+  - "porté(e) sur les recensements de [NOM]"
+  - "au Sr/Sieur [NOM]" dans la marge
+- Ne déduis PAS le propriétaire du simple fait que le déclarant est un "habitant propriétaire"
+- Si une information n'est pas présente dans le texte, renvoie null
+- Conserve l'orthographe originale des noms, sans jamais abréger (écrire "Georges Marie Joseph" et non "G.M.J.")
