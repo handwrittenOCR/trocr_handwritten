@@ -4,12 +4,12 @@
 $ErrorActionPreference = "Stop"
 
 $VENV = ".venv\Scripts\python.exe"
-$INPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\0. Brut\Guadeloupe\abymes_OCRed_05032024\1842\pages"
+$INPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\0. Brut\Guadeloupe\abymes\1842\pages"
 $OUTPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed\abymes\1842"
 
 $HF_REPO = "MarieBgl/historical-layout-bagnards-EC"
 $HF_FILE = "20250111_yolov10_bagnards_EC.pt"
-$MODEL = "gemini-3.1-pro-preview"
+$MODEL = "gemini-3-pro-preview"
 $MAX_CONCURRENT = 15
 $TIMEOUT = 60
 
