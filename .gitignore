@@ -70,3 +70,4 @@ venv/
 *.ipynb
 /*.ipynb
 .env.dist
+.claude/settings.local.json
