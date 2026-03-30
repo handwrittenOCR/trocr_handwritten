@@ -1,0 +1,52 @@
+COST DISCREPANCY REPORT - Gemini API (2026-03-23 to 2026-03-25)
+================================================================
+
+SUMMARY
+-------
+Total billed by Google: EUR 682.20
+Total estimated by API usage fields: ~EUR 12
+Discrepancy: EUR 670 (98.2% unexplained by API response)
+
+ROOT CAUSE
+----------
+Thinking tokens are enabled by default on Gemini 3 models.
+They are billed as output tokens but NOT reported in the
+completion_tokens field of the OpenAI-compatible endpoint.
+
+GEMINI 3 PRO
+  API calls:                   3,413
+  Input tokens (tracked):      4,164,064
+  Input tokens (billed):       5,240,893
+  Output tokens (tracked):     322,603
+  Output tokens (billed):      56,189,343
+  Thinking tokens (inferred):  55,866,740
+  Ratio billed/tracked output: 174x
+  Cost of thinking (inferred): EUR 568.61
+
+GEMINI 3 FLASH
+  API calls:                   462
+  Input tokens (tracked):      507,555
+  Input tokens (billed):       1,294,863
+  Output tokens (tracked):     48,704
+  Output tokens (billed):      35,299,888
+  Thinking tokens (inferred):  35,251,184
+  Ratio billed/tracked output: 724x
+  Cost of thinking (inferred): EUR 89.70
+
+TOTAL THINKING COST (INFERRED): EUR 658.31
+
+BILLED BREAKDOWN (from Google billing export)
+  Gemini 3 Pro output:   56.2M tokens = EUR 571.92 (83.8%)
+  Gemini 3 Flash output: 35.3M tokens = EUR  89.82 (13.2%)
+  All input tokens:                    = EUR   8.89 ( 1.3%)
+  Other:                               = EUR   1.57 ( 0.2%)
+  TOTAL:                               = EUR 682.20
+
+KEY ISSUE
+---------
+The OpenAI-compatible endpoint (generativelanguage.googleapis.com/
+v1beta/openai/chat/completions) returns a usage object with
+prompt_tokens and completion_tokens. These fields do NOT include
+thinking tokens. There is no other field reporting thinking usage
+in this endpoint. Developers using this endpoint have no way to
+monitor actual billed costs in real time.
