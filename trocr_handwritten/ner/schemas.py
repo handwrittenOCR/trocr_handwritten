@@ -77,6 +77,9 @@ class DeathActEntity(BaseModel):
         default=None, description="Owner of the enslaved person"
     )
     habitation_name: Optional[str] = Field(default=None)
+    officer_name: Optional[str] = Field(
+        default=None, description="Officier de l'état civil (mayor or adjoint)"
+    )
     commune: Optional[str] = Field(default=None)
 
 
@@ -98,6 +101,9 @@ class BirthActEntity(BaseModel):
     declarant_occupation: Optional[str] = Field(default=None)
     owner_name: Optional[str] = Field(default=None)
     habitation_name: Optional[str] = Field(default=None)
+    officer_name: Optional[str] = Field(
+        default=None, description="Officier de l'état civil (mayor or adjoint)"
+    )
     commune: Optional[str] = Field(default=None)
 
 
@@ -142,6 +148,7 @@ DEATH_CSV_COLUMNS: List[str] = [
     "declarant_occupation",
     "owner_name",
     "habitation_name",
+    "officer_name",
     "commune",
 ]
 
@@ -176,6 +183,7 @@ BIRTH_CSV_COLUMNS: List[str] = [
     "declarant_occupation",
     "owner_name",
     "habitation_name",
+    "officer_name",
     "commune",
 ]
 
@@ -210,6 +218,7 @@ def flatten_ner_result(result: NERResult) -> dict:
                 "declarant_occupation": d.declarant_occupation,
                 "owner_name": d.owner_name,
                 "habitation_name": d.habitation_name,
+                "officer_name": d.officer_name,
                 "commune": d.commune,
             }
         )
@@ -245,6 +254,7 @@ def flatten_ner_result(result: NERResult) -> dict:
                 "declarant_occupation": b.declarant_occupation,
                 "owner_name": b.owner_name,
                 "habitation_name": b.habitation_name,
+                "officer_name": b.officer_name,
                 "commune": b.commune,
             }
         )

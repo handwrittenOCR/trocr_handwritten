@@ -106,14 +106,12 @@ async def process_all_images(
     output_extension: str,
     cost_tracker: CostTracker,
     max_concurrent: int = 10,
-    backoff_threshold: int = 3,
-    backoff_seconds: int = 30,
 ) -> None:
     """
-    Process all images concurrently with rate limiting and backoff.
+    Process all images concurrently with rate limiting.
 
-    When multiple consecutive failures occur, pauses before continuing
-    to let the API recover.
+    Filters out already-processed images before starting, then processes
+    remaining ones with a semaphore for concurrency control.
 
     Args:
         images: List of image paths to process.
@@ -122,32 +120,25 @@ async def process_all_images(
         output_extension: Extension for output file.
         cost_tracker: Cost tracker instance.
         max_concurrent: Maximum number of concurrent requests.
-        backoff_threshold: Number of failures in a batch to trigger a pause.
-        backoff_seconds: Seconds to pause when backoff is triggered.
     """
+    # Filter out already-processed images upfront
+    todo = [img for img in images if not img.with_suffix(output_extension).exists()]
+    skipped = len(images) - len(todo)
+    if skipped > 0:
+        logger.info(f"Skipping {skipped} already transcribed, {len(todo)} remaining")
+
+    if not todo:
+        logger.info("All images already transcribed")
+        return
+
     semaphore = asyncio.Semaphore(max_concurrent)
-    batch_size = max_concurrent * 2
-    pbar = tqdm_asyncio(total=len(images), desc="Processing images")
-
-    for i in range(0, len(images), batch_size):
-        batch = images[i : i + batch_size]
-        tasks = [
-            process_image_async(
-                image_path, provider, prompt, output_extension, cost_tracker, semaphore
-            )
-            for image_path in batch
-        ]
-        results = await asyncio.gather(*tasks)
-        pbar.update(len(batch))
-
-        failures = sum(1 for r in results if not r)
-        if failures >= backoff_threshold:
-            logger.warning(
-                f"{failures}/{len(batch)} failed in batch — pausing {backoff_seconds}s"
-            )
-            await asyncio.sleep(backoff_seconds)
-
-    pbar.close()
+    tasks = [
+        process_image_async(
+            image_path, provider, prompt, output_extension, cost_tracker, semaphore
+        )
+        for image_path in todo
+    ]
+    await tqdm_asyncio.gather(*tasks, desc="Processing images")
 
 
 def main():
