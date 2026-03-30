@@ -20,7 +20,7 @@ Each commune folder (abymes, anse_bertrand, etc.) contains year subfolders (1841
 
 ### Test Data
 
-First test: 2 pages from `abymes_OCRed_05032024/1842/pages/` (files: `FRAD971_1E35_002_101_002_C.jpg`, `FRAD971_1E35_002_101_003_C.jpg`).
+First test: 2 pages from `abymes/1842/pages/` (files: `FRAD971_1E35_002_101_002_C.jpg`, `FRAD971_1E35_002_101_003_C.jpg`).
 
 ## Architecture
 
@@ -74,4 +74,5 @@ make preprocess   # image preprocessing only
 - Only crop **Marge** and **Plein Texte** classes from YOLO output; ignore Title, En-tete, Nom, Signature, Table, Section.
 - All paths on this Windows machine use forward slashes in shell commands.
 - Do not delete any file
+- Never re-run LLM API calls when results already exist on disk. Always check for and load saved JSON/CSV outputs first (e.g. `ner_llm.json`, `ner_regex.json`, `acts_dataset.json`).
 - Start a log at the beginning of each session and save the log at the end of the session in logs/
