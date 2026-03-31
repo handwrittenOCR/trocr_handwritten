@@ -1,0 +1,54 @@
+Processing Plein Texte | FRAD971_1E35_001_101_002_C | crop 000 ...
+2026-03-31 11:24:43,570 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-03-31 11:24:48,361 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-03-31 11:24:48,367 - trocr_handwritten.llm.providers.gemini - INFO - Requested model 'gemini-3-pro-preview' redirected to 'gemini-3.1-pro-preview'
+  tokens: input=1218, output=184, thinking=0
+  result: Le présent registre contenant cinquante neuf feuillets, non compris celui-ci, a ...
+
+Processing Plein Texte | FRAD971_1E35_001_101_003_C | crop 003 ...
+2026-03-31 11:24:48,383 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-03-31 11:24:52,964 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-03-31 11:24:52,979 - trocr_handwritten.llm.providers.gemini - INFO - Requested model 'gemini-3-pro-preview' redirected to 'gemini-3.1-pro-preview'
+  tokens: input=1238, output=155, thinking=0
+  result: L'an mil huit Cent quarante un le Lundi quatre du mois de Janvier à Cinq heures ...
+
+Processing Plein Texte | FRAD971_1E35_001_101_003_C | crop 000 ...
+2026-03-31 11:24:52,991 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-03-31 11:25:06,041 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-03-31 11:25:06,043 - trocr_handwritten.llm.providers.gemini - INFO - Requested model 'gemini-3-pro-preview' redirected to 'gemini-3.1-pro-preview'
+2026-03-31 11:25:06,044 - trocr_handwritten.llm.providers.gemini - INFO - Tokens: input=1218, output=160, thinking=986
+2026-03-31 11:25:06,044 - trocr_handwritten.utils.cost_tracker - WARNING - THINKING TOKENS DETECTED: 986 tokens in this call (cumulative: 986). These are billed at output token rate!
+  tokens: input=1218, output=160, thinking=986
+  result: L'an mil huit Cent quarante un et le Quatorze du mois de Janvier à dix heures du...
+
+Processing Marge | FRAD971_1E35_001_101_003_C | crop 001 ...
+2026-03-31 11:25:06,049 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-03-31 11:25:09,315 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-03-31 11:25:09,315 - trocr_handwritten.llm.providers.gemini - INFO - Requested model 'gemini-3-pro-preview' redirected to 'gemini-3.1-pro-preview'
+  tokens: input=1219, output=78, thinking=0
+  result: Naissance 1. 1 de la noire Céleste fille de la négresse illatre de 22 ans appart...
+
+Processing Marge | FRAD971_1E35_001_101_003_C | crop 004 ...
+2026-03-31 11:25:09,319 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-03-31 11:25:13,798 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-03-31 11:25:13,798 - trocr_handwritten.llm.providers.gemini - INFO - Requested model 'gemini-3-pro-preview' redirected to 'gemini-3.1-pro-preview'
+  tokens: input=1226, output=12, thinking=0
+  result: GUADELOUPE MAIRIE ABYMES...
+
+Processing Marge | FRAD971_1E35_001_101_003_C | crop 005 ...
+2026-03-31 11:25:13,818 - google_genai.models - INFO - AFC is enabled with max remote calls: 10.
+2026-03-31 11:25:18,007 - httpx - INFO - HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent "HTTP/1.1 200 OK"
+2026-03-31 11:25:18,009 - trocr_handwritten.llm.providers.gemini - INFO - Requested model 'gemini-3-pro-preview' redirected to 'gemini-3.1-pro-preview'
+  tokens: input=1218, output=83, thinking=0
+  result: Quittance N° 2. du mois d'oût, fils de la majeure Anne Marie de Hans, appartenan...
+
+Comparison saved to test_lowthinking\comparison.md
+
+Model: gemini-3-pro-preview
+Total calls: 6
+Input tokens:           7,337  (EUR 0.0124)
+Output tokens:            672  (EUR 0.0068)
+Thinking tokens:          986  (EUR 0.0100)
+--------------------------------------------------
+TOTAL ESTIMATED COST: EUR 0.0293
+WARNING: 986 thinking tokens detected! Verify your Google billing matches this estimate.
