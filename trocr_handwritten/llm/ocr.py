@@ -81,10 +81,10 @@ async def process_image_async(
 
     async with semaphore:
         try:
-            transcription, input_tokens, output_tokens = await provider.ocr_image_async(
-                image_path, prompt
+            transcription, input_tokens, output_tokens, thinking_tokens = (
+                await provider.ocr_image_async(image_path, prompt)
             )
-            cost_tracker.add_usage(input_tokens, output_tokens)
+            cost_tracker.add_usage(input_tokens, output_tokens, thinking_tokens)
             if transcription is None or transcription.strip() == "":
                 logger.warning(f"Empty response for {image_path} after fallbacks")
                 failed_images[str(image_path)] = "empty_response"
@@ -240,6 +240,7 @@ def main():
         )
     )
 
+    cost_tracker.model_name = getattr(provider, "actual_model_name", model_name)
     cost_tracker.log_summary()
 
     if failed_images:
