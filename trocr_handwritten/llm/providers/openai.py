@@ -51,7 +51,7 @@ class OpenAIProvider(LLMProvider):
             or model_lower.startswith("o3")
         )
 
-    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
+    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int, int]:
         """Make a synchronous API call."""
         params = {
             "model": model,
@@ -67,9 +67,11 @@ class OpenAIProvider(LLMProvider):
         text = response.choices[0].message.content
         input_tokens = response.usage.prompt_tokens
         output_tokens = response.usage.completion_tokens
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, 0
 
-    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
+    async def _call_api_async(
+        self, model: str, messages: list
+    ) -> Tuple[str, int, int, int]:
         """Make an asynchronous API call."""
         params = {
             "model": model,
@@ -85,4 +87,4 @@ class OpenAIProvider(LLMProvider):
         text = response.choices[0].message.content
         input_tokens = response.usage.prompt_tokens
         output_tokens = response.usage.completion_tokens
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, 0

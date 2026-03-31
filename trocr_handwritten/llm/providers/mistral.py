@@ -50,7 +50,7 @@ class MistralProvider(LLMProvider):
             }
         ]
 
-    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
+    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int, int]:
         """Make a synchronous API call."""
         response = self.client.chat.completions.create(
             model=model,
@@ -61,9 +61,11 @@ class MistralProvider(LLMProvider):
         text = response.choices[0].message.content
         input_tokens = response.usage.prompt_tokens if response.usage else 0
         output_tokens = response.usage.completion_tokens if response.usage else 0
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, 0
 
-    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
+    async def _call_api_async(
+        self, model: str, messages: list
+    ) -> Tuple[str, int, int, int]:
         """Make an asynchronous API call."""
         response = await self.async_client.chat.completions.create(
             model=model,
@@ -74,4 +76,4 @@ class MistralProvider(LLMProvider):
         text = response.choices[0].message.content
         input_tokens = response.usage.prompt_tokens if response.usage else 0
         output_tokens = response.usage.completion_tokens if response.usage else 0
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, 0
