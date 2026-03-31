@@ -40,52 +40,83 @@ class CostTracker:
     model_name: str
     input_tokens: int = 0
     output_tokens: int = 0
+    thinking_tokens: int = 0
     total_calls: int = 0
     _pricing: Dict[str, Dict[str, float]] = field(default_factory=lambda: PRICING)
 
-    def add_usage(self, input_tokens: int, output_tokens: int) -> None:
+    def add_usage(
+        self, input_tokens: int, output_tokens: int, thinking_tokens: int = 0
+    ) -> None:
         """
         Add token usage from an API call.
 
         Args:
             input_tokens: Number of input tokens used.
             output_tokens: Number of output tokens generated.
+            thinking_tokens: Number of thinking/reasoning tokens (billed as output).
         """
         self.input_tokens += input_tokens
         self.output_tokens += output_tokens
+        self.thinking_tokens += thinking_tokens
         self.total_calls += 1
 
-    def get_cost(self) -> float:
+        if thinking_tokens > 0:
+            logger.warning(
+                f"THINKING TOKENS DETECTED: {thinking_tokens} tokens in this call "
+                f"(cumulative: {self.thinking_tokens}). "
+                f"These are billed at output token rate!"
+            )
+
+    def get_cost(self) -> Dict[str, float]:
         """
-        Calculate total cost in USD.
+        Calculate total cost breakdown in EUR.
 
         Returns:
-            Total cost based on token usage and model pricing.
+            Dict with input_cost, output_cost, thinking_cost, and total.
         """
         pricing = self._pricing.get(self.model_name, {"input": 0.0, "output": 0.0})
         input_cost = (self.input_tokens / 1_000_000) * pricing["input"]
         output_cost = (self.output_tokens / 1_000_000) * pricing["output"]
-        return input_cost + output_cost
+        # Thinking tokens are billed at output token rate
+        thinking_cost = (self.thinking_tokens / 1_000_000) * pricing["output"]
+        return {
+            "input_cost": input_cost,
+            "output_cost": output_cost,
+            "thinking_cost": thinking_cost,
+            "total": input_cost + output_cost + thinking_cost,
+        }
+
+    def get_total_cost(self) -> float:
+        """Get total cost as a single float (backward compat)."""
+        return self.get_cost()["total"]
 
     def summary(self) -> str:
         """
-        Generate a summary of usage and costs.
+        Generate a detailed summary of usage and costs.
 
         Returns:
             Formatted string with usage statistics.
         """
-        cost = self.get_cost()
-        return (
-            f"Model: {self.model_name}\n"
-            f"Total calls: {self.total_calls}\n"
-            f"Input tokens: {self.input_tokens:,}\n"
-            f"Output tokens: {self.output_tokens:,}\n"
-            f"Estimated cost: ${cost:.4f}"
-        )
+        costs = self.get_cost()
+        lines = [
+            f"Model: {self.model_name}",
+            f"Total calls: {self.total_calls}",
+            f"Input tokens:    {self.input_tokens:>12,}  (EUR {costs['input_cost']:.4f})",
+            f"Output tokens:   {self.output_tokens:>12,}  (EUR {costs['output_cost']:.4f})",
+            f"Thinking tokens: {self.thinking_tokens:>12,}  (EUR {costs['thinking_cost']:.4f})",
+            f"{'-' * 50}",
+            f"TOTAL ESTIMATED COST: EUR {costs['total']:.4f}",
+        ]
+        if self.thinking_tokens > 0:
+            lines.append(
+                f"WARNING: {self.thinking_tokens:,} thinking tokens detected! "
+                f"Verify your Google billing matches this estimate."
+            )
+        return "\n".join(lines)
 
     def log_summary(self, log_dir: str = "logs") -> None:
         """Log the usage summary and append to persistent cost log."""
-        logger.info(f"\n{'='*40}\nCost Summary\n{'='*40}\n{self.summary()}")
+        logger.info(f"\n{'='*50}\nCost Summary\n{'='*50}\n{self.summary()}")
         self._append_to_cost_log(log_dir)
 
     def _append_to_cost_log(self, log_dir: str = "logs") -> None:
@@ -94,13 +125,18 @@ class CostTracker:
         log_path.mkdir(parents=True, exist_ok=True)
         cost_log = log_path / "api_costs.jsonl"
 
+        costs = self.get_cost()
         entry = {
             "timestamp": datetime.now().isoformat(),
             "model": self.model_name,
             "total_calls": self.total_calls,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
-            "estimated_cost_usd": round(self.get_cost(), 6),
+            "thinking_tokens": self.thinking_tokens,
+            "cost_input_eur": round(costs["input_cost"], 6),
+            "cost_output_eur": round(costs["output_cost"], 6),
+            "cost_thinking_eur": round(costs["thinking_cost"], 6),
+            "cost_total_eur": round(costs["total"], 6),
         }
 
         with open(cost_log, "a", encoding="utf-8") as f:
