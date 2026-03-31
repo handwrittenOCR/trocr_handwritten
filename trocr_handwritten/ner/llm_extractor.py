@@ -319,7 +319,7 @@ class LLMExtractor:
         birth_act = None
 
         if record.act_type == "deces":
-            raw_json, inp, out = await self.provider.call_text_async(
+            raw_json, inp, out, _think = await self.provider.call_text_async(
                 user_text,
                 self.death_prompt,
                 tools=[self.death_tool],
@@ -330,7 +330,7 @@ class LLMExtractor:
                 death_act = _parse_death_response(raw_json)
 
         elif record.act_type == "naissance":
-            raw_json, inp, out = await self.provider.call_text_async(
+            raw_json, inp, out, _think = await self.provider.call_text_async(
                 user_text,
                 self.birth_prompt,
                 tools=[self.birth_tool],
@@ -342,7 +342,7 @@ class LLMExtractor:
 
         else:
             # Unknown type — try death first (most common)
-            raw_json, inp, out = await self.provider.call_text_async(
+            raw_json, inp, out, _think = await self.provider.call_text_async(
                 user_text,
                 self.death_prompt,
                 tools=[self.death_tool],
