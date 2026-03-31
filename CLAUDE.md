@@ -76,3 +76,4 @@ make preprocess   # image preprocessing only
 - Do not delete any file
 - Never re-run LLM API calls when results already exist on disk. Always check for and load saved JSON/CSV outputs first (e.g. `ner_llm.json`, `ner_regex.json`, `acts_dataset.json`).
 - Start a log at the beginning of each session and save the log at the end of the session in logs/
+- **ALWAYS call `cost_tracker.log_summary(log_dir="logs")` at the end of every script that makes LLM API calls.** Never write a script with API calls without this line — it appends to `logs/api_costs.jsonl` and is the only way to track costs.
