@@ -34,8 +34,8 @@ class LLMSettings(BaseModel):
         description="Temperature for text generation",
     )
     max_tokens: int = Field(
-        default=128000,
-        description="Maximum number of tokens to generate",
+        default=4096,
+        description="Maximum number of tokens to generate (kept low to prevent runaway thinking costs)",
     )
     prompt_path: str = Field(
         default="config/ocr.prompt",
