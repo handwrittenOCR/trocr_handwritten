@@ -15,7 +15,7 @@ class TestLLMSettings:
 
     def test_default_model_name(self):
         settings = LLMSettings()
-        assert settings.model_name == "gemini-2.0-flash"
+        assert settings.model_name == "gemini-3-pro-preview"
 
     def test_valid_providers(self):
         for provider in ["openai", "gemini", "mistral"]:
@@ -28,7 +28,7 @@ class TestLLMSettings:
 
     def test_max_tokens_default(self):
         settings = LLMSettings()
-        assert settings.max_tokens == 128000
+        assert settings.max_tokens == 4096
 
     def test_custom_settings(self):
         settings = LLMSettings(
@@ -120,15 +120,25 @@ class TestCostTracker:
     def test_get_cost_known_model(self):
         tracker = CostTracker(model_name="gemini-2.0-flash")
         tracker.add_usage(1_000_000, 1_000_000)
-        cost = tracker.get_cost()
-        expected = 0.10 + 0.40
-        assert cost == pytest.approx(expected)
+        costs = tracker.get_cost()
+        expected = 0.085 + 0.339
+        assert costs["total"] == pytest.approx(expected)
 
     def test_get_cost_unknown_model(self):
         tracker = CostTracker(model_name="unknown-model")
         tracker.add_usage(1_000_000, 1_000_000)
-        cost = tracker.get_cost()
-        assert cost == 0.0
+        costs = tracker.get_cost()
+        assert costs["total"] == 0.0
+
+    def test_get_cost_with_thinking_tokens(self):
+        tracker = CostTracker(model_name="gemini-3.1-pro-preview")
+        tracker.add_usage(1_000_000, 500_000, thinking_tokens=200_000)
+        costs = tracker.get_cost()
+        # Thinking tokens billed at output rate
+        assert costs["thinking_cost"] == pytest.approx(200_000 / 1_000_000 * 10.178)
+        assert costs["total"] == pytest.approx(
+            costs["input_cost"] + costs["output_cost"] + costs["thinking_cost"]
+        )
 
     def test_summary_format(self):
         tracker = CostTracker(model_name="gpt-4o")
@@ -137,7 +147,7 @@ class TestCostTracker:
         assert "gpt-4o" in summary
         assert "1,000" in summary
         assert "500" in summary
-        assert "$" in summary
+        assert "EUR" in summary
 
     def test_pricing_contains_expected_models(self):
         expected_models = [
