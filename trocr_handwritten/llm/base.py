@@ -40,13 +40,23 @@ class LLMProvider(ABC):
         pass
 
     @abstractmethod
-    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
-        """Make a synchronous API call."""
+    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int, int]:
+        """Make a synchronous API call.
+
+        Returns:
+            Tuple of (text, input_tokens, output_tokens, thinking_tokens).
+        """
         pass
 
     @abstractmethod
-    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
-        """Make an asynchronous API call."""
+    async def _call_api_async(
+        self, model: str, messages: list
+    ) -> Tuple[str, int, int, int]:
+        """Make an asynchronous API call.
+
+        Returns:
+            Tuple of (text, input_tokens, output_tokens, thinking_tokens).
+        """
         pass
 
     @abstractmethod
@@ -56,40 +66,44 @@ class LLMProvider(ABC):
 
     def _call_with_retry(
         self, model: str, messages: list, max_retries: int = 3
-    ) -> Tuple[str, int, int]:
+    ) -> Tuple[str, int, int, int]:
         """Make a synchronous API call with retries."""
         total_input = 0
         total_output = 0
+        total_thinking = 0
         for _ in range(max_retries):
-            text, inp, out = self._call_api(model, messages)
+            text, inp, out, think = self._call_api(model, messages)
             total_input += inp
             total_output += out
+            total_thinking += think
             if text and text.strip():
-                return text, total_input, total_output
-        return None, total_input, total_output
+                return text, total_input, total_output, total_thinking
+        return None, total_input, total_output, total_thinking
 
     async def _call_with_retry_async(
         self, model: str, messages: list, max_retries: int = 3, timeout: int = 60
-    ) -> Tuple[str, int, int]:
+    ) -> Tuple[str, int, int, int]:
         """Make an asynchronous API call with retries and per-request timeout."""
         total_input = 0
         total_output = 0
+        total_thinking = 0
         for attempt in range(max_retries):
             try:
-                text, inp, out = await asyncio.wait_for(
+                text, inp, out, think = await asyncio.wait_for(
                     self._call_api_async(model, messages), timeout=timeout
                 )
                 total_input += inp
                 total_output += out
+                total_thinking += think
                 if text and text.strip():
-                    return text, total_input, total_output
+                    return text, total_input, total_output, total_thinking
             except asyncio.TimeoutError:
                 logger.warning(
                     f"Request to {model} timed out after {timeout}s (attempt {attempt + 1}/{max_retries})"
                 )
-        return None, total_input, total_output
+        return None, total_input, total_output, total_thinking
 
-    def ocr_image(self, image_path: Path, prompt: str) -> Tuple[str, int, int]:
+    def ocr_image(self, image_path: Path, prompt: str) -> Tuple[str, int, int, int]:
         """
         Perform OCR on an image using the LLM with fallback support.
 
@@ -98,10 +112,10 @@ class LLMProvider(ABC):
             prompt: Prompt template for OCR extraction.
 
         Returns:
-            Tuple of (transcribed text, input tokens, output tokens).
+            Tuple of (transcribed text, input tokens, output tokens, thinking tokens).
         """
         messages = self._build_messages(image_path, prompt)
-        text, input_tokens, output_tokens = self._call_with_retry(
+        text, input_tokens, output_tokens, thinking_tokens = self._call_with_retry(
             self.settings.model_name, messages
         )
         current_model = self.settings.model_name
@@ -110,15 +124,18 @@ class LLMProvider(ABC):
             logger.debug(
                 f"Empty response from {current_model} after retries, trying fallback {fallback}"
             )
-            text, fb_input, fb_output = self._call_with_retry(fallback, messages)
+            text, fb_input, fb_output, fb_think = self._call_with_retry(
+                fallback, messages
+            )
             input_tokens += fb_input
             output_tokens += fb_output
+            thinking_tokens += fb_think
             current_model = fallback
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, thinking_tokens
 
     async def ocr_image_async(
         self, image_path: Path, prompt: str
-    ) -> Tuple[str, int, int]:
+    ) -> Tuple[str, int, int, int]:
         """
         Perform OCR on an image asynchronously with fallback support.
 
@@ -127,12 +144,14 @@ class LLMProvider(ABC):
             prompt: Prompt template for OCR extraction.
 
         Returns:
-            Tuple of (transcribed text, input tokens, output tokens).
+            Tuple of (transcribed text, input tokens, output tokens, thinking tokens).
         """
         timeout = self.settings.request_timeout
         messages = self._build_messages(image_path, prompt)
-        text, input_tokens, output_tokens = await self._call_with_retry_async(
-            self.settings.model_name, messages, timeout=timeout
+        text, input_tokens, output_tokens, thinking_tokens = (
+            await self._call_with_retry_async(
+                self.settings.model_name, messages, timeout=timeout
+            )
         )
         current_model = self.settings.model_name
         while (text is None or text.strip() == "") and current_model in FALLBACK_MODELS:
@@ -140,13 +159,14 @@ class LLMProvider(ABC):
             logger.debug(
                 f"Empty response from {current_model} after retries, trying fallback {fallback}"
             )
-            text, fb_input, fb_output = await self._call_with_retry_async(
+            text, fb_input, fb_output, fb_think = await self._call_with_retry_async(
                 fallback, messages, timeout=timeout
             )
             input_tokens += fb_input
             output_tokens += fb_output
+            thinking_tokens += fb_think
             current_model = fallback
-        return text, input_tokens, output_tokens
+        return text, input_tokens, output_tokens, thinking_tokens
 
     # ------------------------------------------------------------------
     # Text-only methods (for NER extraction with optional function calling)
@@ -165,7 +185,7 @@ class LLMProvider(ABC):
         system_prompt: str,
         tools: list = None,
         tool_choice: str = "auto",
-    ) -> Tuple[str, int, int]:
+    ) -> Tuple[str, int, int, int]:
         """Make an async text-only API call with optional function calling.
 
         Args:
@@ -175,11 +195,11 @@ class LLMProvider(ABC):
             tool_choice: Tool choice strategy ("auto", "required", or "none").
 
         Returns:
-            Tuple of (response text or tool call arguments JSON, input tokens, output tokens).
+            Tuple of (response text or tool call arguments JSON, input tokens, output tokens, thinking tokens).
         """
         messages = self._build_text_messages(text, system_prompt)
         timeout = self.settings.request_timeout
-        text_result, input_tokens, output_tokens = (
+        text_result, input_tokens, output_tokens, thinking_tokens = (
             await self._call_text_with_retry_async(
                 self.settings.model_name,
                 messages,
@@ -197,21 +217,24 @@ class LLMProvider(ABC):
             logger.debug(
                 f"Empty response from {current_model}, trying fallback {fallback}"
             )
-            text_result, fb_input, fb_output = await self._call_text_with_retry_async(
-                fallback,
-                messages,
-                tools=tools,
-                tool_choice=tool_choice,
-                timeout=timeout,
+            text_result, fb_input, fb_output, fb_think = (
+                await self._call_text_with_retry_async(
+                    fallback,
+                    messages,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    timeout=timeout,
+                )
             )
             input_tokens += fb_input
             output_tokens += fb_output
+            thinking_tokens += fb_think
             current_model = fallback
-        return text_result, input_tokens, output_tokens
+        return text_result, input_tokens, output_tokens, thinking_tokens
 
     async def _call_text_api_async(
         self, model: str, messages: list, tools: list = None, tool_choice: str = "auto"
-    ) -> Tuple[str, int, int]:
+    ) -> Tuple[str, int, int, int]:
         """Make an async text API call. Subclasses can override for provider-specific behavior."""
         raise NotImplementedError("Subclass must implement _call_text_api_async")
 
@@ -223,25 +246,27 @@ class LLMProvider(ABC):
         tool_choice: str = "auto",
         max_retries: int = 3,
         timeout: int = 60,
-    ) -> Tuple[str, int, int]:
+    ) -> Tuple[str, int, int, int]:
         """Async text API call with retries and timeout."""
         total_input = 0
         total_output = 0
+        total_thinking = 0
         for attempt in range(max_retries):
             try:
-                text, inp, out = await asyncio.wait_for(
+                text, inp, out, think = await asyncio.wait_for(
                     self._call_text_api_async(model, messages, tools, tool_choice),
                     timeout=timeout,
                 )
                 total_input += inp
                 total_output += out
+                total_thinking += think
                 if text and text.strip():
-                    return text, total_input, total_output
+                    return text, total_input, total_output, total_thinking
             except asyncio.TimeoutError:
                 logger.warning(
                     f"Text request to {model} timed out after {timeout}s (attempt {attempt + 1}/{max_retries})"
                 )
-        return None, total_input, total_output
+        return None, total_input, total_output, total_thinking
 
     def _encode_image_base64(self, image_path: Path) -> str:
         """
