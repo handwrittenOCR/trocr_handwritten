@@ -40,6 +40,16 @@ Donné en notre Hôtel, à la Pointe-à-Pitre,
 Guadeloupe, le cinq novembre mil huit cent quarante
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Type | Preamble | Preamble |
+| Parish | Abymes | Abymes |
+| Date | 5 novembre 1840 | 5 novembre 1840 |
+| Note | Reads "Deces?" with ? | Marks as [illisible] |
+| Signature | [Dupuy Mondesir?] | (omitted) |
+
 ---
 
 ## Plein Texte — `FRAD971_1E35_001_101_003_C` — crop `003`
@@ -74,6 +84,22 @@ Saferchaux père, habitant propriétaire domicilié en cette
 Commune est accouchée le Trente Décembre dernier d'une fille
 noire qui a eu nom Colombe et a Signé avec nous après lecture
 ```
+
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Act type | Naissance | Naissance |
+| Slave name | Colombe | Colombe |
+| Sex / color | F / noire | F / noire |
+| Mother name | Rose | Rose |
+| Mother age | 28 ans | 28 ans |
+| **Owner name** | **Nafrechoux pere** | **Saferchaux pere** |
+| Owner title | habitant proprietaire | habitant proprietaire |
+| Parish | Abymes | Abymes |
+| Event date | 30 Decembre 1840 | 30 Decembre 1840 |
+| Declaration date | 4 Janvier 1841 | 4 Janvier 1841 |
+| Declarant | Chs Catalogne | Chs Catalogne |
 
 ---
 
@@ -110,6 +136,22 @@ en cette Commune est accouchée hier treize du Courant à
 dix heures du matin d'un garçon noir qui a eu nom Tite
 et a signé avec nous après lecture. Ch. Catalogne
 ```
+
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Act type | Naissance | Naissance |
+| **Slave name** | **Cite** | **Tite** |
+| Sex / color | M / noir | M / noir |
+| Mother name | Anne Marie | Anne Marie |
+| Mother age | 30 ans | 30 ans |
+| **Owner name** | **Laferchau pere** | **Laperchau pere** |
+| Owner title | habitant proprietaire | habitant proprietaire |
+| Parish | Abymes | Abymes |
+| **Event date** | **hier 16 du courant** | **hier 13 du courant** |
+| **Declaration date** | **4 Janvier 1841** | **14 Janvier 1841** |
+| Declarant | Ch. Catalogne | Ch. Catalogne |
 
 ---
 
@@ -151,6 +193,22 @@ Immatricule R.
 N° 3003
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Act type | Naissance | Naissance |
+| Act number | 1 | 1 |
+| **Slave name** | **Collette** | **Celeste** |
+| Sex / color | F / noire | F / noire |
+| **Mother name** | **Juliette** | **illatre** |
+| **Mother age** | **28 ans** | **22 ans** |
+| **Owner name** | **La Marochelle pere** | **la Nofrecheu fils** |
+| Owner title | habitant proprietaire | habitant domicilie |
+| Parish | Abymes | Abymes |
+| Event date | 30 Decembre 1840 | 30 Decembre 1840 |
+| Registration | R. N 3003 | R. N 3003 |
+
 ---
 
 ## Marge — `FRAD971_1E35_001_101_003_C` — crop `004`
@@ -170,6 +228,14 @@ GUADELOUPE
 MAIRIE
 ABYMES
 ```
+
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Type | Header stamp | Header stamp |
+| Parish | Abymes | Abymes |
+| Note | Identical | Identical |
 
 ---
 
@@ -209,10 +275,24 @@ Immatriculé Registre
 D N° 3434 -
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| **Act type** | **Naissance** | **Quittance** |
+| Act number | 2 | 2 |
+| Slave name | Vite | Vite |
+| Sex | M | M |
+| Mother name | Anne Marie de Hans | Anne Marie de Hans |
+| **Mother status** | **mineure** | **majeure** |
+| **Owner name** | **Marlenheim** | **Molsheim** |
+| Event date | Fevrier 1841 | 1841 |
+| Registration | D N 3434 | D N 3434 |
+
 ---
 
 
-## Cost Summary
+## Cost Summary (Round 1)
 
 ```
 Model: gemini-3-pro-preview
@@ -225,9 +305,11 @@ TOTAL ESTIMATED COST: EUR 0.0293
 WARNING: 986 thinking tokens detected! Verify your Google billing matches this estimate.
 ```
 
+---
+
 # Round 2 — Pages 004_C and 005_C
 
-## Plein Texte -- `FRAD971_1E35_001_101_004_C` -- crop `000`
+## Plein Texte — `FRAD971_1E35_001_101_004_C` — crop `000`
 
 **Tokens:** input=1230, output=189, thinking=0
 
@@ -263,9 +345,24 @@ un du mois de Décembre Dernier à Cinq heures du Soir
 avec nous après lecture. Ch. Catalogne,
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| **Act type** | **Stillbirth (nee sans vie)** | **Death (decedee)** |
+| **Slave name** | **Felicite?** | **[illisible]** |
+| Sex / color | F / noire | F |
+| **Owner name** | **dame Adelaide?** | **dame V. [illisible]** |
+| Plantation | habitation (owner's) | [illisible] |
+| **Parish** | **Abymes?** | **[illisible]** |
+| Event date | 31 Decembre | 31 Decembre |
+| **Declaration date** | **31 Janvier** | **7 Janvier 1841** |
+| **Year** | **soixante et un? (1861?)** | **quarante un (1841)** |
+| Declarant | Ch. Catalogne | Ch. Catalogne |
+
 ---
 
-## Plein Texte -- `FRAD971_1E35_001_101_004_C` -- crop `004`
+## Plein Texte — `FRAD971_1E35_001_101_004_C` — crop `004`
 
 **Tokens:** input=1218, output=179, thinking=0
 
@@ -301,9 +398,25 @@ du present mois a Cinq heures du soir d'un garcon
 [illisible] a eu nom [illisible] et a signé avec nous
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Act type | Naissance | Naissance |
+| **Slave name** | **Jean Baptiste?** | **[illisible]** |
+| Sex | M | M |
+| **Mother name** | **Marie?** | **[illisible]** |
+| **Mother age** | **20 ans?** | **[illisible]** |
+| **Owner name** | **Guillaud?** | **[illisible]** |
+| **Parish** | **Aigrefeuille? (Charente Inf.)** | **[illisible]** |
+| **Declaration date** | **28 novembre?** | **21 decembre** |
+| **Event date** | **jour d'hier** | **20 du present mois** |
+| Declarant | Guillaud? | [illisible] |
+| Note | OLD guesses many names with ? | NEW marks most as illisible |
+
 ---
 
-## Marge -- `FRAD971_1E35_001_101_004_C` -- crop `001`
+## Marge — `FRAD971_1E35_001_101_004_C` — crop `001`
 
 **Tokens:** input=1211, output=51, thinking=0
 
@@ -333,9 +446,16 @@ et [illisible]
 [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Type | Administrative note | Administrative note |
+| Note | OLD reads "titres, papiers, Mr Dampierre" | NEW marks most as illisible |
+
 ---
 
-## Marge -- `FRAD971_1E35_001_101_004_C` -- crop `003`
+## Marge — `FRAD971_1E35_001_101_004_C` — crop `003`
 
 **Tokens:** input=1254, output=4, thinking=0
 
@@ -349,9 +469,17 @@ Ch.. Catalogne
 Ch. Catalogne
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Type | Signature | Signature |
+| Declarant | Ch.. Catalogne | Ch. Catalogne |
+| Note | Minor: double dot in OLD | Identical content |
+
 ---
 
-## Plein Texte -- `FRAD971_1E35_001_101_005_C` -- crop `001`
+## Plein Texte — `FRAD971_1E35_001_101_005_C` — crop `001`
 
 **Tokens:** input=1251, output=48, thinking=0
 
@@ -375,9 +503,16 @@ Neuf de Janvier à neuf heures du matin
 [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| **Declaration date** | **neuf? neuf Janvier 1841** | **dix Neuf Janvier 1841** |
+| Note | Mostly illegible | Mostly illegible |
+
 ---
 
-## Plein Texte -- `FRAD971_1E35_001_101_005_C` -- crop `002`
+## Plein Texte — `FRAD971_1E35_001_101_005_C` — crop `002`
 
 **Tokens:** input=1230, output=133, thinking=0
 
@@ -411,9 +546,23 @@ décédé hier soir du Courant à trois heures de
 l'après midi et a signé avec nous après lecture.
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Act type | Death | Death |
+| Slave name | Antoine | Antoine |
+| Sex | M | M |
+| Age | 50 ans | 50 ans |
+| Plantation | habitation Beauport | habitation (unnamed) |
+| **Parish** | **Port-Louis** | **Basse-Terre** |
+| **Declarant** | **Joseph Durand?** | **Joseph Duport** |
+| **Declaration date** | **28 Fevrier 1842** | **18 Fevrier 1852** |
+| Event date | hier soir | hier soir |
+
 ---
 
-## Plein Texte -- `FRAD971_1E35_001_101_005_C` -- crop `003`
+## Plein Texte — `FRAD971_1E35_001_101_005_C` — crop `003`
 
 **Tokens:** input=1211, output=163, thinking=0
 
@@ -456,9 +605,23 @@ pte. Desravines
 [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| **Act type** | **Birth (accouchee)** | **Death (decede)** |
+| **Slave name** | **Omer** | **(unnamed)** |
+| Sex | M | M |
+| **Mother/Subject** | **Joseph (fille, 24 ans)** | **Joseph (fils, 24 ans)** |
+| **Owner name** | **Vve Desrivieres** | **M. de Labaume** |
+| Plantation | (unnamed) | habitation de Labaume |
+| **Parish** | **St. Louis, Grandebourg** | **St. francois** |
+| Declaration date | 11 mai | 11 mai |
+| **Declarant** | **Pierre Bte Desrivieres** | **pte. Desravines** |
+
 ---
 
-## Plein Texte -- `FRAD971_1E35_001_101_005_C` -- crop `007`
+## Plein Texte — `FRAD971_1E35_001_101_005_C` — crop `007`
 
 **Tokens:** input=1226, output=95, thinking=0
 
@@ -494,9 +657,18 @@ Canton de [illisible]
 [illisible] lecture. - [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Slave name | Marie Cazenave | [illisible] |
+| **Parish** | **Ste Suzanne (Basses Pyrenees)** | **[illisible]** |
+| **Declarant** | **Cazenave Jean, 57 ans** | **[illisible]** |
+| Note | Appears to be French mainland act | NEW marks almost everything illisible |
+
 ---
 
-## Marge -- `FRAD971_1E35_001_101_005_C` -- crop `004`
+## Marge — `FRAD971_1E35_001_101_005_C` — crop `004`
 
 **Tokens:** input=1238, output=65, thinking=0
 
@@ -532,9 +704,19 @@ du [illisible]
 [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| **Slave name** | **Claude** | **Clairine** |
+| Color | [illisible] | negresse |
+| Owner name | [illisible] | M. de [illisible] |
+| Registration | 2304 | 2304 |
+| Note | Heavily damaged crop | Heavily damaged crop |
+
 ---
 
-## Marge -- `FRAD971_1E35_001_101_005_C` -- crop `005`
+## Marge — `FRAD971_1E35_001_101_005_C` — crop `005`
 
 **Tokens:** input=1223, output=56, thinking=0
 
@@ -563,9 +745,20 @@ au s.r Chassaigne [illisible]
 [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Act type | Death | Death |
+| Act number | 3 | 3 |
+| **Slave name** | **Sevienne** | **Sevranne** |
+| Sex / color | F / negresse | F / negresse |
+| Age | 76 ans | 76 ans |
+| **Owner name** | **Sr. Chevalier** | **s.r Chassaigne** |
+
 ---
 
-## Marge -- `FRAD971_1E35_001_101_005_C` -- crop `008`
+## Marge — `FRAD971_1E35_001_101_005_C` — crop `008`
 
 **Tokens:** input=1230, output=18, thinking=0
 
@@ -583,9 +776,16 @@ J. Cas
 8006 [illisible]
 ```
 
+### Key variables
+
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| Note | OLD reads "J. Cas / Delaporte / 8bre 11" | NEW reads "8006 [illisible]" |
+| Note | Entirely different readings | Very short fragment |
+
 ---
 
-## Marge -- `FRAD971_1E35_001_101_005_C` -- crop `009`
+## Marge — `FRAD971_1E35_001_101_005_C` — crop `009`
 
 **Tokens:** input=1218, output=29, thinking=0
 
@@ -607,8 +807,16 @@ l'age de 40 ans
 [illisible]
 ```
 
----
+### Key variables
 
+| Variable | HIGH thinking (old) | LOW thinking (new) |
+|----------|--------------------|--------------------|
+| **Act type** | **Financial note (Debet)** | **Death (Deces)** |
+| **Slave name** | **(none)** | **Jeanne** |
+| **Age** | **NA** | **40 ans** |
+| Note | Completely different interpretation | One reads commerce, the other a death |
+
+---
 
 ## Round 2 Cost Summary
 
