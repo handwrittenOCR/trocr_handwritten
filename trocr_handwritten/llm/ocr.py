@@ -7,7 +7,7 @@ from typing import List, Optional, Dict
 from tqdm.asyncio import tqdm_asyncio
 
 from trocr_handwritten.utils.logging_config import get_logger
-from trocr_handwritten.utils.cost_tracker import CostTracker
+from trocr_handwritten.utils.cost_tracker import CostTracker, BudgetExceeded
 from trocr_handwritten.llm.settings import LLMSettings, OCRSettings
 from trocr_handwritten.llm.factory import get_provider
 
@@ -17,24 +17,33 @@ failed_images: Dict[str, str] = {}
 
 
 def find_images(
-    input_dir: Path, pattern: str, limit: Optional[int] = None
+    input_dir: Path,
+    pattern: str,
+    limit: Optional[int] = None,
+    output_extension: str = ".md",
 ) -> List[Path]:
     """
-    Find all images matching the pattern in the input directory.
+    Find images matching the pattern that have not yet been transcribed.
 
     Args:
         input_dir: Root directory to search.
         pattern: Glob pattern to match images.
-        limit: Maximum number of images to return.
+        limit: Maximum number of *untranscribed* images to return.
+        output_extension: Extension of output files (to filter already-done).
 
     Returns:
         List of paths to image files.
     """
-    images = sorted(input_dir.rglob(pattern))
+    all_images = sorted(input_dir.rglob(pattern))
+    untranscribed = [
+        img for img in all_images if not img.with_suffix(output_extension).exists()
+    ]
+    logger.info(
+        f"Found {len(all_images)} total images, {len(untranscribed)} untranscribed"
+    )
     if limit:
-        images = images[:limit]
-    return images
-    # modified to use .rglob, works better with testing file organization
+        untranscribed = untranscribed[:limit]
+    return untranscribed
 
 
 def load_prompt(prompt_path: str) -> str:
@@ -93,6 +102,8 @@ async def process_image_async(
                 f.write(transcription)
             logger.debug(f"Saved transcription to {output_path}")
             return True
+        except BudgetExceeded:
+            raise
         except Exception as e:
             logger.error(f"Error processing {image_path}: {e}")
             failed_images[str(image_path)] = str(e)
@@ -138,7 +149,10 @@ async def process_all_images(
         )
         for image_path in todo
     ]
-    await tqdm_asyncio.gather(*tasks, desc="Processing images")
+    try:
+        await tqdm_asyncio.gather(*tasks, desc="Processing images")
+    except BudgetExceeded:
+        logger.warning("Budget exceeded — stopping. Completed work has been saved.")
 
 
 def main():
@@ -195,6 +209,12 @@ def main():
         default=60,
         help="Per-request timeout in seconds before retry (default: 60)",
     )
+    parser.add_argument(
+        "--budget",
+        type=float,
+        default=0.0,
+        help="Maximum spend in EUR before stopping (default: 0 = no limit)",
+    )
     args = parser.parse_args()
 
     model_defaults = {
@@ -223,11 +243,15 @@ def main():
 
     prompt = load_prompt(ocr_settings.llm_settings.prompt_path)
     provider = get_provider(llm_settings)
-    cost_tracker = CostTracker(model_name=model_name)
+    cost_tracker = CostTracker(model_name=model_name, budget_eur=args.budget)
 
     input_path = Path(ocr_settings.input_dir)
-    images = find_images(input_path, ocr_settings.image_pattern, limit=args.n)
-    logger.info(f"Found {len(images)} images to process")
+    images = find_images(
+        input_path,
+        ocr_settings.image_pattern,
+        limit=args.n,
+        output_extension=ocr_settings.output_extension,
+    )
 
     asyncio.run(
         process_all_images(
