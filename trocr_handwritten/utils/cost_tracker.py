@@ -33,6 +33,12 @@ PRICING = {
 }
 
 
+class BudgetExceeded(Exception):
+    """Raised when the cost budget has been exceeded."""
+
+    pass
+
+
 @dataclass
 class CostTracker:
     """Tracks API usage costs across multiple calls."""
@@ -42,6 +48,7 @@ class CostTracker:
     output_tokens: int = 0
     thinking_tokens: int = 0
     total_calls: int = 0
+    budget_eur: float = 0.0  # 0 = no limit
     _pricing: Dict[str, Dict[str, float]] = field(default_factory=lambda: PRICING)
 
     def add_usage(
@@ -66,6 +73,17 @@ class CostTracker:
                 f"(cumulative: {self.thinking_tokens}). "
                 f"These are billed at output token rate!"
             )
+
+        if self.budget_eur > 0:
+            total = self.get_total_cost()
+            if total >= self.budget_eur:
+                logger.error(
+                    f"BUDGET EXCEEDED: EUR {total:.4f} >= EUR {self.budget_eur:.4f}. "
+                    f"Stopping after {self.total_calls} calls."
+                )
+                raise BudgetExceeded(
+                    f"Cost EUR {total:.4f} exceeded budget EUR {self.budget_eur:.4f}"
+                )
 
     def get_cost(self) -> Dict[str, float]:
         """

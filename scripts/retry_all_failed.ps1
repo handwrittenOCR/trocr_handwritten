@@ -10,7 +10,9 @@ param(
     [int[]]$Years = @(),
     [int]$Timeout = 180,
     [int]$MaxConcurrent = 10,
-    [string]$Model = "gemini-3-pro-preview"
+    [string]$Model = "gemini-3.1-pro-preview",
+    [int]$N = 0,
+    [double]$Budget = 0.0
 )
 
 $VENV = ".venv\Scripts\python.exe"
@@ -62,11 +64,11 @@ foreach ($commune in $Communes) {
 
         $failed = Get-Content $failedJson | ConvertFrom-Json
 
-        # Check which images still need processing
+        # Check which images still need processing (jpg must exist, md must not)
         $needsRetry = @{}
         foreach ($imgPath in $failed.images.PSObject.Properties) {
             $mdPath = $imgPath.Name -replace '\.jpg$', '.md'
-            if (-not (Test-Path $mdPath)) {
+            if ((Test-Path $imgPath.Name) -and -not (Test-Path $mdPath)) {
                 $needsRetry[$imgPath.Name] = $imgPath.Value
             }
         }
@@ -104,21 +106,37 @@ Write-Host "Total to retry: $totalNeedsRetry across $($retryTargets.Count) year(
 Write-Host ""
 
 # Second pass: retry each target
+$remaining = $N
 foreach ($target in $retryTargets) {
+    if ($N -gt 0 -and $remaining -le 0) {
+        Write-Host "--- $($target.commune)/$($target.year) - skipped (budget exhausted) ---"
+        continue
+    }
+
     Write-Host "--- $($target.commune)/$($target.year) ($($target.count) images) ---"
 
-    & $VENV -m trocr_handwritten.llm.ocr `
-        --provider gemini `
-        --model "$Model" `
-        --input_dir "$($target.dir)" `
-        --pattern "*.jpg" `
-        --max_concurrent $MaxConcurrent `
-        --timeout $Timeout
+    $ocrArgs = @(
+        "-m", "trocr_handwritten.llm.ocr",
+        "--provider", "gemini",
+        "--model", $Model,
+        "--input_dir", $target.dir,
+        "--pattern", "*.jpg",
+        "--max_concurrent", $MaxConcurrent,
+        "--timeout", $Timeout
+    )
+    if ($N -gt 0) {
+        $ocrArgs += @("-n", $remaining)
+    }
+    if ($Budget -gt 0) {
+        $ocrArgs += @("--budget", $Budget)
+    }
+    & $VENV @ocrArgs
 
     # Check results
     $failedJson = Join-Path $target.dir "failed_ocr.json"
     if (-not (Test-Path $failedJson)) {
         $totalResolved += $target.count
+        if ($N -gt 0) { $remaining -= $target.count }
         Write-Host "  All resolved!"
         continue
     }
@@ -138,6 +156,7 @@ foreach ($target in $retryTargets) {
 
     $totalResolved += $resolved
     $totalStillFailed += $stillFailed.Count
+    if ($N -gt 0) { $remaining -= $resolved }
 
     if ($stillFailed.Count -eq 0) {
         Remove-Item $failedJson

@@ -1,11 +1,13 @@
 # Retry OCR on failed images (skips already transcribed .md files)
-# Usage: .\scripts\retry_failed.ps1 -OutputDir <path> [-Timeout 120] [-MaxConcurrent 15] [-MaxRetries 3]
+# Usage: .\scripts\retry_failed.ps1 -OutputDir <path> [-Timeout 120] [-MaxConcurrent 15] [-N 20]
 
 param(
     [string]$OutputDir = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed\abymes\1842",
     [int]$Timeout = 120,
     [int]$MaxConcurrent = 10,
-    [string]$Model = "gemini-3-pro-preview"
+    [string]$Model = "gemini-3-pro-preview",
+    [int]$N = 0,
+    [double]$Budget = 0.0
 )
 
 $VENV = ".venv\Scripts\python.exe"
@@ -18,11 +20,11 @@ if (-not (Test-Path $failedJson)) {
 
 $failed = Get-Content $failedJson | ConvertFrom-Json
 
-# Check which failed images still need processing
+# Check which failed images still need processing (jpg must exist, md must not)
 $needsRetry = @{}
 foreach ($imgPath in $failed.images.PSObject.Properties) {
     $mdPath = $imgPath.Name -replace '\.jpg$', '.md'
-    if (-not (Test-Path $mdPath)) {
+    if ((Test-Path $imgPath.Name) -and -not (Test-Path $mdPath)) {
         $needsRetry[$imgPath.Name] = $imgPath.Value
     }
 }
@@ -52,13 +54,22 @@ Write-Host "Dir:     $OutputDir"
 Write-Host ""
 
 # The OCR script skips images that already have .md files
-& $VENV -m trocr_handwritten.llm.ocr `
-    --provider gemini `
-    --model "$Model" `
-    --input_dir "$OutputDir" `
-    --pattern "*.jpg" `
-    --max_concurrent $MaxConcurrent `
-    --timeout $Timeout
+$ocrArgs = @(
+    "-m", "trocr_handwritten.llm.ocr",
+    "--provider", "gemini",
+    "--model", $Model,
+    "--input_dir", $OutputDir,
+    "--pattern", "*.jpg",
+    "--max_concurrent", $MaxConcurrent,
+    "--timeout", $Timeout
+)
+if ($N -gt 0) {
+    $ocrArgs += @("-n", $N)
+}
+if ($Budget -gt 0) {
+    $ocrArgs += @("--budget", $Budget)
+}
+& $VENV @ocrArgs
 
 Write-Host ""
 Write-Host "=== Checking results ==="

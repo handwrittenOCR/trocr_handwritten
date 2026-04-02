@@ -10,7 +10,9 @@ param(
     [int[]]$Years = @(),
     [int]$MaxConcurrent = 10,
     [int]$Timeout = 180,
-    [string]$Model = "gemini-3-pro-preview"
+    [string]$Model = "gemini-3.1-pro-preview",
+    [int]$N = 0,
+    [double]$Budget = 0.0
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,8 +41,10 @@ Write-Host "=========================================="
 Write-Host "Communes: $($Communes -join ', ')"
 Write-Host "Model:    $Model"
 Write-Host "Timeout:  ${Timeout}s | Workers: $MaxConcurrent"
+if ($N -gt 0) { Write-Host "Budget:   $N images" }
 Write-Host ""
 
+$remaining = $N
 foreach ($commune in $Communes) {
     $communeInput = Join-Path $BASE_INPUT $commune
     $communeOutput = Join-Path $BASE_OUTPUT $commune
@@ -66,6 +70,11 @@ foreach ($commune in $Communes) {
     $communeStart = Get-Date
 
     foreach ($year in $yearDirs) {
+        if ($N -gt 0 -and $remaining -le 0) {
+            Write-Host "  SKIP $year - budget exhausted"
+            continue
+        }
+
         $INPUT_DIR = Join-Path $communeInput "$year\pages"
         $OUTPUT_DIR = Join-Path $communeOutput "$year"
 
@@ -105,18 +114,33 @@ foreach ($commune in $Communes) {
         }
 
         # Step 2: OCR
+        $mdBefore = 0
+        if (Test-Path $OUTPUT_DIR) {
+            $mdBefore = (Get-ChildItem -Path $OUTPUT_DIR -Filter "*.md" -Recurse).Count
+        }
+
         Write-Host "  OCR: transcribing..."
-        & $VENV -m trocr_handwritten.llm.ocr `
-            --provider gemini `
-            --model "$Model" `
-            --input_dir "$OUTPUT_DIR" `
-            --pattern "*.jpg" `
-            --max_concurrent $MaxConcurrent `
-            --timeout $Timeout
+        $ocrArgs = @(
+            "-m", "trocr_handwritten.llm.ocr",
+            "--provider", "gemini",
+            "--model", $Model,
+            "--input_dir", $OUTPUT_DIR,
+            "--pattern", "*.jpg",
+            "--max_concurrent", $MaxConcurrent,
+            "--timeout", $Timeout
+        )
+        if ($N -gt 0) {
+            $ocrArgs += @("-n", $remaining)
+        }
+        if ($Budget -gt 0) {
+            $ocrArgs += @("--budget", $Budget)
+        }
+        & $VENV @ocrArgs
 
         # Year summary
         $crops = (Get-ChildItem -Path $OUTPUT_DIR -Filter "*.jpg" -Recurse).Count
         $transcribed = (Get-ChildItem -Path $OUTPUT_DIR -Filter "*.md" -Recurse).Count
+        $newlyDone = $transcribed - $mdBefore
         $failedJson = Join-Path $OUTPUT_DIR "failed_ocr.json"
         $failedCount = 0
         if (Test-Path $failedJson) {
@@ -127,6 +151,7 @@ foreach ($commune in $Communes) {
         $totalCrops += $crops
         $totalTranscribed += $transcribed
         $totalFailed += $failedCount
+        if ($N -gt 0) { $remaining -= $newlyDone }
 
         Write-Host "  Done ($($elapsed.ToString('hh\:mm\:ss'))) - Crops: $crops | Transcribed: $transcribed | Failed: $failedCount"
     }
