@@ -36,6 +36,12 @@ _ACT_TYPE_PATTERNS = [
 
 _ACT_NUMBER_PATTERN = re.compile(r"(?:n[°ᵒo˚]|16°)\s*(\d+)", re.IGNORECASE)
 
+# "Aujourd'hui" pattern: marks the start of each registry entry in gosier-style
+# registers where multiple entries appear in a single crop without preamble.
+_AUJOURDHUI_PATTERN = re.compile(
+    r"(?=(?:^|\n)\s*[Aa]ujourd\s*'?\s*hui\b)", re.IGNORECASE
+)
+
 # Preamble pattern: detects the start of a new act.
 # All acts begin with "L'An mil huit cent ..." with OCR variations:
 #   - L'/L'/l' or missing entirely ("An Mil...")
@@ -85,6 +91,134 @@ def extract_act_number(marge_text: str) -> Optional[str]:
     if match:
         return match.group(1)
     return None
+
+
+# ---------------------------------------------------------------------------
+# Deduplication: remove overlapping YOLO crops, keep the largest
+# ---------------------------------------------------------------------------
+
+
+def _iou(box_a: dict, box_b: dict) -> float:
+    """Compute intersection-over-union for two XYWH coordinate dicts."""
+    ax1, ay1 = box_a["x"], box_a["y"]
+    ax2, ay2 = ax1 + box_a["width"], ay1 + box_a["height"]
+    bx1, by1 = box_b["x"], box_b["y"]
+    bx2, by2 = bx1 + box_b["width"], by1 + box_b["height"]
+
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    if inter == 0:
+        return 0.0
+
+    area_a = box_a["width"] * box_a["height"]
+    area_b = box_b["width"] * box_b["height"]
+    union = area_a + area_b - inter
+    return inter / union if union > 0 else 0.0
+
+
+def _containment(small: dict, large: dict) -> float:
+    """Fraction of 'small' box area that is inside 'large' box."""
+    sx1, sy1 = small["x"], small["y"]
+    sx2, sy2 = sx1 + small["width"], sy1 + small["height"]
+    lx1, ly1 = large["x"], large["y"]
+    lx2, ly2 = lx1 + large["width"], ly1 + large["height"]
+
+    ix1, iy1 = max(sx1, lx1), max(sy1, ly1)
+    ix2, iy2 = min(sx2, lx2), min(sy2, ly2)
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+
+    area_small = small["width"] * small["height"]
+    return inter / area_small if area_small > 0 else 0.0
+
+
+def deduplicate_crops(metadata: dict, containment_threshold: float = 0.8) -> List[dict]:
+    """Remove overlapping Plein Texte crops, keeping the largest.
+
+    When a small crop is largely contained inside a larger one (>80% overlap),
+    the small crop is dropped as redundant.
+
+    Returns a deduplicated reading_order list.
+    """
+    plein_texte_list = metadata.get("Plein Texte", [])
+    if not plein_texte_list:
+        return metadata.get("reading_order", [])
+
+    # Build a lookup: jpg filename -> coordinates
+    coords = {}
+    for crop in plein_texte_list:
+        coords[crop["cropped_image_name"]] = crop["coordinates"]
+
+    reading_order = metadata.get("reading_order", [])
+    if not reading_order:
+        return []
+
+    # Sort crops by area (largest first) for containment checks
+    crops_by_area = sorted(
+        [(e, coords.get(e.get("plein_texte", ""), {})) for e in reading_order],
+        key=lambda x: x[1].get("width", 0) * x[1].get("height", 0),
+        reverse=True,
+    )
+
+    keep = []
+    removed_jpgs = set()
+
+    for entry, box in crops_by_area:
+        jpg = entry.get("plein_texte", "")
+        if not box or jpg in removed_jpgs:
+            continue
+
+        # Check if this crop is mostly contained in any already-kept larger crop
+        is_redundant = False
+        for kept_entry, kept_box in keep:
+            if _containment(box, kept_box) > containment_threshold:
+                is_redundant = True
+                logger.debug(
+                    "Dropping redundant crop %s (%.0f%% inside %s)",
+                    jpg,
+                    _containment(box, kept_box) * 100,
+                    kept_entry.get("plein_texte"),
+                )
+                removed_jpgs.add(jpg)
+                break
+
+        if not is_redundant:
+            keep.append((entry, box))
+
+    # Return in original reading order (sorted by order field)
+    kept_entries = [e for e, _ in keep]
+    kept_entries.sort(key=lambda e: e.get("order", 0))
+
+    if removed_jpgs:
+        logger.info(
+            "Deduplicated: removed %d redundant crops (%s)",
+            len(removed_jpgs),
+            ", ".join(sorted(removed_jpgs)),
+        )
+
+    return kept_entries
+
+
+# ---------------------------------------------------------------------------
+# Split multi-entry text into individual registries
+# ---------------------------------------------------------------------------
+
+
+def split_registries(text: str) -> List[str]:
+    """Split a transcription containing multiple registry entries.
+
+    Each entry starts with 'Aujourd'hui'. If the text contains multiple
+    occurrences, split into one string per entry. If only one or zero,
+    return the full text as a single-element list.
+    """
+    parts = _AUJOURDHUI_PATTERN.split(text)
+    # Filter out empty/whitespace-only parts
+    parts = [p.strip() for p in parts if p.strip()]
+
+    if len(parts) <= 1:
+        return [text.strip()]
+
+    return parts
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +275,8 @@ def build_dataset(
 
     logger.info("Found %d page folders in %s", len(page_dirs), input_dir)
 
+    split_count = 0
+
     for page_dir in page_dirs:
         page_name = page_dir.name
 
@@ -149,7 +285,8 @@ def build_dataset(
         with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
-        reading_order = metadata.get("reading_order", [])
+        # Deduplicate overlapping crops
+        reading_order = deduplicate_crops(metadata)
         if not reading_order:
             logger.warning("No reading_order in %s", metadata_path)
             continue
@@ -181,53 +318,68 @@ def build_dataset(
                     marge_text = marge_content
                     source_marge_file = marge_jpg.replace(".jpg", ".md")
 
-            # Check if this is a new act or a continuation of the previous one.
-            # A new act starts with the preamble "L'An mil huit cent..."
-            # A continuation is any crop whose text does NOT start with the preamble.
-            if not is_new_act(plein_texte_text) and records:
-                # Continuation: append text to the previous record
-                prev = records[-1]
-                records[-1] = prev.model_copy(
-                    update={
-                        "plein_texte_text": prev.plein_texte_text
-                        + "\n"
-                        + plein_texte_text,
-                    }
+            # Split multi-entry transcriptions into individual registries
+            registry_entries = split_registries(plein_texte_text)
+
+            for sub_idx, entry_text in enumerate(registry_entries):
+                # Check if this is a new act or a continuation of the previous one.
+                # A new act starts with the preamble "L'An mil huit cent..."
+                # A continuation is any crop whose text does NOT start with the preamble.
+                if not is_new_act(entry_text) and records:
+                    # Only merge as continuation if there's a single entry
+                    # (multi-entry splits are always standalone)
+                    if len(registry_entries) == 1:
+                        prev = records[-1]
+                        records[-1] = prev.model_copy(
+                            update={
+                                "plein_texte_text": prev.plein_texte_text
+                                + "\n"
+                                + entry_text,
+                            }
+                        )
+                        continuation_count += 1
+                        logger.debug(
+                            "Continuation merged: %s order %d -> %s",
+                            page_name,
+                            order,
+                            prev.act_id,
+                        )
+                        continue
+
+                # New act: detect type and number from Marge
+                act_type = detect_act_type(marge_text) if marge_text else "unknown"
+                act_number = extract_act_number(marge_text) if marge_text else None
+
+                # Build act ID (add sub-index when a crop was split)
+                if len(registry_entries) > 1:
+                    act_id = f"{commune}_{year}_{page_name}_order{order}_entry{sub_idx}"
+                    split_count += 1
+                else:
+                    act_id = f"{commune}_{year}_{page_name}_order{order}"
+
+                record = ActRecord(
+                    act_id=act_id,
+                    act_type=act_type,
+                    act_number=act_number,
+                    marge_text=marge_text,
+                    plein_texte_text=entry_text,
+                    source_page=page_name,
+                    source_marge_file=source_marge_file,
+                    source_plein_texte_file=plein_texte_jpg.replace(".jpg", ".md"),
+                    commune=commune,
+                    year=year,
+                    order_on_page=order,
                 )
-                continuation_count += 1
-                logger.debug(
-                    "Continuation merged: %s order %d -> %s",
-                    page_name,
-                    order,
-                    prev.act_id,
-                )
-                continue
-
-            # New act: detect type and number from Marge
-            act_type = detect_act_type(marge_text) if marge_text else "unknown"
-            act_number = extract_act_number(marge_text) if marge_text else None
-
-            # Build act ID
-            act_id = f"{commune}_{year}_{page_name}_order{order}"
-
-            record = ActRecord(
-                act_id=act_id,
-                act_type=act_type,
-                act_number=act_number,
-                marge_text=marge_text,
-                plein_texte_text=plein_texte_text,
-                source_page=page_name,
-                source_marge_file=source_marge_file,
-                source_plein_texte_file=plein_texte_jpg.replace(".jpg", ".md"),
-                commune=commune,
-                year=year,
-                order_on_page=order,
-            )
-            records.append(record)
+                records.append(record)
 
     if continuation_count:
         logger.info(
             "Merged %d continuation crops into previous acts", continuation_count
+        )
+    if split_count:
+        logger.info(
+            "Split multi-entry crops into %d individual registry entries",
+            split_count,
         )
 
     logger.info(
