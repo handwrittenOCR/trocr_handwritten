@@ -225,9 +225,9 @@ def build_reading_order(metadata):
     """
     Build reading order from metadata and associate Marge with Plein Texte regions.
 
-    Groups regions into registry entries by matching Marge and Plein Texte
-    that overlap vertically (same "latitude" on the page). Entries are sorted
-    top-to-bottom by their vertical center.
+    Scans are double-page spreads: left page (x < PAGE_SPLIT) and right page
+    (x >= PAGE_SPLIT). Marge and Plein Texte are only matched within the same
+    page side, then by vertical overlap. Entries are sorted top-to-bottom.
 
     Args:
         metadata: Dict with class names as keys, lists of region dicts as values.
@@ -251,17 +251,34 @@ def build_reading_order(metadata):
         c = region["coordinates"]
         return c["y"], c["y"] + c["height"]
 
-    # Match each Plein Texte with the Marge that overlaps it vertically
+    def x_center(region):
+        c = region["coordinates"]
+        return c["x"] + c["width"] / 2
+
+    # Double-page spread thresholds:
+    # Marge x < MARGE_SPLIT → left page; Plein Texte x < PT_SPLIT → left page
+    MARGE_SPLIT = 1500
+    PT_SPLIT = 3000
+
+    def page_side(region, is_marge=False):
+        threshold = MARGE_SPLIT if is_marge else PT_SPLIT
+        return "left" if x_center(region) < threshold else "right"
+
+    # Match within each page side separately
     matched_marges = set()
     entries = []
 
     for texte in textes:
+        t_side = page_side(texte, is_marge=False)
         t_top, t_bot = y_range(texte)
         best_marge = None
         best_overlap = 0
 
         for i, marge in enumerate(marges):
             if i in matched_marges:
+                continue
+            # Only match Marge on the same page side
+            if page_side(marge, is_marge=True) != t_side:
                 continue
             m_top, m_bot = y_range(marge)
             overlap = max(0, min(t_bot, m_bot) - max(t_top, m_top))

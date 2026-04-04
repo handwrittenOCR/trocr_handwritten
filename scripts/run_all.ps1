@@ -1,9 +1,11 @@
 # Full pipeline: YOLO crop + Gemini 3 Pro OCR for all communes and years
+# Budget is GLOBAL across the entire run (not per folder).
 # Usage:
 #   .\scripts\run_all.ps1                                  # all communes, all years
 #   .\scripts\run_all.ps1 -Communes abymes,anse_bertrand   # specific communes
 #   .\scripts\run_all.ps1 -Communes abymes -Years 1841,1842
 #   .\scripts\run_all.ps1 -MaxConcurrent 5 -Timeout 240
+#   .\scripts\run_all.ps1 -Budget 20                       # stop after EUR 20 total
 
 param(
     [string[]]$Communes = @(),
@@ -24,6 +26,8 @@ $BASE_OUTPUT = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JM
 $HF_REPO = "MarieBgl/historical-layout-bagnards-EC"
 $HF_FILE = "20250111_yolov10_bagnards_EC.pt"
 
+$COST_LOG = "logs\api_costs.jsonl"
+
 # Auto-detect communes if not specified
 if ($Communes.Count -eq 0) {
     $Communes = Get-ChildItem -Path $BASE_INPUT -Directory | Select-Object -ExpandProperty Name
@@ -34,6 +38,14 @@ $totalPages = 0
 $totalCrops = 0
 $totalTranscribed = 0
 $totalFailed = 0
+$sessionCostEur = 0.0
+$budgetExhausted = $false
+
+# Count existing lines in cost log (to read only new entries after each OCR call)
+$costLogLinesBefore = 0
+if (Test-Path $COST_LOG) {
+    $costLogLinesBefore = (Get-Content $COST_LOG).Count
+}
 
 Write-Host "=========================================="
 Write-Host "=== Full Pipeline ==="
@@ -41,11 +53,14 @@ Write-Host "=========================================="
 Write-Host "Communes: $($Communes -join ', ')"
 Write-Host "Model:    $Model"
 Write-Host "Timeout:  ${Timeout}s | Workers: $MaxConcurrent"
-if ($N -gt 0) { Write-Host "Budget:   $N images" }
+if ($N -gt 0) { Write-Host "Limit:    $N images" }
+if ($Budget -gt 0) { Write-Host "Budget:   EUR $Budget (global for entire run)" }
 Write-Host ""
 
 $remaining = $N
 foreach ($commune in $Communes) {
+    if ($budgetExhausted) { break }
+
     $communeInput = Join-Path $BASE_INPUT $commune
     $communeOutput = Join-Path $BASE_OUTPUT $commune
 
@@ -70,8 +85,12 @@ foreach ($commune in $Communes) {
     $communeStart = Get-Date
 
     foreach ($year in $yearDirs) {
+        if ($budgetExhausted) {
+            Write-Host "  SKIP $year - global budget exhausted (EUR $([math]::Round($sessionCostEur, 2)) spent)"
+            continue
+        }
         if ($N -gt 0 -and $remaining -le 0) {
-            Write-Host "  SKIP $year - budget exhausted"
+            Write-Host "  SKIP $year - image limit exhausted"
             continue
         }
 
@@ -113,7 +132,7 @@ foreach ($commune in $Communes) {
                 --device cpu
         }
 
-        # Step 2: OCR
+        # Step 2: OCR - compute remaining budget for this folder
         $mdBefore = 0
         if (Test-Path $OUTPUT_DIR) {
             $mdBefore = (Get-ChildItem -Path $OUTPUT_DIR -Filter "*.md" -Recurse).Count
@@ -132,10 +151,39 @@ foreach ($commune in $Communes) {
         if ($N -gt 0) {
             $ocrArgs += @("-n", $remaining)
         }
+        # Pass remaining budget (global minus already spent) to each ocr.py call
         if ($Budget -gt 0) {
-            $ocrArgs += @("--budget", $Budget)
+            $remainingBudget = [math]::Round($Budget - $sessionCostEur, 4)
+            if ($remainingBudget -le 0) {
+                Write-Host "  SKIP OCR - global budget exhausted"
+                $budgetExhausted = $true
+                continue
+            }
+            $ocrArgs += @("--budget", $remainingBudget)
+            Write-Host "  Budget remaining: EUR $remainingBudget"
         }
         & $VENV @ocrArgs
+
+        # Read new cost log entries to update session total
+        if ($Budget -gt 0 -and (Test-Path $COST_LOG)) {
+            $allLines = Get-Content $COST_LOG
+            $newLines = $allLines[$costLogLinesBefore..($allLines.Count - 1)]
+            $costLogLinesBefore = $allLines.Count
+            foreach ($line in $newLines) {
+                if (-not $line) { continue }
+                $entry = $line | ConvertFrom-Json
+                if ($entry.cost_total_adjusted_eur) {
+                    $sessionCostEur += $entry.cost_total_adjusted_eur
+                } elseif ($entry.cost_total_eur) {
+                    $sessionCostEur += $entry.cost_total_eur * 1.30
+                }
+            }
+            Write-Host "  Session cost so far: EUR $([math]::Round($sessionCostEur, 2)) / $Budget"
+            if ($sessionCostEur -ge $Budget) {
+                Write-Host "  *** GLOBAL BUDGET REACHED - stopping pipeline ***"
+                $budgetExhausted = $true
+            }
+        }
 
         # Year summary
         $crops = (Get-ChildItem -Path $OUTPUT_DIR -Filter "*.jpg" -Recurse).Count
@@ -166,4 +214,7 @@ $totalElapsed = (Get-Date) - $totalStart
 Write-Host "=========================================="
 Write-Host "=== All Done === ($($totalElapsed.ToString('hh\:mm\:ss')))"
 Write-Host "  Pages: $totalPages | Crops: $totalCrops | Transcribed: $totalTranscribed | Failed: $totalFailed"
+if ($Budget -gt 0) {
+    Write-Host "  Session cost: EUR $([math]::Round($sessionCostEur, 2)) / $Budget"
+}
 Write-Host "  Cost log: logs\api_costs.jsonl"

@@ -1,9 +1,11 @@
 # Retry all failed OCR across all communes and years
+# Budget is GLOBAL across the entire run (not per folder).
 # Usage:
 #   .\scripts\retry_all_failed.ps1                              # scan all communes
 #   .\scripts\retry_all_failed.ps1 -Communes abymes             # specific commune
 #   .\scripts\retry_all_failed.ps1 -Communes abymes -Years 1842 # specific year
 #   .\scripts\retry_all_failed.ps1 -Timeout 240 -MaxConcurrent 5
+#   .\scripts\retry_all_failed.ps1 -Budget 5                    # stop after EUR 5 total
 
 param(
     [string[]]$Communes = @(),
@@ -17,6 +19,7 @@ param(
 
 $VENV = ".venv\Scripts\python.exe"
 $BASE_OUTPUT = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed"
+$COST_LOG = "logs\api_costs.jsonl"
 
 # Auto-detect communes if not specified
 if ($Communes.Count -eq 0) {
@@ -31,12 +34,21 @@ if ($Communes.Count -eq 0) {
 $totalNeedsRetry = 0
 $totalResolved = 0
 $totalStillFailed = 0
+$sessionCostEur = 0.0
+$budgetExhausted = $false
+
+# Count existing lines in cost log
+$costLogLinesBefore = 0
+if (Test-Path $COST_LOG) {
+    $costLogLinesBefore = (Get-Content $COST_LOG).Count
+}
 
 Write-Host "=========================================="
 Write-Host "=== Retry All Failed ==="
 Write-Host "=========================================="
 Write-Host "Model:   $Model"
 Write-Host "Timeout: ${Timeout}s | Workers: $MaxConcurrent"
+if ($Budget -gt 0) { Write-Host "Budget:  EUR $Budget (global)" }
 Write-Host ""
 
 # First pass: scan for all failed_ocr.json files
@@ -108,8 +120,12 @@ Write-Host ""
 # Second pass: retry each target
 $remaining = $N
 foreach ($target in $retryTargets) {
+    if ($budgetExhausted) {
+        Write-Host "--- $($target.commune)/$($target.year) - skipped (global budget exhausted) ---"
+        continue
+    }
     if ($N -gt 0 -and $remaining -le 0) {
-        Write-Host "--- $($target.commune)/$($target.year) - skipped (budget exhausted) ---"
+        Write-Host "--- $($target.commune)/$($target.year) - skipped (image limit exhausted) ---"
         continue
     }
 
@@ -127,10 +143,39 @@ foreach ($target in $retryTargets) {
     if ($N -gt 0) {
         $ocrArgs += @("-n", $remaining)
     }
+    # Pass remaining budget to each ocr.py call
     if ($Budget -gt 0) {
-        $ocrArgs += @("--budget", $Budget)
+        $remainingBudget = [math]::Round($Budget - $sessionCostEur, 4)
+        if ($remainingBudget -le 0) {
+            Write-Host "  SKIP - global budget exhausted"
+            $budgetExhausted = $true
+            continue
+        }
+        $ocrArgs += @("--budget", $remainingBudget)
+        Write-Host "  Budget remaining: EUR $remainingBudget"
     }
     & $VENV @ocrArgs
+
+    # Read new cost log entries to update session total
+    if ($Budget -gt 0 -and (Test-Path $COST_LOG)) {
+        $allLines = Get-Content $COST_LOG
+        $newLines = $allLines[$costLogLinesBefore..($allLines.Count - 1)]
+        $costLogLinesBefore = $allLines.Count
+        foreach ($line in $newLines) {
+            if (-not $line) { continue }
+            $entry = $line | ConvertFrom-Json
+            if ($entry.cost_total_adjusted_eur) {
+                $sessionCostEur += $entry.cost_total_adjusted_eur
+            } elseif ($entry.cost_total_eur) {
+                $sessionCostEur += $entry.cost_total_eur * 1.30
+            }
+        }
+        Write-Host "  Session cost so far: EUR $([math]::Round($sessionCostEur, 2)) / $Budget"
+        if ($sessionCostEur -ge $Budget) {
+            Write-Host "  *** GLOBAL BUDGET REACHED - stopping pipeline ***"
+            $budgetExhausted = $true
+        }
+    }
 
     # Check results
     $failedJson = Join-Path $target.dir "failed_ocr.json"
@@ -178,4 +223,7 @@ foreach ($target in $retryTargets) {
 Write-Host "=========================================="
 Write-Host "=== Retry Summary ==="
 Write-Host "  Resolved: $totalResolved | Still failed: $totalStillFailed"
+if ($Budget -gt 0) {
+    Write-Host "  Session cost: EUR $([math]::Round($sessionCostEur, 2)) / $Budget"
+}
 Write-Host "  Cost log: logs\api_costs.jsonl"

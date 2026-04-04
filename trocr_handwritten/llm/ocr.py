@@ -267,20 +267,31 @@ def main():
     cost_tracker.model_name = getattr(provider, "actual_model_name", model_name)
     cost_tracker.log_summary()
 
-    if failed_images:
-        failed_path = input_path / "failed_ocr.json"
+    # Reconcile against disk: any .jpg without a corresponding .md is failed
+    all_jpgs = sorted(input_path.rglob(ocr_settings.image_pattern))
+    still_failed = {
+        str(img): failed_images.get(str(img), "no corresponding output file")
+        for img in all_jpgs
+        if not img.with_suffix(ocr_settings.output_extension).exists()
+    }
+
+    failed_path = input_path / "failed_ocr.json"
+    if still_failed:
         failed_data = {
             "timestamp": datetime.now().isoformat(),
             "model": model_name,
             "provider": args.provider,
-            "failed_count": len(failed_images),
-            "images": failed_images,
+            "failed_count": len(still_failed),
+            "images": still_failed,
         }
         with open(failed_path, "w", encoding="utf-8") as f:
             json.dump(failed_data, f, indent=2, ensure_ascii=False)
         logger.warning(
-            f"Failed to process {len(failed_images)} images. See {failed_path}"
+            f"{len(still_failed)} images still without transcription. See {failed_path}"
         )
+    elif failed_path.exists():
+        failed_path.unlink()
+        logger.info("All images transcribed — removed stale failed_ocr.json")
 
     logger.info("OCR processing completed")
 

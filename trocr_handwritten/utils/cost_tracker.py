@@ -75,14 +75,14 @@ class CostTracker:
             )
 
         if self.budget_eur > 0:
-            total = self.get_total_cost()
-            if total >= self.budget_eur:
+            adjusted = self.get_total_cost() * 1.30
+            if adjusted >= self.budget_eur:
                 logger.error(
-                    f"BUDGET EXCEEDED: EUR {total:.4f} >= EUR {self.budget_eur:.4f}. "
+                    f"BUDGET EXCEEDED: adjusted EUR {adjusted:.4f} >= EUR {self.budget_eur:.4f}. "
                     f"Stopping after {self.total_calls} calls."
                 )
                 raise BudgetExceeded(
-                    f"Cost EUR {total:.4f} exceeded budget EUR {self.budget_eur:.4f}"
+                    f"Adjusted cost EUR {adjusted:.4f} exceeded budget EUR {self.budget_eur:.4f}"
                 )
 
     def get_cost(self) -> Dict[str, float]:
@@ -155,6 +155,7 @@ class CostTracker:
             "cost_output_eur": round(costs["output_cost"], 6),
             "cost_thinking_eur": round(costs["thinking_cost"], 6),
             "cost_total_eur": round(costs["total"], 6),
+            "cost_total_adjusted_eur": round(costs["total"] * 1.30, 6),
         }
 
         with open(cost_log, "a", encoding="utf-8") as f:
