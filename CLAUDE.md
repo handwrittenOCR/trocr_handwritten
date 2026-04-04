@@ -70,10 +70,11 @@ make preprocess   # image preprocessing only
 - Run tests with `pytest`.
 - Keep settings in their respective `settings.py` files (Pydantic for llm/, dataclass for parse/).
 - LLM provider for this project: **Gemini** (via OpenAI-compatible SDK).
-- Target model: **gemini-3.1-pro-preview** (best OCR quality for handwritten documents).
+- Target model: **gemini-3.1-pro-preview** (best OCR quality for handwritten documents) **with thinking mode at the lowest level**
 - Only crop **Marge** and **Plein Texte** classes from YOLO output; ignore Title, En-tete, Nom, Signature, Table, Section.
 - All paths on this Windows machine use forward slashes in shell commands.
 - Do not delete any file
 - Never re-run LLM API calls when results already exist on disk. Always check for and load saved JSON/CSV outputs first (e.g. `ner_llm.json`, `ner_regex.json`, `acts_dataset.json`).
 - Start a log at the beginning of each session and save the log at the end of the session in logs/
 - **ALWAYS call `cost_tracker.log_summary(log_dir="logs")` at the end of every script that makes LLM API calls.** Never write a script with API calls without this line — it appends to `logs/api_costs.jsonl` and is the only way to track costs.
+- Pay SPECIAL attention to API prices. I have had skyrocketing costs for Gemini API and want to avoid that at all costs.
