@@ -72,3 +72,4 @@ venv/
 .env.dist
 .claude/settings.local.json
 .env.dist
+trocr_handwritten/parse/paragraph_splitter.py
