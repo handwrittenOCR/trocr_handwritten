@@ -401,6 +401,9 @@ def build_dataset(
                     year=year,
                     order_on_page=order,
                 )
+                if _REGISTRY_HEADER_PATTERN.search(entry_text[:200]):
+                    logger.debug("Skipping preamble act: %s", act_id)
+                    continue
                 records.append(record)
 
     if continuation_count:
