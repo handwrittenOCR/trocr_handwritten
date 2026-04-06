@@ -42,11 +42,32 @@ class ActRecord(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class ChildInfo(BaseModel):
+    """Information about a newborn child in a birth act."""
+
+    name: Optional[str] = Field(default=None, description="Full name as written")
+    sex: Optional[Literal["homme", "femme"]] = Field(default=None)
+    qualifier: Optional[str] = Field(
+        default=None,
+        description="Racial qualifier as written: nègre, négresse, mulâtre, quarteron, rouge, etc.",
+    )
+    registration_register: Optional[str] = Field(
+        default=None, description="Registration register letter, e.g. 'D', 'C'"
+    )
+    registration_number: Optional[str] = Field(
+        default=None, description="Registration number, e.g. '3328'"
+    )
+
+
 class PersonInfo(BaseModel):
     """Information about a person mentioned in the act."""
 
     name: Optional[str] = Field(default=None, description="Full name as written")
     sex: Optional[Literal["homme", "femme"]] = Field(default=None)
+    qualifier: Optional[str] = Field(
+        default=None,
+        description="Racial qualifier as written: nègre, négresse, mulâtre, quarteron, rouge, etc.",
+    )
     age: Optional[str] = Field(
         default=None, description="Age as written or converted to number"
     )
@@ -64,18 +85,18 @@ class DeathActEntity(BaseModel):
 
     person: PersonInfo = Field(default_factory=PersonInfo)
     death_date: Optional[str] = Field(default=None, description="Date of death")
-    death_time: Optional[str] = Field(default=None, description="Time of death")
     death_place: Optional[str] = Field(
         default=None, description="Place of death (habitation name)"
     )
     declaration_date: Optional[str] = Field(default=None)
-    declaration_time: Optional[str] = Field(default=None)
     declarant_name: Optional[str] = Field(default=None)
     declarant_age: Optional[str] = Field(default=None)
     declarant_occupation: Optional[str] = Field(default=None)
     owner_name: Optional[str] = Field(
         default=None, description="Owner of the enslaved person"
     )
+    owner_commune: Optional[str] = Field(default=None)
+    owner_residence: Optional[str] = Field(default=None)
     habitation_name: Optional[str] = Field(default=None)
     officer_name: Optional[str] = Field(
         default=None, description="Officier de l'état civil (mayor or adjoint)"
@@ -86,20 +107,20 @@ class DeathActEntity(BaseModel):
 class BirthActEntity(BaseModel):
     """Extracted entities from a birth act (acte de naissance)."""
 
-    child: PersonInfo = Field(default_factory=PersonInfo)
+    child: ChildInfo = Field(default_factory=ChildInfo)
     mother: PersonInfo = Field(default_factory=PersonInfo)
     father: PersonInfo = Field(default_factory=PersonInfo)
     birth_date: Optional[str] = Field(default=None, description="Date of birth")
-    birth_time: Optional[str] = Field(default=None, description="Time of birth")
     birth_place: Optional[str] = Field(
         default=None, description="Place of birth (habitation name)"
     )
     declaration_date: Optional[str] = Field(default=None)
-    declaration_time: Optional[str] = Field(default=None)
     declarant_name: Optional[str] = Field(default=None)
     declarant_age: Optional[str] = Field(default=None)
     declarant_occupation: Optional[str] = Field(default=None)
     owner_name: Optional[str] = Field(default=None)
+    owner_commune: Optional[str] = Field(default=None)
+    owner_residence: Optional[str] = Field(default=None)
     habitation_name: Optional[str] = Field(default=None)
     officer_name: Optional[str] = Field(
         default=None, description="Officier de l'état civil (mayor or adjoint)"
@@ -113,13 +134,13 @@ class MarriageActEntity(BaseModel):
     spouse1: PersonInfo = Field(default_factory=PersonInfo)
     spouse2: PersonInfo = Field(default_factory=PersonInfo)
     marriage_date: Optional[str] = Field(default=None)
-    marriage_time: Optional[str] = Field(default=None)
     declaration_date: Optional[str] = Field(default=None)
-    declaration_time: Optional[str] = Field(default=None)
     declarant_name: Optional[str] = Field(default=None)
     declarant_age: Optional[str] = Field(default=None)
     declarant_occupation: Optional[str] = Field(default=None)
     owner_name: Optional[str] = Field(default=None)
+    owner_commune: Optional[str] = Field(default=None)
+    owner_residence: Optional[str] = Field(default=None)
     habitation_name: Optional[str] = Field(default=None)
     officer_name: Optional[str] = Field(default=None)
     commune: Optional[str] = Field(default=None)
@@ -165,19 +186,20 @@ DEATH_CSV_COLUMNS: List[str] = [
     "extraction_method",
     "person_name",
     "person_sex",
+    "person_qualifier",
     "person_age",
     "person_occupation",
     "person_registration_register",
     "person_registration_number",
     "death_date",
-    "death_time",
     "death_place",
     "declaration_date",
-    "declaration_time",
     "declarant_name",
     "declarant_age",
     "declarant_occupation",
     "owner_name",
+    "owner_commune",
+    "owner_residence",
     "habitation_name",
     "officer_name",
     "commune",
@@ -189,7 +211,7 @@ BIRTH_CSV_COLUMNS: List[str] = [
     "extraction_method",
     "child_name",
     "child_sex",
-    "child_age",
+    "child_qualifier",
     "child_registration_register",
     "child_registration_number",
     "mother_name",
@@ -205,14 +227,14 @@ BIRTH_CSV_COLUMNS: List[str] = [
     "father_registration_register",
     "father_registration_number",
     "birth_date",
-    "birth_time",
     "birth_place",
     "declaration_date",
-    "declaration_time",
     "declarant_name",
     "declarant_age",
     "declarant_occupation",
     "owner_name",
+    "owner_commune",
+    "owner_residence",
     "habitation_name",
     "officer_name",
     "commune",
@@ -239,19 +261,20 @@ def flatten_ner_result(result: NERResult) -> dict:
             {
                 "person_name": d.person.name,
                 "person_sex": d.person.sex,
+                "person_qualifier": d.person.qualifier,
                 "person_age": d.person.age,
                 "person_occupation": d.person.occupation,
                 "person_registration_register": d.person.registration_register,
                 "person_registration_number": d.person.registration_number,
                 "death_date": d.death_date,
-                "death_time": d.death_time,
                 "death_place": d.death_place,
                 "declaration_date": d.declaration_date,
-                "declaration_time": d.declaration_time,
                 "declarant_name": d.declarant_name,
                 "declarant_age": d.declarant_age,
                 "declarant_occupation": d.declarant_occupation,
                 "owner_name": d.owner_name,
+                "owner_commune": d.owner_commune,
+                "owner_residence": d.owner_residence,
                 "habitation_name": d.habitation_name,
                 "officer_name": d.officer_name,
                 "commune": d.commune,
@@ -264,7 +287,7 @@ def flatten_ner_result(result: NERResult) -> dict:
             {
                 "child_name": b.child.name,
                 "child_sex": b.child.sex,
-                "child_age": b.child.age,
+                "child_qualifier": b.child.qualifier,
                 "child_registration_register": b.child.registration_register,
                 "child_registration_number": b.child.registration_number,
                 "mother_name": b.mother.name,
@@ -280,14 +303,14 @@ def flatten_ner_result(result: NERResult) -> dict:
                 "father_registration_register": b.father.registration_register,
                 "father_registration_number": b.father.registration_number,
                 "birth_date": b.birth_date,
-                "birth_time": b.birth_time,
                 "birth_place": b.birth_place,
                 "declaration_date": b.declaration_date,
-                "declaration_time": b.declaration_time,
                 "declarant_name": b.declarant_name,
                 "declarant_age": b.declarant_age,
                 "declarant_occupation": b.declarant_occupation,
                 "owner_name": b.owner_name,
+                "owner_commune": b.owner_commune,
+                "owner_residence": b.owner_residence,
                 "habitation_name": b.habitation_name,
                 "officer_name": b.officer_name,
                 "commune": b.commune,
@@ -311,9 +334,7 @@ def flatten_ner_result(result: NERResult) -> dict:
                 "spouse2_registration_register": m.spouse2.registration_register,
                 "spouse2_registration_number": m.spouse2.registration_number,
                 "marriage_date": m.marriage_date,
-                "marriage_time": m.marriage_time,
                 "declaration_date": m.declaration_date,
-                "declaration_time": m.declaration_time,
                 "declarant_name": m.declarant_name,
                 "declarant_age": m.declarant_age,
                 "declarant_occupation": m.declarant_occupation,

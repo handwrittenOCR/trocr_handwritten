@@ -16,7 +16,9 @@ from trocr_handwritten.llm.settings import LLMSettings
 from trocr_handwritten.ner.schemas import (
     ActRecord,
     BirthActEntity,
+    ChildInfo,
     DeathActEntity,
+    MarriageActEntity,
     NERResult,
     PersonInfo,
 )
@@ -52,11 +54,15 @@ def _build_death_tool() -> dict:
                 "properties": {
                     "person_name": {
                         "type": ["string", "null"],
-                        "description": "Nom complet de la personne décédée",
+                        "description": "Nom complet de la personne esclave décédée",
                     },
                     "person_sex": {
                         "type": ["string", "null"],
                         "enum": ["homme", "femme", None],
+                    },
+                    "person_qualifier": {
+                        "type": ["string", "null"],
+                        "description": "Qualificatif racial de l'esclave tel qu'écrit : nègre, négresse, mulâtre, quarteron, rouge, etc.",
                     },
                     "person_age": {
                         "type": ["string", "null"],
@@ -73,11 +79,7 @@ def _build_death_tool() -> dict:
                     },
                     "death_date": {
                         "type": ["string", "null"],
-                        "description": "Date du décès",
-                    },
-                    "death_time": {
-                        "type": ["string", "null"],
-                        "description": "Heure du décès",
+                        "description": "Date du décès (format original du document)",
                     },
                     "death_place": {
                         "type": ["string", "null"],
@@ -85,11 +87,7 @@ def _build_death_tool() -> dict:
                     },
                     "declaration_date": {
                         "type": ["string", "null"],
-                        "description": "Date de la déclaration",
-                    },
-                    "declaration_time": {
-                        "type": ["string", "null"],
-                        "description": "Heure de la déclaration",
+                        "description": "Date de la déclaration (format original du document)",
                     },
                     "declarant_name": {
                         "type": ["string", "null"],
@@ -107,9 +105,17 @@ def _build_death_tool() -> dict:
                         "type": ["string", "null"],
                         "description": "Nom du propriétaire de l'esclave",
                     },
+                    "owner_commune": {
+                        "type": ["string", "null"],
+                        "description": "Nom de la commune du propriétaire",
+                    },
+                    "owner_residence": {
+                        "type": ["string", "null"],
+                        "description": "Nom de la résidence du propriétaire (e.g nom de plantation, rue, etc.)",
+                    },
                     "habitation_name": {
                         "type": ["string", "null"],
-                        "description": "Nom de l'habitation/plantation",
+                        "description": "Nom de l'habitation/plantation ou résidait l'esclave",
                     },
                     "officer_name": {
                         "type": ["string", "null"],
@@ -124,6 +130,7 @@ def _build_death_tool() -> dict:
                     "person_name",
                     "person_sex",
                     "person_age",
+                    "person_qualifier",
                     "person_registration_register",
                     "person_registration_number",
                     "habitation_name",
@@ -141,7 +148,7 @@ def _build_birth_tool() -> dict:
         "type": "function",
         "function": {
             "name": "extract_birth_act",
-            "description": "Extract entities from a birth act (acte de naissance)",
+            "description": "Extract entities from a birth act (acte de naissance) of a slave child",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -153,6 +160,10 @@ def _build_birth_tool() -> dict:
                         "type": ["string", "null"],
                         "enum": ["homme", "femme", None],
                     },
+                    "child_qualifier": {
+                        "type": ["string", "null"],
+                        "description": "Qualificatif racial tel qu'écrit : nègre, négresse, mulâtre, quarteron, rouge, etc.",
+                    },
                     "child_registration_register": {"type": ["string", "null"]},
                     "child_registration_number": {"type": ["string", "null"]},
                     "mother_name": {
@@ -160,6 +171,10 @@ def _build_birth_tool() -> dict:
                         "description": "Nom de la mère",
                     },
                     "mother_age": {"type": ["string", "null"]},
+                    "mother_qualifier": {
+                        "type": ["string", "null"],
+                        "description": "Qualificatif racial tel qu'écrit : négresse, mulâtresse, quarteronne, rouge, etc.",
+                    },
                     "mother_occupation": {"type": ["string", "null"]},
                     "mother_registration_register": {"type": ["string", "null"]},
                     "mother_registration_number": {"type": ["string", "null"]},
@@ -169,18 +184,21 @@ def _build_birth_tool() -> dict:
                     },
                     "father_age": {"type": ["string", "null"]},
                     "birth_date": {"type": ["string", "null"]},
-                    "birth_time": {"type": ["string", "null"]},
                     "birth_place": {
                         "type": ["string", "null"],
                         "description": "Lieu de naissance (habitation)",
                     },
                     "declaration_date": {"type": ["string", "null"]},
-                    "declaration_time": {"type": ["string", "null"]},
                     "declarant_name": {"type": ["string", "null"]},
                     "declarant_age": {"type": ["string", "null"]},
                     "declarant_occupation": {"type": ["string", "null"]},
                     "owner_name": {"type": ["string", "null"]},
                     "habitation_name": {"type": ["string", "null"]},
+                    "owner_commune": {"type": ["string", "null"]},
+                    "owner_residence": {
+                        "type": ["string", "null"],
+                        "description": "Nom de la résidence du propriétaire (e.g nom de plantation, rue, etc.)",
+                    },
                     "officer_name": {
                         "type": ["string", "null"],
                         "description": "Nom de l'officier de l'état civil (maire ou adjoint)",
@@ -190,14 +208,125 @@ def _build_birth_tool() -> dict:
                 "required": [
                     "child_name",
                     "child_sex",
+                    "child_qualifier",
                     "child_registration_register",
                     "child_registration_number",
                     "mother_name",
                     "mother_age",
+                    "mother_qualifier",
                     "habitation_name",
                     "owner_name",
                     "declarant_name",
                 ],
+            },
+        },
+    }
+
+
+def _build_marriage_tool() -> dict:
+    """Build OpenAI function-calling tool definition for marriage act extraction."""
+    return {
+        "type": "function",
+        "function": {
+            "name": "extract_marriage_act",
+            "description": "Extract entities from a marriage act (acte de mariage)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "spouse1_name": {
+                        "type": ["string", "null"],
+                        "description": "Nom complet de l'époux",
+                    },
+                    "spouse1_age": {"type": ["string", "null"]},
+                    "spouse1_qualifier": {
+                        "type": ["string", "null"],
+                        "description": "Qualificatif racial tel qu'écrit",
+                    },
+                    "spouse1_occupation": {"type": ["string", "null"]},
+                    "spouse1_registration_register": {"type": ["string", "null"]},
+                    "spouse1_registration_number": {"type": ["string", "null"]},
+                    "spouse2_name": {
+                        "type": ["string", "null"],
+                        "description": "Nom complet de l'épouse",
+                    },
+                    "spouse2_age": {"type": ["string", "null"]},
+                    "spouse2_qualifier": {
+                        "type": ["string", "null"],
+                        "description": "Qualificatif racial tel qu'écrit",
+                    },
+                    "spouse2_occupation": {"type": ["string", "null"]},
+                    "spouse2_registration_register": {"type": ["string", "null"]},
+                    "spouse2_registration_number": {"type": ["string", "null"]},
+                    "marriage_date": {"type": ["string", "null"]},
+                    "declaration_date": {"type": ["string", "null"]},
+                    "declarant_name": {"type": ["string", "null"]},
+                    "declarant_age": {"type": ["string", "null"]},
+                    "declarant_occupation": {"type": ["string", "null"]},
+                    "owner_name": {"type": ["string", "null"]},
+                    "owner_commune": {"type": ["string", "null"]},
+                    "owner_residence": {"type": ["string", "null"]},
+                    "habitation_name": {"type": ["string", "null"]},
+                    "officer_name": {"type": ["string", "null"]},
+                    "commune": {"type": ["string", "null"]},
+                },
+                "required": [
+                    "spouse1_name",
+                    "spouse2_name",
+                    "owner_name",
+                    "declarant_name",
+                ],
+            },
+        },
+    }
+
+
+def _build_unknown_tool() -> dict:
+    """Build OpenAI function-calling tool definition for unknown act type (union of all fields)."""
+    return {
+        "type": "function",
+        "function": {
+            "name": "extract_unknown_act",
+            "description": "Identify act type and extract entities from an act of unknown type",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "act_type": {
+                        "type": "string",
+                        "enum": ["deces", "naissance", "mariage"],
+                        "description": "Type d'acte détecté",
+                    },
+                    "person_name": {"type": ["string", "null"]},
+                    "person_sex": {
+                        "type": ["string", "null"],
+                        "enum": ["homme", "femme", None],
+                    },
+                    "person_qualifier": {"type": ["string", "null"]},
+                    "person_age": {"type": ["string", "null"]},
+                    "person_occupation": {"type": ["string", "null"]},
+                    "person_registration_register": {"type": ["string", "null"]},
+                    "person_registration_number": {"type": ["string", "null"]},
+                    "event_date": {
+                        "type": ["string", "null"],
+                        "description": "Date de l'événement (décès, naissance, ou mariage)",
+                    },
+                    "event_place": {"type": ["string", "null"]},
+                    "declaration_date": {"type": ["string", "null"]},
+                    "declarant_name": {"type": ["string", "null"]},
+                    "declarant_age": {"type": ["string", "null"]},
+                    "declarant_occupation": {"type": ["string", "null"]},
+                    "owner_name": {"type": ["string", "null"]},
+                    "owner_commune": {"type": ["string", "null"]},
+                    "owner_residence": {"type": ["string", "null"]},
+                    "habitation_name": {"type": ["string", "null"]},
+                    "officer_name": {"type": ["string", "null"]},
+                    "commune": {"type": ["string", "null"]},
+                    "mother_name": {"type": ["string", "null"]},
+                    "mother_age": {"type": ["string", "null"]},
+                    "mother_qualifier": {"type": ["string", "null"]},
+                    "mother_registration_register": {"type": ["string", "null"]},
+                    "mother_registration_number": {"type": ["string", "null"]},
+                },
+                "required": ["act_type", "person_name", "owner_name", "declarant_name"],
             },
         },
     }
@@ -219,6 +348,7 @@ def _parse_death_response(raw_json: str) -> Optional[DeathActEntity]:
     person = PersonInfo(
         name=data.get("person_name"),
         sex=data.get("person_sex"),
+        qualifier=data.get("person_qualifier"),
         age=data.get("person_age"),
         occupation=data.get("person_occupation"),
         registration_register=data.get("person_registration_register"),
@@ -227,18 +357,162 @@ def _parse_death_response(raw_json: str) -> Optional[DeathActEntity]:
     return DeathActEntity(
         person=person,
         death_date=data.get("death_date"),
-        death_time=data.get("death_time"),
         death_place=data.get("death_place"),
         declaration_date=data.get("declaration_date"),
-        declaration_time=data.get("declaration_time"),
         declarant_name=data.get("declarant_name"),
         declarant_age=data.get("declarant_age"),
         declarant_occupation=data.get("declarant_occupation"),
         owner_name=data.get("owner_name"),
+        owner_commune=data.get("owner_commune"),
+        owner_residence=data.get("owner_residence"),
         habitation_name=data.get("habitation_name"),
         officer_name=data.get("officer_name"),
         commune=data.get("commune"),
     )
+
+
+def _parse_marriage_response(raw_json: str) -> Optional[MarriageActEntity]:
+    """Parse function-calling JSON into a MarriageActEntity."""
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError:
+        logger.error("Failed to parse marriage act JSON: %s", raw_json[:200])
+        return None
+
+    spouse1 = PersonInfo(
+        name=data.get("spouse1_name"),
+        sex="homme",
+        qualifier=data.get("spouse1_qualifier"),
+        age=data.get("spouse1_age"),
+        occupation=data.get("spouse1_occupation"),
+        registration_register=data.get("spouse1_registration_register"),
+        registration_number=data.get("spouse1_registration_number"),
+    )
+    spouse2 = PersonInfo(
+        name=data.get("spouse2_name"),
+        sex="femme",
+        qualifier=data.get("spouse2_qualifier"),
+        age=data.get("spouse2_age"),
+        occupation=data.get("spouse2_occupation"),
+        registration_register=data.get("spouse2_registration_register"),
+        registration_number=data.get("spouse2_registration_number"),
+    )
+    return MarriageActEntity(
+        spouse1=spouse1,
+        spouse2=spouse2,
+        marriage_date=data.get("marriage_date"),
+        declaration_date=data.get("declaration_date"),
+        declarant_name=data.get("declarant_name"),
+        declarant_age=data.get("declarant_age"),
+        declarant_occupation=data.get("declarant_occupation"),
+        owner_name=data.get("owner_name"),
+        owner_commune=data.get("owner_commune"),
+        owner_residence=data.get("owner_residence"),
+        habitation_name=data.get("habitation_name"),
+        officer_name=data.get("officer_name"),
+        commune=data.get("commune"),
+    )
+
+
+def _parse_unknown_response(
+    raw_json: str,
+) -> tuple[
+    Optional[str],
+    Optional[DeathActEntity],
+    Optional[BirthActEntity],
+    Optional[MarriageActEntity],
+]:
+    """Parse unknown act JSON; returns (detected_act_type, death, birth, marriage)."""
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError:
+        logger.error("Failed to parse unknown act JSON: %s", raw_json[:200])
+        return None, None, None, None
+
+    act_type = data.get("act_type")
+
+    if act_type == "deces":
+        person = PersonInfo(
+            name=data.get("person_name"),
+            sex=data.get("person_sex"),
+            qualifier=data.get("person_qualifier"),
+            age=data.get("person_age"),
+            occupation=data.get("person_occupation"),
+            registration_register=data.get("person_registration_register"),
+            registration_number=data.get("person_registration_number"),
+        )
+        entity = DeathActEntity(
+            person=person,
+            death_date=data.get("event_date"),
+            death_place=data.get("event_place"),
+            declaration_date=data.get("declaration_date"),
+            declarant_name=data.get("declarant_name"),
+            declarant_age=data.get("declarant_age"),
+            declarant_occupation=data.get("declarant_occupation"),
+            owner_name=data.get("owner_name"),
+            owner_commune=data.get("owner_commune"),
+            owner_residence=data.get("owner_residence"),
+            habitation_name=data.get("habitation_name"),
+            officer_name=data.get("officer_name"),
+            commune=data.get("commune"),
+        )
+        return act_type, entity, None, None
+
+    if act_type == "naissance":
+        child = ChildInfo(
+            name=data.get("person_name"),
+            sex=data.get("person_sex"),
+            qualifier=data.get("person_qualifier"),
+            registration_register=data.get("person_registration_register"),
+            registration_number=data.get("person_registration_number"),
+        )
+        mother = PersonInfo(
+            name=data.get("mother_name"),
+            sex="femme" if data.get("mother_name") else None,
+            qualifier=data.get("mother_qualifier"),
+            age=data.get("mother_age"),
+            registration_register=data.get("mother_registration_register"),
+            registration_number=data.get("mother_registration_number"),
+        )
+        entity = BirthActEntity(
+            child=child,
+            mother=mother,
+            birth_date=data.get("event_date"),
+            birth_place=data.get("event_place"),
+            declaration_date=data.get("declaration_date"),
+            declarant_name=data.get("declarant_name"),
+            declarant_age=data.get("declarant_age"),
+            declarant_occupation=data.get("declarant_occupation"),
+            owner_name=data.get("owner_name"),
+            owner_commune=data.get("owner_commune"),
+            owner_residence=data.get("owner_residence"),
+            habitation_name=data.get("habitation_name"),
+            officer_name=data.get("officer_name"),
+            commune=data.get("commune"),
+        )
+        return act_type, None, entity, None
+
+    if act_type == "mariage":
+        spouse1 = PersonInfo(name=data.get("person_name"), sex="homme")
+        spouse2 = PersonInfo(name=data.get("mother_name"), sex="femme")
+        entity = MarriageActEntity(
+            spouse1=spouse1,
+            spouse2=spouse2,
+            marriage_date=data.get("event_date"),
+            declaration_date=data.get("declaration_date"),
+            declarant_name=data.get("declarant_name"),
+            declarant_age=data.get("declarant_age"),
+            declarant_occupation=data.get("declarant_occupation"),
+            owner_name=data.get("owner_name"),
+            owner_commune=data.get("owner_commune"),
+            owner_residence=data.get("owner_residence"),
+            habitation_name=data.get("habitation_name"),
+            officer_name=data.get("officer_name"),
+            commune=data.get("commune"),
+        )
+        return act_type, None, None, entity
+
+    return act_type, None, None, None
 
 
 def _parse_birth_response(raw_json: str) -> Optional[BirthActEntity]:
@@ -249,15 +523,17 @@ def _parse_birth_response(raw_json: str) -> Optional[BirthActEntity]:
         logger.error("Failed to parse birth act JSON: %s", raw_json[:200])
         return None
 
-    child = PersonInfo(
+    child = ChildInfo(
         name=data.get("child_name"),
         sex=data.get("child_sex"),
+        qualifier=data.get("child_qualifier"),
         registration_register=data.get("child_registration_register"),
         registration_number=data.get("child_registration_number"),
     )
     mother = PersonInfo(
         name=data.get("mother_name"),
         sex="femme" if data.get("mother_name") else None,
+        qualifier=data.get("mother_qualifier"),
         age=data.get("mother_age"),
         occupation=data.get("mother_occupation"),
         registration_register=data.get("mother_registration_register"),
@@ -272,14 +548,14 @@ def _parse_birth_response(raw_json: str) -> Optional[BirthActEntity]:
         mother=mother,
         father=father,
         birth_date=data.get("birth_date"),
-        birth_time=data.get("birth_time"),
         birth_place=data.get("birth_place"),
         declaration_date=data.get("declaration_date"),
-        declaration_time=data.get("declaration_time"),
         declarant_name=data.get("declarant_name"),
         declarant_age=data.get("declarant_age"),
         declarant_occupation=data.get("declarant_occupation"),
         owner_name=data.get("owner_name"),
+        owner_commune=data.get("owner_commune"),
+        owner_residence=data.get("owner_residence"),
         habitation_name=data.get("habitation_name"),
         officer_name=data.get("officer_name"),
         commune=data.get("commune"),
@@ -299,13 +575,19 @@ class LLMExtractor:
         settings: LLMSettings,
         death_prompt_path: str = "config/ner_death.prompt",
         birth_prompt_path: str = "config/ner_birth.prompt",
+        marriage_prompt_path: str = "config/ner_marriage.prompt",
+        unknown_prompt_path: str = "config/ner_unknown.prompt",
     ):
         self.provider = get_provider(settings)
         self.cost_tracker = CostTracker(model_name=settings.model_name)
         self.death_prompt = _load_prompt(death_prompt_path)
         self.birth_prompt = _load_prompt(birth_prompt_path)
+        self.marriage_prompt = _load_prompt(marriage_prompt_path)
+        self.unknown_prompt = _load_prompt(unknown_prompt_path)
         self.death_tool = _build_death_tool()
         self.birth_tool = _build_birth_tool()
+        self.marriage_tool = _build_marriage_tool()
+        self.unknown_tool = _build_unknown_tool()
         self.failed: dict = {}
 
     async def extract(self, record: ActRecord) -> NERResult:
@@ -317,6 +599,7 @@ class LLMExtractor:
 
         death_act = None
         birth_act = None
+        marriage_act = None
 
         if record.act_type == "deces":
             raw_json, inp, out, _think = await self.provider.call_text_async(
@@ -340,17 +623,31 @@ class LLMExtractor:
             if raw_json:
                 birth_act = _parse_birth_response(raw_json)
 
-        else:
-            # Unknown type — try death first (most common)
+        elif record.act_type == "mariage":
             raw_json, inp, out, _think = await self.provider.call_text_async(
                 user_text,
-                self.death_prompt,
-                tools=[self.death_tool],
+                self.marriage_prompt,
+                tools=[self.marriage_tool],
                 tool_choice="required",
             )
             self.cost_tracker.add_usage(inp, out)
             if raw_json:
-                death_act = _parse_death_response(raw_json)
+                marriage_act = _parse_marriage_response(raw_json)
+
+        else:
+            raw_json, inp, out, _think = await self.provider.call_text_async(
+                user_text,
+                self.unknown_prompt,
+                tools=[self.unknown_tool],
+                tool_choice="required",
+            )
+            self.cost_tracker.add_usage(inp, out)
+            if raw_json:
+                detected_type, death_act, birth_act, marriage_act = (
+                    _parse_unknown_response(raw_json)
+                )
+                if detected_type:
+                    record = record.model_copy(update={"act_type": detected_type})
 
         return NERResult(
             act_id=record.act_id,
@@ -358,6 +655,7 @@ class LLMExtractor:
             extraction_method="llm",
             death_act=death_act,
             birth_act=birth_act,
+            marriage_act=marriage_act,
             raw_marge=record.marge_text,
             raw_plein_texte=record.plein_texte_text,
         )
