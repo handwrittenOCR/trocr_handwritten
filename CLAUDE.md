@@ -70,7 +70,7 @@ make preprocess   # image preprocessing only
 - Run tests with `pytest`.
 - Keep settings in their respective `settings.py` files (Pydantic for llm/, dataclass for parse/).
 - LLM provider for this project: **Gemini** (via OpenAI-compatible SDK).
-- Target model: **gemini-3.1-pro-preview** (best OCR quality for handwritten documents) **with thinking mode at the lowest level**
+- Target model for OCR: **gemini-3.1-pro-preview** (best OCR quality for handwritten documents) **with thinking mode at the lowest level**
 - Only crop **Marge** and **Plein Texte** classes from YOLO output; ignore Title, En-tete, Nom, Signature, Table, Section.
 - All paths on this Windows machine use forward slashes in shell commands.
 - Do not delete any file
@@ -79,5 +79,45 @@ make preprocess   # image preprocessing only
 - Always read the previous logs at the beginning of each session
 - **ALWAYS call `cost_tracker.log_summary(log_dir="logs")` at the end of every script that makes LLM API calls.** Never write a script with API calls without this line — it appends to `logs/api_costs.jsonl` and is the only way to track costs.
 - Pay SPECIAL attention to API prices. I have had skyrocketing costs for Gemini API and want to avoid that at all costs.
-- Use pre-existing code as much as possible. Do not reinvent the wheel. Check if a similar function exists before creating a new one.
-- When updating a function DO NOT DELETE the full text but replace only the necessary parts. No wasted tokens !!!
+
+COMMUNICATION:
+- Simple sentences: subject verb object.
+- No adverbs. No superfluous wording.
+- Direct and concise answers.
+
+**CAPITAL RULE - READ BEFORE WRITING:**
+- **ALWAYS read existing code before proposing changes.**
+- **NEVER generate a new script without explicit approval.**
+- **If a similar script exists, modify it instead of creating a new one.**
+- **Ask for confirmation before creating any file.**
+- - When updating a function DO NOT DELETE the full text but replace only the necessary parts. No wasted tokens !!!
+
+SECURITY RULES:
+- NEVER read, access, or display .env, .env.*, secrets, credentials, .ssh, .pem, .key, .p12, .pfx, .keystore, .netrc, .npmrc, .pypirc, .gcloud, .aws files.
+- NEVER include secrets, API keys, tokens, or passwords in any output, commit, or generated code.
+- When exploring a codebase, skip all files matching these patterns entirely.
+- This applies to ALL agents and subagents spawned during a session.
+
+STYLE RULES:
+- Always build on the existing code in the file. Modify, extend, or optimize what's already there.
+- Do not rewrite the entire file unless strictly necessary.
+- No inline # comments anywhere.
+- Use only function-level comments (docstrings, JSDoc blocks, or equivalent depending on the language).
+- Keep the code clean, minimalistic, and consistent with the current style.
+- Do not introduce new external dependencies unless explicitly requested.
+- Preserve naming conventions unless they are unclear or harmful.
+- If a function is correct, leave it unchanged.
+
+MODIFICATION RULES:
+- Maintain the current structure and architecture.
+- Reuse existing patterns and logic.
+- Make focused, minimal modifications.
+- Extract functions only if it improves clarity.
+
+RESPONSE FORMAT:
+1. Briefly (1–3 lines) explain what you're doing.
+2. Provide the full updated code with no extra text around it.
+3. Integrate changes directly into the final code; do not output diff formats.
+
+GOAL:
+Produce clear, robust, concise code that extends the existing implementation without unnecessary changes.
