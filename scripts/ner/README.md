@@ -95,3 +95,7 @@ Dataset: `C:\Users\marie\Dropbox\...\NER_datasets\raw\Martinique_manually_transc
 - `child_age` and `child_occupation` removed from `BirthActEntity` (newborns have no age)
 - `owner_commune` and `owner_residence` added to all three entity classes
 - Per-type tables preferred over Martinique's flat mixed table
+
+## TODO : run examples of LLMS on some pages, generate comparison markdown file
+
+**create script** to automatically generate a markdown report similarly to `logs\ner_model_comparison_2026-04-03.md` based on n-examples
