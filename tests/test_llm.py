@@ -5,6 +5,16 @@ from unittest.mock import patch
 from trocr_handwritten.llm.settings import LLMSettings, OCRSettings
 from trocr_handwritten.llm.factory import get_provider, PROVIDERS
 from trocr_handwritten.utils.cost_tracker import CostTracker, PRICING
+from trocr_handwritten.ner.schemas import (
+    ChildInfo,
+    PersonInfo,
+    BirthActEntity,
+    DeathActEntity,
+    BIRTH_CSV_COLUMNS,
+    DEATH_CSV_COLUMNS,
+    flatten_ner_result,
+    NERResult,
+)
 
 
 class TestLLMSettings:
@@ -162,6 +172,79 @@ class TestCostTracker:
             assert model in PRICING
             assert "input" in PRICING[model]
             assert "output" in PRICING[model]
+
+
+class TestNERSchemas:
+
+    def test_child_info_has_qualifier(self):
+        child = ChildInfo(name="Victoire", sex="femme", qualifier="négritte")
+        assert child.qualifier == "négritte"
+
+    def test_child_info_no_age_or_occupation(self):
+        fields = ChildInfo.model_fields
+        assert "age" not in fields
+        assert "occupation" not in fields
+
+    def test_person_info_has_qualifier(self):
+        person = PersonInfo(name="Thomas", sex="homme", qualifier="nègre", age="40")
+        assert person.qualifier == "nègre"
+
+    def test_qualifier_defaults_to_none(self):
+        assert ChildInfo().qualifier is None
+        assert PersonInfo().qualifier is None
+
+    def test_birth_csv_columns_has_child_qualifier(self):
+        assert "child_qualifier" in BIRTH_CSV_COLUMNS
+
+    def test_death_csv_columns_has_person_qualifier(self):
+        assert "person_qualifier" in DEATH_CSV_COLUMNS
+
+    def test_birth_csv_columns_no_child_age(self):
+        assert "child_age" not in BIRTH_CSV_COLUMNS
+
+    def test_owner_fields_in_birth_columns(self):
+        assert "owner_commune" in BIRTH_CSV_COLUMNS
+        assert "owner_residence" in BIRTH_CSV_COLUMNS
+
+    def test_owner_fields_in_death_columns(self):
+        assert "owner_commune" in DEATH_CSV_COLUMNS
+        assert "owner_residence" in DEATH_CSV_COLUMNS
+
+    def test_flatten_birth_includes_qualifier(self):
+        entity = BirthActEntity(
+            child=ChildInfo(name="Rose", sex="femme", qualifier="négrette"),
+            owner_commune="Marin",
+            owner_residence="habitation Beauséjour",
+        )
+        result = NERResult(
+            act_id="test_1",
+            act_type="naissance",
+            extraction_method="regex",
+            birth_act=entity,
+            raw_marge="",
+            raw_plein_texte="",
+        )
+        row = flatten_ner_result(result)
+        assert row["child_qualifier"] == "négrette"
+        assert row["owner_commune"] == "Marin"
+        assert row["owner_residence"] == "habitation Beauséjour"
+
+    def test_flatten_death_includes_qualifier(self):
+        entity = DeathActEntity(
+            person=PersonInfo(name="Jules", sex="homme", qualifier="mulâtre", age="30"),
+            owner_commune="Abymes",
+        )
+        result = NERResult(
+            act_id="test_2",
+            act_type="deces",
+            extraction_method="regex",
+            death_act=entity,
+            raw_marge="",
+            raw_plein_texte="",
+        )
+        row = flatten_ner_result(result)
+        assert row["person_qualifier"] == "mulâtre"
+        assert row["owner_commune"] == "Abymes"
 
 
 class TestOpenAIProvider:
