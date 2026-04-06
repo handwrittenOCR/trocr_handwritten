@@ -9,7 +9,7 @@ Conventions spécifiques à ces registres :
 - "nègre", "négrillon" = homme ; "négresse", "négrette", "négritte" = femme ; "rouge" = métis(se)
 - "du sexe masculin" = homme, "du sexe féminin" = femme, "mâle" = homme
 - Le numéro d'immatriculation (Registre + N°) est un identifiant clé
-- L'habitation est le lieu (plantation)
+- L'habitastion est le lieu (plantation)
 - Le propriétaire (owner) est la personne qui possède l'esclave, pas nécessairement l'habitation
 - N'extrais le propriétaire QUE s'il y a une indication explicite dans le texte ou la marge :
   - "appartenant à/au [NOM]"
@@ -20,3 +20,4 @@ Conventions spécifiques à ces registres :
 - Le père est rarement mentionné dans les actes d'esclaves
 - Si une information n'est pas présente dans le texte, renvoie null
 - Conserve l'orthographe originale des noms, sans jamais abréger (écrire "Georges Marie Joseph" et non "G.M.J.")
+- Dans le cas RARE ou la marge ne correspond pas au texte principal, ne fait attention qu'au texte principal
