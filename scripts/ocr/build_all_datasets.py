@@ -10,13 +10,14 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from trocr_handwritten.ner.dataset import build_dataset, save_dataset
+from trocr_handwritten.ner.dataset import build_dataset
 
 BASE = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
@@ -38,7 +39,7 @@ def main():
 
     logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    total_acts = 0
+    all_records = []
     commune_dirs = (
         sorted(BASE.iterdir()) if args.commune is None else [BASE / args.commune]
     )
@@ -60,14 +61,20 @@ def main():
             year = year_dir.name
 
             records, pt_count = build_dataset(str(year_dir), commune, year)
-            if records:
-                save_dataset(records, str(year_dir))
-                print(f"{commune}/{year}: {len(records)} acts  {pt_count} crops")
-                total_acts += len(records)
-            else:
-                print(f"{commune}/{year}: 0 acts  {pt_count} crops")
+            print(f"{commune}/{year}: {len(records)} acts  {pt_count} crops")
+            all_records.extend(records)
 
-    print(f"\nTotal: {total_acts} acts")
+    out_dir = Path(
+        "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
+        "3. OCR/2. TrOCR/5. Data (output)/ECES/NER_datasets/raw"
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "acts_dataset.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(
+            [r.model_dump() for r in all_records], f, ensure_ascii=False, indent=2
+        )
+    print(f"\nTotal: {len(all_records)} acts -> {out_path}")
 
 
 if __name__ == "__main__":
