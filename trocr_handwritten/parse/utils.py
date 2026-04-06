@@ -308,8 +308,19 @@ def build_reading_order(metadata):
                 }
             )
 
-    # Sort top-to-bottom and assign order
-    entries.sort(key=lambda e: e["y_center"])
+    # Sort by page side (left first, then right), then top-to-bottom within each side
+    # Look up the Plein Texte x-coordinate to determine page side
+    pt_coords = {p["cropped_image_name"]: p["coordinates"] for p in textes}
+    mg_coords = {m["cropped_image_name"]: m["coordinates"] for m in marges}
+
+    def entry_page_side(e):
+        if e.get("plein_texte") and e["plein_texte"] in pt_coords:
+            return 0 if pt_coords[e["plein_texte"]]["x"] < PT_SPLIT else 1
+        if e.get("marge") and e["marge"] in mg_coords:
+            return 0 if mg_coords[e["marge"]]["x"] < MARGE_SPLIT else 1
+        return 0
+
+    entries.sort(key=lambda e: (entry_page_side(e), e["y_center"]))
     for idx, entry in enumerate(entries):
         entry["order"] = idx + 1
 

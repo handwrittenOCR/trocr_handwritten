@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 BASE = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
@@ -109,10 +109,12 @@ def main():
                 with open(meta_path, "w", encoding="utf-8") as f:
                     json.dump(meta, f, indent=4, ensure_ascii=False)
 
-                # Save fixed reading_order as separate file
-                fixed_path = page_dir / "reading_order_fixed.json"
+                # Save full metadata with corrected reading_order
+                fixed_meta = dict(meta)
+                fixed_meta["reading_order"] = fixed_order
+                fixed_path = page_dir / "metadata_reading_order.json"
                 with open(fixed_path, "w", encoding="utf-8") as f:
-                    json.dump(fixed_order, f, indent=4, ensure_ascii=False)
+                    json.dump(fixed_meta, f, indent=4, ensure_ascii=False)
 
                 if original_order != fixed_order:
                     changed += 1
@@ -127,7 +129,9 @@ def main():
     print(
         f"\nTotal: {grand_changed}/{grand_total} pages have different fixed reading_order"
     )
-    print("Original metadata.json restored, fixed version in reading_order_fixed.json")
+    print(
+        "Original metadata.json restored, fixed version in metadata_reading_order.json"
+    )
 
 
 if __name__ == "__main__":
