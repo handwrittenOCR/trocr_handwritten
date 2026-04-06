@@ -20,7 +20,7 @@ class ActRecord(BaseModel):
         description="Unique identifier, e.g. abymes_1842_page005_order1"
     )
     act_type: Literal["deces", "naissance", "mariage", "unknown"] = Field(
-        description="Act type detected from Marge text"
+        default="unknown", description="Act type (filled by NER step)"
     )
     act_number: Optional[str] = Field(
         default=None, description="Act number from Marge, e.g. '2', '44'"
@@ -118,6 +118,18 @@ class NERResult(BaseModel):
     act_id: str
     act_type: Literal["deces", "naissance", "mariage", "unknown"]
     extraction_method: Literal["regex", "llm"]
+    marge_act_type: Optional[str] = Field(
+        default=None, description="Act type from Marge"
+    )
+    marge_act_name: Optional[str] = Field(
+        default=None, description="Person name from Marge"
+    )
+    marge_act_number: Optional[str] = Field(
+        default=None, description="Act number from Marge"
+    )
+    marge_act_owner: Optional[str] = Field(
+        default=None, description="Owner name from Marge"
+    )
     death_act: Optional[DeathActEntity] = None
     birth_act: Optional[BirthActEntity] = None
     raw_marge: str = Field(description="Original Marge text")
@@ -194,6 +206,10 @@ def flatten_ner_result(result: NERResult) -> dict:
         "act_id": result.act_id,
         "act_type": result.act_type,
         "extraction_method": result.extraction_method,
+        "marge_act_type": result.marge_act_type,
+        "marge_act_name": result.marge_act_name,
+        "marge_act_number": result.marge_act_number,
+        "marge_act_owner": result.marge_act_owner,
         "raw_marge": result.raw_marge,
         "raw_plein_texte": result.raw_plein_texte,
     }

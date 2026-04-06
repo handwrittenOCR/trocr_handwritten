@@ -294,10 +294,10 @@ _EVENT_TIME_PATTERN = re.compile(
 )
 
 # Death indicator: "y est décédé(e)"
-_DEATH_INDICATOR = re.compile(r"y\s+est\s+d[ée]c[ée]d[ée]+", re.IGNORECASE)
+_DEATH_INDICATOR = re.compile(r"\bd[ée]c[ée]d[ée]|\bd[ée]c[ée]s\b", re.IGNORECASE)
 
 # Birth indicator: "est accouchée"
-_BIRTH_INDICATOR = re.compile(r"est\s+accouch[ée]+", re.IGNORECASE)
+_BIRTH_INDICATOR = re.compile(r"\baccouch[ée]+\b|\bné(e|é)\b", re.IGNORECASE)
 
 # Officer: "Pardevant nous [NAME], Maire" or "Pardevant nous [NAME] adjoint"
 _OFFICER_PATTERN = re.compile(
@@ -648,40 +648,200 @@ def _extract_birth(record: ActRecord) -> BirthActEntity:
 class RegexExtractor:
     """Deterministic regex-based NER extractor for civil registry acts."""
 
+    @staticmethod
+    def detect_act_type_from_marge(marge_text: str) -> Optional[str]:
+        """Detect act type from Marge text using keywords.
+
+        Returns 'deces', 'naissance', 'mariage', or None if not detected.
+        """
+        if not marge_text or not marge_text.strip():
+            return None
+        text = marge_text.lower()
+        if re.search(r"d[ée]c[eè]s", text):
+            return "deces"
+        if re.search(r"naissance|accouch[ée]|\bné(e|é)", text):
+            return "naissance"
+        if re.search(r"mariage", text):
+            return "mariage"
+        return None
+
+    @staticmethod
+    def detect_act_type_from_plein_texte(plein_texte_text: str) -> Optional[str]:
+        """Detect act type from Plein Texte using formulaic indicators.
+
+        Returns 'deces', 'naissance', or None if not detected.
+        Death: "y est décédé(e)"
+        Birth: "est accouchée"
+        """
+        if not plein_texte_text:
+            return None
+        has_death = _DEATH_INDICATOR.search(plein_texte_text)
+        has_birth = _BIRTH_INDICATOR.search(plein_texte_text)
+        if has_death and not has_birth:
+            return "deces"
+        if has_birth and not has_death:
+            return "naissance"
+        # Both or neither — ambiguous
+        if has_death and has_birth:
+            # Birth indicator is more specific (accouchée), prefer it
+            return "naissance"
+        return None
+
+    def detect_act_type(self, record: ActRecord) -> str:
+        """Detect act type using both Marge and Plein Texte.
+
+        Priority: Marge (explicit label) > Plein Texte (body indicators).
+        Returns 'deces', 'naissance', 'mariage', or 'unknown'.
+        """
+        marge_type = self.detect_act_type_from_marge(record.marge_text)
+        if marge_type:
+            return marge_type
+        plein_texte_type = self.detect_act_type_from_plein_texte(
+            record.plein_texte_text
+        )
+        if plein_texte_type:
+            return plein_texte_type
+        return "unknown"
+
+    @staticmethod
+    def extract_act_number_from_marge(marge_text: str) -> Optional[str]:
+        """Extract act number from Marge (e.g. 'N° 78' -> '78')."""
+        if not marge_text:
+            return None
+        match = re.search(r"[Nn][°ᵒo˚.\s\^]*\s*(\d+)", marge_text)
+        return match.group(1) if match else None
+
+    @staticmethod
+    def extract_name_from_marge(marge_text: str) -> Optional[str]:
+        """Extract person name from Marge.
+
+        Patterns:
+          - "Décès de Françoise"
+          - "Naissance de Joséphine"
+          - "Camillette appt au Sr Robine"  (name at start)
+          - "Volcidor, fils de claire"  (name at start)
+        """
+        if not marge_text:
+            return None
+        # Pattern 1: "décès/naissance [N° X\n] de [NAME]" or "d'[NAME]"
+        # Allow act number and newlines between keyword and "de"
+        match = re.search(
+            r"(?:d[ée]c[eè]s|naissance)(?:\s+[Nn][°ᵒo˚.\s]*\s*\d+)?\s+(?:de\s+|d['\u2019])(.+?)(?:\s*,|\s+au\s+|\s+appt|\s+apt|\s+appartenant|\s+h[.\^]|\s+bon\s|\s+ag[ée]+\s|\s+enf[.ᵗ\^ant]|\s+fils\s|\s+fille\s|$)",
+            marge_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if match:
+            name = re.sub(r"\s+", " ", match.group(1).strip()).rstrip(",.")
+            # Filter generic descriptions (not actual names)
+            if re.match(r"^(?:un[e]?\s+|une\s+|la\s+|le\s+)", name, re.IGNORECASE):
+                return None
+            if len(name) < 2:
+                return None
+            return name
+
+        # Pattern 2: name at start of Marge (before "appt" or "décédé" or "née")
+        lines = marge_text.strip().splitlines()
+        first_line = lines[0].strip()
+        # Skip if first line is just "N° XX" or "Décès" / "Naissance"
+        if re.match(r"^[Nn][°ᵒo˚.\s]*\s*\d+", first_line):
+            return None
+        if re.match(
+            r"^(?:d[ée]c[eè]s|naissance|mariage)\s*$", first_line, re.IGNORECASE
+        ):
+            return None
+
+        # Check if first line has a name followed by qualifier
+        match = re.match(
+            r"^(.+?)(?:\s*,?\s*(?:appt|apt|appartenant|fils|fille|d[ée]c[ée]d|n[ée]e?\s+le))",
+            first_line,
+            re.IGNORECASE,
+        )
+        if match:
+            name = re.sub(r"\s+", " ", match.group(1).strip()).rstrip(",.")
+            if len(name) >= 2:
+                return name
+
+        return None
+
+    @staticmethod
+    def extract_owner_from_marge(marge_text: str) -> Optional[str]:
+        """Extract owner name from Marge.
+
+        Patterns:
+          - "au Sr/Sieur [NAME]"
+          - "appt/appartenant au Sr [NAME]"
+          - "Héritier/Hrs [NAME]"
+          - "à Mr/Mme [NAME]"
+        """
+        if not marge_text:
+            return None
+        # Pattern: "au Sr/Sieur/Sᵗ/Sʳ/S^r/St [NAME]" or "à Mr/Mme [NAME]" or "Ve/Vve [NAME]"
+        match = re.search(
+            r"(?:au\s+(?:Sr\.?|St\.?|Sieur|S[ᵗʳ^.\s][\w]*)|[àa]\s+(?:Mr\.?|Mme\.?|Monsieur|Madame|Dame|Demoiselle|la\s+(?:Dlle|Dame|V[eᵉ]|Vve)\.?)|V[eᵉ]\s|Vve\s)\s*(.+?)(?:\s*[,;.]|\s*$)",
+            marge_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if match:
+            owner = re.sub(r"\s+", " ", match.group(1).strip()).rstrip(",.")
+            if len(owner) >= 2:
+                return owner
+
+        # Pattern: "Héritier(s)/Hrs [NAME]"
+        match = re.search(
+            r"(?:h[ée]ritiers?|hrs?\.?,?)\s+(.+?)(?:\s*[,;.]|\s*$)",
+            marge_text,
+            re.IGNORECASE,
+        )
+        if match:
+            owner = re.sub(r"\s+", " ", match.group(1).strip()).rstrip(",.")
+            if len(owner) >= 2:
+                return owner
+
+        # Pattern: "bon/h^on/habitation [NAME]" (habitation = owner reference in Marge)
+        match = re.search(
+            r"(?:bon|h\^on|h[.\s]?on|habi?t?[.\s])\s+(.+?)(?:\s*[,;.]|\s*$)",
+            marge_text,
+            re.IGNORECASE,
+        )
+        if match:
+            owner = re.sub(r"\s+", " ", match.group(1).strip()).rstrip(",.")
+            if len(owner) >= 2:
+                return owner
+
+        return None
+
     def extract(self, record: ActRecord) -> NERResult:
         """Extract entities from a single act record."""
+        # Detect act type from Marge and Plein Texte
+        marge_act_type = self.detect_act_type_from_marge(record.marge_text)
+        act_type = (
+            marge_act_type
+            or self.detect_act_type_from_plein_texte(record.plein_texte_text)
+            or "unknown"
+        )
+
+        # Extract Marge fields
+        marge_act_number = self.extract_act_number_from_marge(record.marge_text)
+        marge_act_name = self.extract_name_from_marge(record.marge_text)
+        marge_act_owner = self.extract_owner_from_marge(record.marge_text)
+
         death_act = None
         birth_act = None
 
-        if record.act_type == "deces":
-            # Verify it's actually a death (not a mislabeled birth)
-            if _BIRTH_INDICATOR.search(
-                record.plein_texte_text
-            ) and not _DEATH_INDICATOR.search(record.plein_texte_text):
-                birth_act = _extract_birth(record)
-            else:
-                death_act = _extract_death(record)
-        elif record.act_type == "naissance":
-            # Verify it's actually a birth
-            if _DEATH_INDICATOR.search(
-                record.plein_texte_text
-            ) and not _BIRTH_INDICATOR.search(record.plein_texte_text):
-                death_act = _extract_death(record)
-            else:
-                birth_act = _extract_birth(record)
-        else:
-            # Unknown type: try to detect from text
-            has_death = _DEATH_INDICATOR.search(record.plein_texte_text)
-            has_birth = _BIRTH_INDICATOR.search(record.plein_texte_text)
-            if has_death and not has_birth:
-                death_act = _extract_death(record)
-            elif has_birth:
-                birth_act = _extract_birth(record)
+        if act_type == "deces":
+            death_act = _extract_death(record)
+        elif act_type == "naissance":
+            birth_act = _extract_birth(record)
+        # mariage: no extractor yet
 
         return NERResult(
             act_id=record.act_id,
-            act_type=record.act_type,
+            act_type=act_type,
             extraction_method="regex",
+            marge_act_type=marge_act_type,
+            marge_act_name=marge_act_name,
+            marge_act_number=marge_act_number,
+            marge_act_owner=marge_act_owner,
             death_act=death_act,
             birth_act=birth_act,
             raw_marge=record.marge_text,

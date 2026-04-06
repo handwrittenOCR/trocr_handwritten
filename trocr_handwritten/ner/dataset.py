@@ -42,6 +42,9 @@ _AUJOURDHUI_PATTERN = re.compile(
     r"(?=(?:^|\n)\s*[Aa]ujourd\s*'?\s*hui\b)", re.IGNORECASE
 )
 
+_AUJOURDHUI_PATTERN_NO_H = re.compile(r"(?=(?:^|\n)\s*[Aa]ujourd)", re.IGNORECASE)
+
+
 # Preamble pattern: detects the start of a new act.
 # All acts begin with "L'An mil huit cent ..." with OCR variations:
 #   - L'/L'/l' or missing entirely ("An Mil...")
@@ -56,6 +59,16 @@ _PREAMBLE_PATTERN_NO_L = re.compile(
     r"^[Aa]n\s+[Mm]il\s+huit[\s\-]cent",
     re.IGNORECASE,
 )
+# Loose preamble: "L'An" anywhere in first 50 chars, with "mil" in first 100 chars
+# Catches garbled OCR like "L'An Aujourd'hui mil huit cent quarante mil trois"
+_PREAMBLE_PATTERN_LOOSE = re.compile(
+    r"[Ll]['\u2019]\s*[Aa]n\s+",
+    re.IGNORECASE,
+)
+# "Mêmes jour et an que dessus" — shorthand preamble (sainte_anne style)
+_MEMES_JOUR_PATTERN = re.compile(r"^[Mm][êe]mes?\s+jour", re.IGNORECASE)
+# "Pardevant nous" at start — act opening without date preamble
+_PARDEVANT_PATTERN = re.compile(r"^[Pp]ardevant\s+[Nn]ous", re.IGNORECASE)
 # Registry header page (not an act)
 _REGISTRY_HEADER_PATTERN = re.compile(r"r[ée]gistre\s+contenant", re.IGNORECASE)
 
@@ -63,16 +76,32 @@ _REGISTRY_HEADER_PATTERN = re.compile(r"r[ée]gistre\s+contenant", re.IGNORECASE
 def is_new_act(plein_texte_text: str) -> bool:
     """Check if a Plein Texte crop is the start of a new act (vs. a continuation).
 
-    A new act starts with the formulaic preamble 'L'An mil huit cent...'
+    A new act starts with the formulaic preamble 'L'An mil huit cent...' or 'aujourd'hui'justt
     A continuation is any text that does not start with this preamble.
     Registry header pages are treated as new (standalone) records.
     """
-    text = plein_texte_text.strip()
-    if _PREAMBLE_PATTERN.match(text):
+    # Strip OCR strikethrough markers before checking
+    text = re.sub(r"~~[^~]*~~\s*", "", plein_texte_text).strip()
+    if _PREAMBLE_PATTERN.match(text) or _AUJOURDHUI_PATTERN.match(text):
         return True
-    if _PREAMBLE_PATTERN_NO_L.match(text):
+    if _PREAMBLE_PATTERN_NO_L.match(text) or _AUJOURDHUI_PATTERN_NO_H.match(text):
+        return True
+    # Loose match: "L'An" in first 50 chars + "mil" in first 100 chars
+    # Catches garbled OCR from reconstructed copies
+    if _PREAMBLE_PATTERN_LOOSE.search(text[:50]) and re.search(
+        r"mil", text[:100], re.IGNORECASE
+    ):
         return True
     if _REGISTRY_HEADER_PATTERN.search(text[:200]):
+        return True
+    # "Mêmes jour et an que dessus" — shorthand for same date
+    if _MEMES_JOUR_PATTERN.match(text):
+        return True
+    # "Pardevant nous" at start — act opening without date preamble
+    if _PARDEVANT_PATTERN.match(text):
+        return True
+    # "Mil huit cent" without "L'An" prefix
+    if re.match(r"^[Mm]il\s+huit[\s\-]cent", text):
         return True
     return False
 
@@ -245,7 +274,7 @@ def build_dataset(
     input_dir: str,
     commune: str,
     year: str,
-) -> List[ActRecord]:
+) -> Tuple[List[ActRecord], int]:
     """Walk page folders and reconstruct acts from reading_order.
 
     Args:
@@ -254,11 +283,12 @@ def build_dataset(
         year: Year for act IDs.
 
     Returns:
-        List of ActRecord, one per act.
+        Tuple of (list of ActRecord, plein_texte_count).
     """
     input_path = Path(input_dir)
     records: List[ActRecord] = []
     continuation_count = 0
+    plein_texte_count = 0
 
     # Collect and sort page folders
     page_dirs = sorted(
@@ -271,7 +301,7 @@ def build_dataset(
 
     if not page_dirs:
         logger.warning("No page folders with metadata.json found in %s", input_dir)
-        return records
+        return records, 0
 
     logger.info("Found %d page folders in %s", len(page_dirs), input_dir)
 
@@ -280,16 +310,23 @@ def build_dataset(
     for page_dir in page_dirs:
         page_name = page_dir.name
 
-        # Load metadata
-        metadata_path = page_dir / "metadata.json"
+        # Load metadata (prefer corrected version if available)
+        reading_order_path = page_dir / "metadata_reading_order.json"
+        metadata_path = (
+            reading_order_path
+            if reading_order_path.exists()
+            else page_dir / "metadata.json"
+        )
         with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
         # Deduplicate overlapping crops
         reading_order = deduplicate_crops(metadata)
         if not reading_order:
-            logger.warning("No reading_order in %s", metadata_path)
+            logger.debug("No reading_order in %s (cover/header page)", page_name)
             continue
+
+        plein_texte_count += sum(1 for e in reading_order if e.get("plein_texte"))
 
         for entry in reading_order:
             order = entry.get("order", 0)
@@ -346,10 +383,6 @@ def build_dataset(
                         )
                         continue
 
-                # New act: detect type and number from Marge
-                act_type = detect_act_type(marge_text) if marge_text else "unknown"
-                act_number = extract_act_number(marge_text) if marge_text else None
-
                 # Build act ID (add sub-index when a crop was split)
                 if len(registry_entries) > 1:
                     act_id = f"{commune}_{year}_{page_name}_order{order}_entry{sub_idx}"
@@ -359,8 +392,6 @@ def build_dataset(
 
                 record = ActRecord(
                     act_id=act_id,
-                    act_type=act_type,
-                    act_number=act_number,
                     marge_text=marge_text,
                     plein_texte_text=entry_text,
                     source_page=page_name,
@@ -383,15 +414,13 @@ def build_dataset(
         )
 
     logger.info(
-        "Built %d act records (%s)",
+        "Built %d acts from %d plein_texte regions (%d continuations merged, %d splits)",
         len(records),
-        ", ".join(
-            f"{t}: {sum(1 for r in records if r.act_type == t)}"
-            for t in ["deces", "naissance", "mariage", "unknown"]
-            if sum(1 for r in records if r.act_type == t) > 0
-        ),
+        plein_texte_count,
+        continuation_count,
+        split_count,
     )
-    return records
+    return records, plein_texte_count
 
 
 # ---------------------------------------------------------------------------
@@ -456,10 +485,10 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
-    records = build_dataset(args.input_dir, args.commune, args.year)
+    records, pt_count = build_dataset(args.input_dir, args.commune, args.year)
     if records:
         json_path, csv_path = save_dataset(records, output_dir)
-        print(f"Dataset saved: {json_path} ({len(records)} acts)")
+        print(f"Dataset saved: {json_path} ({len(records)} acts  {pt_count} crops)")
 
         # Print summary
         from collections import Counter

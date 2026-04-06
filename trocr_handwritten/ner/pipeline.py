@@ -73,7 +73,7 @@ async def run_pipeline(
 
     # Step 1: Build dataset
     print("=== Step 1: Building dataset ===")
-    records = build_dataset(input_dir, commune, year)
+    records, _ = build_dataset(input_dir, commune, year)
     if not records:
         print("No acts found. Exiting.")
         return
