@@ -67,12 +67,120 @@ def main():
 
     type_counts = Counter(r.act_type for r in results)
     types_str = ", ".join(f"{t}:{c}" for t, c in type_counts.most_common())
-    deaths = sum(1 for r in results if r.death_act)
-    births = sum(1 for r in results if r.birth_act)
 
-    print(f"Total: {len(results)} acts ({types_str})")
-    print(f"Extracted: {deaths} deaths, {births} births")
-    print(f"Output: {ner_path}")
+    print(f"\nTotal: {len(results)} acts ({types_str})")
+    print(f"Output: {ner_path}\n")
+
+    death_results = [r for r in results if r.death_act]
+    birth_results = [r for r in results if r.birth_act]
+    marriage_results = [r for r in results if r.marriage_act]
+
+    def _rate(items, accessor):
+        n = sum(1 for r in items if accessor(r))
+        pct = 100 * n / len(items) if items else 0
+        return f"{n}/{len(items)} ({pct:.1f}%)"
+
+    if death_results:
+        print(f"--- Deaths ({len(death_results)}) ---")
+        print(
+            f"  person name:    {_rate(death_results, lambda r: r.death_act.person.name)}"
+        )
+        print(
+            f"  person age:     {_rate(death_results, lambda r: r.death_act.person.age)}"
+        )
+        print(
+            f"  person sex:     {_rate(death_results, lambda r: r.death_act.person.sex)}"
+        )
+        print(
+            f"  occupation:     {_rate(death_results, lambda r: r.death_act.person.occupation)}"
+        )
+        print(
+            f"  registration:   {_rate(death_results, lambda r: r.death_act.person.registration_number)}"
+        )
+        print(
+            f"  death date:     {_rate(death_results, lambda r: r.death_act.death_date)}"
+        )
+        print(
+            f"  death time:     {_rate(death_results, lambda r: r.death_act.death_time)}"
+        )
+        print(
+            f"  declarant:      {_rate(death_results, lambda r: r.death_act.declarant_name)}"
+        )
+        print(
+            f"  owner:          {_rate(death_results, lambda r: r.death_act.owner_name)}"
+        )
+        print(
+            f"  habitation:     {_rate(death_results, lambda r: r.death_act.habitation_name)}"
+        )
+        print(
+            f"  officer:        {_rate(death_results, lambda r: r.death_act.officer_name)}"
+        )
+        print(
+            f"  commune:        {_rate(death_results, lambda r: r.death_act.commune)}"
+        )
+
+    if birth_results:
+        print(f"\n--- Births ({len(birth_results)}) ---")
+        print(
+            f"  child name:     {_rate(birth_results, lambda r: r.birth_act.child.name)}"
+        )
+        print(
+            f"  child sex:      {_rate(birth_results, lambda r: r.birth_act.child.sex)}"
+        )
+        print(
+            f"  child reg:      {_rate(birth_results, lambda r: r.birth_act.child.registration_number)}"
+        )
+        print(
+            f"  mother name:    {_rate(birth_results, lambda r: r.birth_act.mother.name)}"
+        )
+        print(
+            f"  mother age:     {_rate(birth_results, lambda r: r.birth_act.mother.age)}"
+        )
+        print(
+            f"  mother reg:     {_rate(birth_results, lambda r: r.birth_act.mother.registration_number)}"
+        )
+        print(
+            f"  birth date:     {_rate(birth_results, lambda r: r.birth_act.birth_date)}"
+        )
+        print(
+            f"  birth time:     {_rate(birth_results, lambda r: r.birth_act.birth_time)}"
+        )
+        print(
+            f"  declarant:      {_rate(birth_results, lambda r: r.birth_act.declarant_name)}"
+        )
+        print(
+            f"  owner:          {_rate(birth_results, lambda r: r.birth_act.owner_name)}"
+        )
+        print(
+            f"  habitation:     {_rate(birth_results, lambda r: r.birth_act.habitation_name)}"
+        )
+        print(
+            f"  officer:        {_rate(birth_results, lambda r: r.birth_act.officer_name)}"
+        )
+        print(
+            f"  commune:        {_rate(birth_results, lambda r: r.birth_act.commune)}"
+        )
+
+    if marriage_results:
+        print(f"\n--- Marriages ({len(marriage_results)}) ---")
+        print(
+            f"  spouse1 name:   {_rate(marriage_results, lambda r: r.marriage_act.spouse1.name)}"
+        )
+        print(
+            f"  spouse1 age:    {_rate(marriage_results, lambda r: r.marriage_act.spouse1.age)}"
+        )
+        print(
+            f"  spouse2 name:   {_rate(marriage_results, lambda r: r.marriage_act.spouse2.name)}"
+        )
+        print(
+            f"  spouse2 age:    {_rate(marriage_results, lambda r: r.marriage_act.spouse2.age)}"
+        )
+        print(
+            f"  owner:          {_rate(marriage_results, lambda r: r.marriage_act.owner_name)}"
+        )
+        print(
+            f"  officer:        {_rate(marriage_results, lambda r: r.marriage_act.officer_name)}"
+        )
 
 
 if __name__ == "__main__":
