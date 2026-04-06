@@ -107,6 +107,24 @@ class BirthActEntity(BaseModel):
     commune: Optional[str] = Field(default=None)
 
 
+class MarriageActEntity(BaseModel):
+    """Extracted entities from a marriage act (acte de mariage)."""
+
+    spouse1: PersonInfo = Field(default_factory=PersonInfo)
+    spouse2: PersonInfo = Field(default_factory=PersonInfo)
+    marriage_date: Optional[str] = Field(default=None)
+    marriage_time: Optional[str] = Field(default=None)
+    declaration_date: Optional[str] = Field(default=None)
+    declaration_time: Optional[str] = Field(default=None)
+    declarant_name: Optional[str] = Field(default=None)
+    declarant_age: Optional[str] = Field(default=None)
+    declarant_occupation: Optional[str] = Field(default=None)
+    owner_name: Optional[str] = Field(default=None)
+    habitation_name: Optional[str] = Field(default=None)
+    officer_name: Optional[str] = Field(default=None)
+    commune: Optional[str] = Field(default=None)
+
+
 # ---------------------------------------------------------------------------
 # Output: unified result from either extractor
 # ---------------------------------------------------------------------------
@@ -132,6 +150,7 @@ class NERResult(BaseModel):
     )
     death_act: Optional[DeathActEntity] = None
     birth_act: Optional[BirthActEntity] = None
+    marriage_act: Optional[MarriageActEntity] = None
     raw_marge: str = Field(description="Original Marge text")
     raw_plein_texte: str = Field(description="Original Plein Texte text")
 
@@ -272,6 +291,36 @@ def flatten_ner_result(result: NERResult) -> dict:
                 "habitation_name": b.habitation_name,
                 "officer_name": b.officer_name,
                 "commune": b.commune,
+            }
+        )
+
+    if result.marriage_act:
+        m = result.marriage_act
+        row.update(
+            {
+                "spouse1_name": m.spouse1.name,
+                "spouse1_sex": m.spouse1.sex,
+                "spouse1_age": m.spouse1.age,
+                "spouse1_occupation": m.spouse1.occupation,
+                "spouse1_registration_register": m.spouse1.registration_register,
+                "spouse1_registration_number": m.spouse1.registration_number,
+                "spouse2_name": m.spouse2.name,
+                "spouse2_sex": m.spouse2.sex,
+                "spouse2_age": m.spouse2.age,
+                "spouse2_occupation": m.spouse2.occupation,
+                "spouse2_registration_register": m.spouse2.registration_register,
+                "spouse2_registration_number": m.spouse2.registration_number,
+                "marriage_date": m.marriage_date,
+                "marriage_time": m.marriage_time,
+                "declaration_date": m.declaration_date,
+                "declaration_time": m.declaration_time,
+                "declarant_name": m.declarant_name,
+                "declarant_age": m.declarant_age,
+                "declarant_occupation": m.declarant_occupation,
+                "owner_name": m.owner_name,
+                "habitation_name": m.habitation_name,
+                "officer_name": m.officer_name,
+                "commune": m.commune,
             }
         )
 

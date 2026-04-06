@@ -12,6 +12,7 @@ from trocr_handwritten.ner.schemas import (
     ActRecord,
     BirthActEntity,
     DeathActEntity,
+    MarriageActEntity,
     NERResult,
     PersonInfo,
 )
@@ -641,6 +642,93 @@ def _extract_birth(record: ActRecord) -> BirthActEntity:
 
 
 # ---------------------------------------------------------------------------
+# Marriage act extraction
+# ---------------------------------------------------------------------------
+
+_MARRIAGE_SPOUSE_PATTERN = re.compile(
+    r"(?:mariage\s+d[ue']\s*|nomm[ée]s?\s+)(?:\d[°ᵒo˚]?\s+)?"
+    r"(?:le\s+n[eè]gre\s+(?:nomm[ée]\s+)?|la\s+nomm[ée]e?\s+|le\s+nomm[ée]\s+)?"
+    r"(.+?),?\s+[aâ]g[ée]+\s+de\s+(.+?)\s*(?:ans?)"
+    r".*?"
+    r"(?:avec|et)\s+(?:la\s+n[eè]gresse\s+(?:nomm[ée]e?\s+)?|la\s+nomm[ée]e?\s+|le\s+nomm[ée]\s+)?"
+    r"(.+?),?\s+[aâ]g[ée]+e?\s+de\s+(.+?)\s*(?:ans?)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_MARRIAGE_MATRICULE_PATTERN = re.compile(
+    r"[Nn][°ᵒo˚.\s]*\s*(\d+)\s*.+?[Nn][°ᵒo˚.\s]*\s*(\d+)",
+    re.DOTALL,
+)
+
+
+def _clean_spouse_name(name: str) -> str:
+    """Strip designators and noise from a captured spouse name."""
+    name = re.sub(
+        r"^(?:s?\s*esclaves?\s*,?\s*|ses\s+esclaves\s*,?\s*|son\s+esclave\s+"
+        r"|son\s+n[eè]gre\s+|sa\s+n[eè]gresse\s+)",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    ).strip()
+    name = re.sub(
+        r"^(?:\d[°ᵒo˚]?\s*)?(?:la\s+|le\s+|de\s+la\s+|de\s+|sa\s+)?(?:n[eèé]gre(?:sse)?\s+)?(?:(?:nomm[éèe][\-\s]*[ée]?s?|dite?)\s+)?",
+        "",
+        name,
+        flags=re.IGNORECASE,
+    ).strip()
+    name = re.sub(r"^(?:de\s+)", "", name, flags=re.IGNORECASE).strip()
+    name = re.sub(r",?\s*de\s+couleur\s+\w+", "", name, flags=re.IGNORECASE).strip()
+    name = re.sub(r",?\s*n[eè]gre(?:sse)?$", "", name, flags=re.IGNORECASE).strip()
+    name = re.sub(r"^:\s*", "", name).strip().rstrip(",.")
+    name = re.sub(r"\s*-\s*-\s*", "", name)
+    return name if len(name) >= 2 else None
+
+
+def _extract_marriage(record: ActRecord) -> MarriageActEntity:
+    """Extract entities from a marriage act."""
+    text = record.plein_texte_text
+
+    spouse1 = PersonInfo()
+    spouse2 = PersonInfo()
+
+    smatch = _MARRIAGE_SPOUSE_PATTERN.search(text)
+    if smatch:
+        spouse1.name = _clean_spouse_name(re.sub(r"\s+", " ", smatch.group(1).strip()))
+        age1 = french_number_to_int(re.sub(r"\s+", " ", smatch.group(2).strip()))
+        spouse1.age = str(age1) if age1 is not None else smatch.group(2).strip()
+        spouse2.name = _clean_spouse_name(re.sub(r"\s+", " ", smatch.group(3).strip()))
+        age2 = french_number_to_int(re.sub(r"\s+", " ", smatch.group(4).strip()))
+        spouse2.age = str(age2) if age2 is not None else smatch.group(4).strip()
+
+    reg_match = _MARRIAGE_MATRICULE_PATTERN.search(text)
+    if reg_match:
+        spouse1.registration_number = reg_match.group(1)
+        spouse2.registration_number = reg_match.group(2)
+
+    decl_name, decl_age, decl_occ = _extract_declarant(text)
+    decl_date, decl_time = _extract_declaration_date(text)
+    habitation, owner = _extract_habitation_and_owner(text, decl_name)
+    commune = _extract_commune(text)
+    officer = _extract_officer(text)
+
+    return MarriageActEntity(
+        spouse1=spouse1,
+        spouse2=spouse2,
+        marriage_date=decl_date,
+        marriage_time=decl_time,
+        declaration_date=decl_date,
+        declaration_time=decl_time,
+        declarant_name=decl_name,
+        declarant_age=decl_age,
+        declarant_occupation=decl_occ,
+        owner_name=owner,
+        habitation_name=habitation,
+        officer_name=officer,
+        commune=commune,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -656,7 +744,7 @@ class RegexExtractor:
         """
         if not marge_text or not marge_text.strip():
             return None
-        text = marge_text.lower()
+        text = re.sub(r"~~[^~]*~~\s*", "", marge_text).lower()
         if re.search(r"d[ée]c[eè]s", text):
             return "deces"
         if re.search(r"naissance|accouch[ée]|\bné(e|é)", text):
@@ -723,10 +811,9 @@ class RegexExtractor:
         """
         if not marge_text:
             return None
-        # Pattern 1: "décès/naissance [N° X\n] de [NAME]" or "d'[NAME]"
-        # Allow act number and newlines between keyword and "de"
+        marge_text = re.sub(r"~~[^~]*~~\s*", "", marge_text)
         match = re.search(
-            r"(?:d[ée]c[eè]s|naissance)(?:\s+[Nn][°ᵒo˚.\s]*\s*\d+)?\s+(?:de\s+|d['\u2019])(.+?)(?:\s*,|\s+au\s+|\s+appt|\s+apt|\s+appartenant|\s+h[.\^]|\s+bon\s|\s+ag[ée]+\s|\s+enf[.ᵗ\^ant]|\s+fils\s|\s+fille\s|$)",
+            r"(?:d[ée]c[eè]s|naissance)(?:\s+[Nn][°ᵒo˚.\s]*\s*\d+)?\s+(?:de\s+|d['\u2019])(.+?)(?:\s*,|\s+au\s+|\s+appt|\s+appnt|\s+apt|\s+appartenant|\s+h[.\^]|\s+bon\s|\s+ag[ée]+\s|\s+enf[.ᵗ\^ant]|\s+fils\s|\s+fille\s|$)",
             marge_text,
             re.IGNORECASE | re.DOTALL,
         )
@@ -752,7 +839,7 @@ class RegexExtractor:
 
         # Check if first line has a name followed by qualifier
         match = re.match(
-            r"^(.+?)(?:\s*,?\s*(?:appt|apt|appartenant|fils|fille|d[ée]c[ée]d|n[ée]e?\s+le))",
+            r"^(.+?)(?:\s*,?\s*(?:appt|appnt|apt|appartenant|fils|fille|d[ée]c[ée]d|n[ée]e?\s+le))",
             first_line,
             re.IGNORECASE,
         )
@@ -777,9 +864,9 @@ class RegexExtractor:
             return None
         # Pattern: "au Sr/Sieur/Sᵗ/Sʳ/S^r/St [NAME]" or "à Mr/Mme [NAME]" or "Ve/Vve [NAME]"
         match = re.search(
-            r"(?:au\s+(?:Sr\.?|St\.?|Sieur|S[ᵗʳ^.\s][\w]*)|[àa]\s+(?:Mr\.?|Mme\.?|Monsieur|Madame|Dame|Demoiselle|la\s+(?:Dlle|Dame|V[eᵉ]|Vve)\.?)|V[eᵉ]\s|Vve\s)\s*(.+?)(?:\s*[,;.]|\s*$)",
+            r"(?:au\s+(?:Sr\.?|St\.?|Sieur|S[ᵗʳ^.\s][\w]*)|[àa]\s+(?:Mr\.?|Mme\.?|Monsieur|Madame|Dame|Demoiselle|la\s+(?:Dlle|Dame|V[eᵉ]|Vve)\.?)|V[eᵉ]\s|Vve\s)\s*(.+?)(?:\s*[,;.\n]|\s*$)",
             marge_text,
-            re.IGNORECASE | re.DOTALL,
+            re.IGNORECASE,
         )
         if match:
             owner = re.sub(r"\s+", " ", match.group(1).strip()).rstrip(",.")
@@ -827,12 +914,14 @@ class RegexExtractor:
 
         death_act = None
         birth_act = None
+        marriage_act = None
 
         if act_type == "deces":
             death_act = _extract_death(record)
         elif act_type == "naissance":
             birth_act = _extract_birth(record)
-        # mariage: no extractor yet
+        elif act_type == "mariage":
+            marriage_act = _extract_marriage(record)
 
         return NERResult(
             act_id=record.act_id,
@@ -844,6 +933,7 @@ class RegexExtractor:
             marge_act_owner=marge_act_owner,
             death_act=death_act,
             birth_act=birth_act,
+            marriage_act=marriage_act,
             raw_marge=record.marge_text,
             raw_plein_texte=record.plein_texte_text,
         )
