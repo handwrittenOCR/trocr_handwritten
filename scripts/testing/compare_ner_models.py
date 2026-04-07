@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
-    "3. OCR/2. TrOCR/5. Data (output)/ECES/Gemini3_transcribed/abymes/1842"
+    "3. OCR/2. TrOCR/5. Data (output)/ECES/Gemini3_transcribed/"
 )
 NER_DIR = BASE_DIR / "ner"
 LOG_DIR = Path("c:/Users/marie/Github/trocr_handwritten/logs")
@@ -66,18 +66,19 @@ def flatten_nested_ner(record: dict) -> dict:
                 "person_name": person.get("name"),
                 "person_sex": person.get("sex"),
                 "person_age": person.get("age"),
+                "person_qualifier": person.get("qualifier"),
                 "person_occupation": person.get("occupation"),
                 "person_registration_register": person.get("registration_register"),
                 "person_registration_number": person.get("registration_number"),
                 "death_date": death.get("death_date"),
-                "death_time": death.get("death_time"),
                 "death_place": death.get("death_place"),
                 "declaration_date": death.get("declaration_date"),
-                "declaration_time": death.get("declaration_time"),
                 "declarant_name": death.get("declarant_name"),
                 "declarant_age": death.get("declarant_age"),
                 "declarant_occupation": death.get("declarant_occupation"),
                 "owner_name": death.get("owner_name"),
+                "owner_commune": death.get("owner_commune"),
+                "owner_residence": death.get("owner_residence"),
                 "habitation_name": death.get("habitation_name"),
                 "officer_name": death.get("officer_name"),
                 "commune": death.get("commune"),
@@ -95,6 +96,7 @@ def flatten_nested_ner(record: dict) -> dict:
                 "child_sex": child.get("sex"),
                 "child_registration_register": child.get("registration_register"),
                 "child_registration_number": child.get("registration_number"),
+                "child_qualifier": child.get("qualifier"),
                 "mother_name": mother.get("name"),
                 "mother_age": mother.get("age"),
                 "mother_registration_register": mother.get("registration_register"),
@@ -102,14 +104,14 @@ def flatten_nested_ner(record: dict) -> dict:
                 "father_name": father.get("name"),
                 "father_age": father.get("age"),
                 "birth_date": birth.get("birth_date"),
-                "birth_time": birth.get("birth_time"),
                 "birth_place": birth.get("birth_place"),
                 "declaration_date": birth.get("declaration_date"),
-                "declaration_time": birth.get("declaration_time"),
                 "declarant_name": birth.get("declarant_name"),
                 "declarant_age": birth.get("declarant_age"),
                 "declarant_occupation": birth.get("declarant_occupation"),
                 "owner_name": birth.get("owner_name"),
+                "owner_commune": birth.get("owner_commune"),
+                "owner_residence": birth.get("owner_residence"),
                 "habitation_name": birth.get("habitation_name"),
                 "officer_name": birth.get("officer_name"),
                 "commune": birth.get("commune"),
