@@ -8,7 +8,7 @@
 
 Transcribe thousands of civil registry pages stored at:
 ```
-C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\0. Brut\Guadeloupe\
+C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Images\Guadeloupe\
 ```
 Each commune folder (abymes, anse_bertrand, etc.) contains year subfolders (1841-1848), each with a `pages/` subfolder of `.jpg` scans.
 
@@ -63,7 +63,7 @@ make preprocess   # image preprocessing only
 - **OCR prompt**: `config/ocr.prompt` (French transcription instructions)
 - **Default YOLO model**: `MarieBgl/historical-layout-bagnards-EC` on HuggingFace (file: `20250111_yolov10_bagnards_EC.pt`)
 
-## Rules
+## Project specific rules
 
 - Use `uv` for dependency management (not Poetry — migration already done).
 - Format code with `black` (target: py311). Pre-commit hooks are configured.
@@ -80,25 +80,22 @@ make preprocess   # image preprocessing only
 - **ALWAYS call `cost_tracker.log_summary(log_dir="logs")` at the end of every script that makes LLM API calls.** Never write a script with API calls without this line — it appends to `logs/api_costs.jsonl` and is the only way to track costs.
 - Pay SPECIAL attention to API prices. I have had skyrocketing costs for Gemini API and want to avoid that at all costs.
 
-COMMUNICATION:
-- Simple sentences: subject verb object.
-- No adverbs. No superfluous wording.
-- Direct and concise answers.
+## General Claude rules **IMPORTANT**
 
-**CAPITAL RULE - READ BEFORE WRITING:**
-- **ALWAYS read existing code before proposing changes.**
-- **NEVER generate a new script without explicit approval.**
-- **If a similar script exists, modify it instead of creating a new one.**
-- **Ask for confirmation before creating any file.**
-- - When updating a function DO NOT DELETE the full text but replace only the necessary parts. No wasted tokens !!!
+### STYLE
+- Subject verb object. No adverbs. No fluff.
+- No sycophantic openers or closing remarks.
 
-SECURITY RULES:
-- NEVER read, access, or display .env, .env.*, secrets, credentials, .ssh, .pem, .key, .p12, .pfx, .keystore, .netrc, .npmrc, .pypirc, .gcloud, .aws files.
-- NEVER include secrets, API keys, tokens, or passwords in any output, commit, or generated code.
-- When exploring a codebase, skip all files matching these patterns entirely.
-- This applies to ALL agents and subagents spawned during a session.
+### APPROACH
+- Think before acting. Read existing files before writing code.
+- Be concise in output but thorough in reasoning.
+- Prefer targeted edits over full rewrites.
+- Do not re-read files you have already read unless the file may have changed.
+- Test your code before declaring done.
+- Keep solutions simple and direct.
+- User instructions always override this file.
 
-STYLE RULES:
+### CODE
 - Always build on the existing code in the file. Modify, extend, or optimize what's already there.
 - Do not rewrite the entire file unless strictly necessary.
 - No inline # comments anywhere.
@@ -107,17 +104,16 @@ STYLE RULES:
 - Do not introduce new external dependencies unless explicitly requested.
 - Preserve naming conventions unless they are unclear or harmful.
 - If a function is correct, leave it unchanged.
+- When updating a function DO NOT DELETE the full text but replace only the necessary parts. No wasted tokens !!!
 
-MODIFICATION RULES:
-- Maintain the current structure and architecture.
-- Reuse existing patterns and logic.
-- Make focused, minimal modifications.
-- Extract functions only if it improves clarity.
+### SECURITY RULES
+- NEVER read, access, or display .env, .env.*, secrets, credentials, .ssh, .pem, .key, .p12, .pfx, .keystore, .netrc, .npmrc, .pypirc, .gcloud, .aws files.
+- NEVER include secrets, API keys, tokens, or passwords in any output, commit, or generated code.
+- When exploring a codebase, skip all files matching these patterns entirely.
+- This applies to ALL agents and subagents spawned during a session.
 
-RESPONSE FORMAT:
-1. Briefly (1–3 lines) explain what you're doing.
-2. Provide the full updated code with no extra text around it.
+### OUTPUT
+1. One to three lines: what and why.
+2. Show only the changed code (not the full file) with no extra text around it.
 3. Integrate changes directly into the final code; do not output diff formats.
-
-GOAL:
-Produce clear, robust, concise code that extends the existing implementation without unnecessary changes.
+```
