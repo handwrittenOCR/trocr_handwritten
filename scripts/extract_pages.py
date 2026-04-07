@@ -6,7 +6,7 @@ from pathlib import Path
 
 BASE_DIR = Path(
     r"C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR"
-    r"\2. TrOCR\5. Data (output)\ECES\0. Brut"
+    r"\2. TrOCR\5. Data (output)\ECES\Images"
 )
 OUTPUT_DIR = BASE_DIR / "Guadeloupe"
 

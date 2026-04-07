@@ -24,7 +24,7 @@ from trocr_handwritten.ner.schemas import ActRecord, flatten_ner_result
 
 BASE = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
-    "3. OCR/2. TrOCR/5. Data (output)/ECES/Gemini3_transcribed"
+    "3. OCR/2. TrOCR/5. Data (output)/ECES/OCR_gem31"
 )
 
 

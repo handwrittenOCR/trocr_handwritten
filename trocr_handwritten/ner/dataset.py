@@ -472,7 +472,7 @@ def main():
         "--input_dir",
         type=str,
         required=True,
-        help="Path to transcription directory (e.g. .../Gemini3_transcribed/abymes/1842)",
+        help="Path to transcription directory (e.g. .../OCR_gem31/abymes/1842)",
     )
     parser.add_argument(
         "--output_dir",

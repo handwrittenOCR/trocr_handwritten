@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 
 IMAGE = Path(
     r"C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR"
-    r"\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed\vieux_fort\1839"
+    r"\2. TrOCR\5. Data (output)\ECES\OCR_gem31\vieux_fort\1839"
     r"\FRAD971_1E35_136_130_002_C\Marge\001.jpg"
 )
 

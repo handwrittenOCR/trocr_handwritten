@@ -10,7 +10,7 @@ param(
     [int[]]$Years = @()
 )
 
-$BASE_OUTPUT = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed"
+$BASE_OUTPUT = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\OCR_gem31"
 
 # Auto-detect communes if not specified
 if ($Communes.Count -eq 0) {

@@ -11,7 +11,7 @@
 $ErrorActionPreference = "Stop"
 
 $VENV = ".venv\Scripts\python.exe"
-$INPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed\abymes\1842"
+$INPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\OCR_gem31\abymes\1842"
 $OUTPUT_DIR = "C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\NER_datasets"
 $NER_DIR = "$INPUT_DIR\ner"
 

@@ -10,7 +10,7 @@ from pathlib import Path
 
 BASE = Path(
     r"C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR"
-    r"\2. TrOCR\5. Data (output)\ECES\Gemini3_transcribed\abymes\1841"
+    r"\2. TrOCR\5. Data (output)\ECES\OCR_gem31\abymes\1841"
 )
 OUTPUT_DIR = Path("test_lowthinking")
 
