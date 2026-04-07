@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from trocr_handwritten.ner.dataset import build_dataset
+from trocr_handwritten.ner.split_acts import split_merged_acts
 
 BASE = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
@@ -61,6 +62,7 @@ def main():
             year = year_dir.name
 
             records, pt_count = build_dataset(str(year_dir), commune, year)
+            records = split_merged_acts(records)
             print(f"{commune}/{year}: {len(records)} acts  {pt_count} crops")
             all_records.extend(records)
 
