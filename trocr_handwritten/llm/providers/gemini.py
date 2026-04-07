@@ -93,29 +93,102 @@ class GeminiProvider(LLMProvider):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._call_api, model, messages)
 
+    @staticmethod
+    def _convert_schema(openai_schema: dict) -> dict:
+        """Convert an OpenAI-format JSON schema to native google-genai schema format."""
+        if not openai_schema:
+            return {}
+
+        result = {}
+        schema_type = openai_schema.get("type")
+
+        if isinstance(schema_type, list):
+            non_null = [t for t in schema_type if t != "null"]
+            schema_type = non_null[0] if non_null else "string"
+        result["type"] = schema_type.upper() if schema_type else "STRING"
+
+        if "description" in openai_schema:
+            result["description"] = openai_schema["description"]
+
+        if "enum" in openai_schema:
+            result["enum"] = [v for v in openai_schema["enum"] if v is not None]
+
+        if "properties" in openai_schema:
+            result["properties"] = {
+                k: GeminiProvider._convert_schema(v)
+                for k, v in openai_schema["properties"].items()
+            }
+
+        if "required" in openai_schema:
+            result["required"] = openai_schema["required"]
+
+        return result
+
+    @staticmethod
+    def _openai_tools_to_native(tools: list) -> list:
+        """Convert OpenAI-format tool definitions to native google-genai FunctionDeclaration."""
+        native_tools = []
+        for tool in tools:
+            fn = tool["function"]
+            native_tools.append(
+                types.Tool(
+                    function_declarations=[
+                        types.FunctionDeclaration(
+                            name=fn["name"],
+                            description=fn.get("description", ""),
+                            parameters=GeminiProvider._convert_schema(
+                                fn.get("parameters", {})
+                            ),
+                        )
+                    ]
+                )
+            )
+        return native_tools
+
+    @staticmethod
+    def _convert_messages(messages: list) -> Tuple[str, list]:
+        """Split OpenAI-format messages into system_instruction + native contents."""
+        system_instruction = None
+        contents = []
+        for msg in messages:
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if role == "system":
+                system_instruction = content
+            else:
+                contents.append({"role": role, "parts": [{"text": content}]})
+        return system_instruction, contents
+
     async def _call_text_api_async(
         self, model: str, messages: list, tools: list = None, tool_choice: str = "auto"
     ) -> Tuple[str, int, int, int]:
-        """Make an async text API call with optional function calling.
+        """Make an async text API call with optional function calling via native SDK."""
+        base_config = self._get_config(model)
+        system_instruction, contents = self._convert_messages(messages)
 
-        Note: tools here use OpenAI format from NER pipeline. We convert to
-        native SDK tool definitions.
-        """
-        config = self._get_config(model)
-
+        config_kwargs = {
+            "temperature": base_config.temperature,
+            "max_output_tokens": base_config.max_output_tokens,
+            "thinking_config": base_config.thinking_config,
+        }
+        if system_instruction:
+            config_kwargs["system_instruction"] = system_instruction
         if tools:
-            # For function calling, fall back to OpenAI-compat endpoint
-            # since tool schemas come in OpenAI format from the NER pipeline
-            return await self._call_text_openai_compat(
-                model, messages, tools, tool_choice
-            )
+            native_tools = self._openai_tools_to_native(tools)
+            config_kwargs["tools"] = native_tools
+            if tool_choice == "required":
+                config_kwargs["tool_config"] = types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(mode="ANY")
+                )
+
+        config = types.GenerateContentConfig(**config_kwargs)
 
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: self.native_client.models.generate_content(
                 model=model,
-                contents=messages,
+                contents=contents,
                 config=config,
             ),
         )
@@ -123,45 +196,20 @@ class GeminiProvider(LLMProvider):
         if actual_model and actual_model != model:
             logger.info(f"Requested model '{model}' redirected to '{actual_model}'")
             self.actual_model_name = actual_model
-        text = response.text
+
         input_tokens, output_tokens, thinking_tokens = self._extract_tokens(response)
+
+        if tools:
+            candidate = response.candidates[0] if response.candidates else None
+            text = None
+            if candidate:
+                for part in candidate.content.parts:
+                    if part.function_call:
+                        import json as _json
+
+                        text = _json.dumps(dict(part.function_call.args))
+                        break
+            return text, input_tokens, output_tokens, thinking_tokens
+
+        text = response.text
         return text, input_tokens, output_tokens, thinking_tokens
-
-    async def _call_text_openai_compat(
-        self, model: str, messages: list, tools: list, tool_choice: str
-    ) -> Tuple[str, int, int, int]:
-        """Fallback to OpenAI-compat endpoint for function calling (NER pipeline)."""
-        from openai import AsyncOpenAI
-
-        async_client = AsyncOpenAI(
-            api_key=self.settings.google_api_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        )
-        kwargs = {
-            "model": model,
-            "messages": messages,
-            "temperature": self.settings.temperature,
-            "max_tokens": self.settings.max_tokens,
-            "tools": tools,
-            "tool_choice": tool_choice,
-        }
-        if "gemini-3" in model:
-            kwargs["reasoning_effort"] = "low"
-        elif "gemini-2.5" in model:
-            kwargs["reasoning_effort"] = "none"
-
-        response = await async_client.chat.completions.create(**kwargs)
-        message = response.choices[0].message
-
-        if message.tool_calls:
-            text = message.tool_calls[0].function.arguments
-        else:
-            text = message.content
-
-        input_tokens = response.usage.prompt_tokens if response.usage else 0
-        output_tokens = response.usage.completion_tokens if response.usage else 0
-        # OpenAI compat doesn't report thinking tokens separately
-        logger.warning(
-            "Function calling via OpenAI-compat: thinking tokens not tracked separately"
-        )
-        return text, input_tokens, output_tokens, 0

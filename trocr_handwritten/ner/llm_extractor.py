@@ -42,6 +42,40 @@ def _load_prompt(path: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+_MARGE_FIELDS = {
+    "marge_act_type": {
+        "type": ["string", "null"],
+        "description": "Type d'acte tel qu'écrit dans la marge (ex: 'Naissance', 'Décès', 'Mariage')",
+    },
+    "marge_act_name": {
+        "type": ["string", "null"],
+        "description": "Nom de l'esclave tel qu'écrit dans la marge",
+    },
+    "marge_act_number": {
+        "type": ["string", "null"],
+        "description": "Numéro de l'acte tel qu'écrit dans la marge (ex: '1', '44')",
+    },
+    "marge_act_owner": {
+        "type": ["string", "null"],
+        "description": "Nom du propriétaire tel qu'écrit dans la marge",
+    },
+}
+
+
+def _extract_marge_fields(raw_json: str) -> dict:
+    """Extract marge fields from parsed tool JSON."""
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return {}
+    return {
+        "marge_act_type": data.get("marge_act_type"),
+        "marge_act_name": data.get("marge_act_name"),
+        "marge_act_number": data.get("marge_act_number"),
+        "marge_act_owner": data.get("marge_act_owner"),
+    }
+
+
 def _build_death_tool() -> dict:
     """Build OpenAI function-calling tool definition for death act extraction."""
     return {
@@ -52,6 +86,7 @@ def _build_death_tool() -> dict:
             "parameters": {
                 "type": "object",
                 "properties": {
+                    **_MARGE_FIELDS,
                     "person_name": {
                         "type": ["string", "null"],
                         "description": "Nom complet de la personne esclave décédée",
@@ -152,6 +187,7 @@ def _build_birth_tool() -> dict:
             "parameters": {
                 "type": "object",
                 "properties": {
+                    **_MARGE_FIELDS,
                     "child_name": {
                         "type": ["string", "null"],
                         "description": "Nom de l'enfant",
@@ -233,6 +269,7 @@ def _build_marriage_tool() -> dict:
             "parameters": {
                 "type": "object",
                 "properties": {
+                    **_MARGE_FIELDS,
                     "spouse1_name": {
                         "type": ["string", "null"],
                         "description": "Nom complet de l'époux",
@@ -290,6 +327,7 @@ def _build_unknown_tool() -> dict:
             "parameters": {
                 "type": "object",
                 "properties": {
+                    **_MARGE_FIELDS,
                     "act_type": {
                         "type": "string",
                         "enum": ["deces", "naissance", "mariage"],
@@ -600,49 +638,54 @@ class LLMExtractor:
         death_act = None
         birth_act = None
         marriage_act = None
+        marge_fields: dict = {}
 
         if record.act_type == "deces":
-            raw_json, inp, out, _think = await self.provider.call_text_async(
+            raw_json, inp, out, think = await self.provider.call_text_async(
                 user_text,
                 self.death_prompt,
                 tools=[self.death_tool],
                 tool_choice="required",
             )
-            self.cost_tracker.add_usage(inp, out)
+            self.cost_tracker.add_usage(inp, out, think)
             if raw_json:
+                marge_fields = _extract_marge_fields(raw_json)
                 death_act = _parse_death_response(raw_json)
 
         elif record.act_type == "naissance":
-            raw_json, inp, out, _think = await self.provider.call_text_async(
+            raw_json, inp, out, think = await self.provider.call_text_async(
                 user_text,
                 self.birth_prompt,
                 tools=[self.birth_tool],
                 tool_choice="required",
             )
-            self.cost_tracker.add_usage(inp, out)
+            self.cost_tracker.add_usage(inp, out, think)
             if raw_json:
+                marge_fields = _extract_marge_fields(raw_json)
                 birth_act = _parse_birth_response(raw_json)
 
         elif record.act_type == "mariage":
-            raw_json, inp, out, _think = await self.provider.call_text_async(
+            raw_json, inp, out, think = await self.provider.call_text_async(
                 user_text,
                 self.marriage_prompt,
                 tools=[self.marriage_tool],
                 tool_choice="required",
             )
-            self.cost_tracker.add_usage(inp, out)
+            self.cost_tracker.add_usage(inp, out, think)
             if raw_json:
+                marge_fields = _extract_marge_fields(raw_json)
                 marriage_act = _parse_marriage_response(raw_json)
 
         else:
-            raw_json, inp, out, _think = await self.provider.call_text_async(
+            raw_json, inp, out, think = await self.provider.call_text_async(
                 user_text,
                 self.unknown_prompt,
                 tools=[self.unknown_tool],
                 tool_choice="required",
             )
-            self.cost_tracker.add_usage(inp, out)
+            self.cost_tracker.add_usage(inp, out, think)
             if raw_json:
+                marge_fields = _extract_marge_fields(raw_json)
                 detected_type, death_act, birth_act, marriage_act = (
                     _parse_unknown_response(raw_json)
                 )
@@ -653,6 +696,10 @@ class LLMExtractor:
             act_id=record.act_id,
             act_type=record.act_type,
             extraction_method="llm",
+            marge_act_type=marge_fields.get("marge_act_type"),
+            marge_act_name=marge_fields.get("marge_act_name"),
+            marge_act_number=marge_fields.get("marge_act_number"),
+            marge_act_owner=marge_fields.get("marge_act_owner"),
             death_act=death_act,
             birth_act=birth_act,
             marriage_act=marriage_act,

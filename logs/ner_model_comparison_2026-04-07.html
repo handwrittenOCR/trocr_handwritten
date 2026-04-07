@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.32">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>ner_model_comparison_2026-04-07</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="ner_model_comparison_2026-04-07_files/libs/clipboard/clipboard.min.js"></script>
+<script src="ner_model_comparison_2026-04-07_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="ner_model_comparison_2026-04-07_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="ner_model_comparison_2026-04-07_files/libs/quarto-html/popper.min.js"></script>
+<script src="ner_model_comparison_2026-04-07_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="ner_model_comparison_2026-04-07_files/libs/quarto-html/anchor.min.js"></script>
+<link href="ner_model_comparison_2026-04-07_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="ner_model_comparison_2026-04-07_files/libs/quarto-html/quarto-syntax-highlighting-37eea08aefeeee20ff55810ff984fec1.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="ner_model_comparison_2026-04-07_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="ner_model_comparison_2026-04-07_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="ner_model_comparison_2026-04-07_files/libs/bootstrap/bootstrap-bb462d781dde1847d9e3ccf7736099dd.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<section id="ner-model-comparison-regex-vs-gemini-3-flash-preview-vs-gemini-3.1-flash-lite-preview" class="level1">
+<h1>NER Model Comparison: Regex vs gemini-3-flash-preview vs gemini-3.1-flash-lite-preview</h1>
+<p>Date: 2026-04-07 11:36</p>
+<p>Sample: 5 acts from abymes/1842</p>
+<section id="summary-flash-vs-flash-lite" class="level2">
+<h2 class="anchored" data-anchor-id="summary-flash-vs-flash-lite">Summary (Flash vs Flash-Lite)</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Metric</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Fields compared</td>
+<td>95</td>
+</tr>
+<tr class="even">
+<td>Match (flash = flash-lite)</td>
+<td>64</td>
+</tr>
+<tr class="odd">
+<td>Mismatch</td>
+<td>10</td>
+</tr>
+<tr class="even">
+<td>Flash only</td>
+<td>11</td>
+</tr>
+<tr class="odd">
+<td>Flash-Lite only</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>Both null</td>
+<td>10</td>
+</tr>
+<tr class="odd">
+<td><strong>Agreement rate</strong></td>
+<td><strong>86.5%</strong></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="per-field-agreement-flash-vs-flash-lite" class="level2">
+<h2 class="anchored" data-anchor-id="per-field-agreement-flash-vs-flash-lite">Per-field Agreement (Flash vs Flash-Lite)</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Match</th>
+<th>Mismatch</th>
+<th>Flash only</th>
+<th>Lite only</th>
+<th>Both null</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>commune</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>death_date</td>
+<td>3</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>death_place</td>
+<td>2</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>declarant_age</td>
+<td>2</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>declarant_name</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>declarant_occupation</td>
+<td>4</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>declaration_date</td>
+<td>1</td>
+<td>3</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>habitation_name</td>
+<td>3</td>
+<td>2</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>officer_name</td>
+<td>4</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>owner_commune</td>
+<td>0</td>
+<td>0</td>
+<td>3</td>
+<td>0</td>
+<td>2</td>
+</tr>
+<tr class="odd">
+<td>owner_name</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>owner_residence</td>
+<td>0</td>
+<td>0</td>
+<td>2</td>
+<td>0</td>
+<td>3</td>
+</tr>
+<tr class="odd">
+<td>person_age</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>person_name</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>person_occupation</td>
+<td>1</td>
+<td>0</td>
+<td>2</td>
+<td>0</td>
+<td>2</td>
+</tr>
+<tr class="even">
+<td>person_qualifier</td>
+<td>4</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>person_registration_number</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>person_registration_register</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td>person_sex</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="mismatches-detail" class="level2">
+<h2 class="anchored" data-anchor-id="mismatches-detail">Mismatches Detail</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Act</th>
+<th>Field</th>
+<th>Regex</th>
+<th>Flash</th>
+<th>Flash-Lite</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>FRAD971_1E35_055_115_010_C_order2</td>
+<td>person_qualifier</td>
+<td>-</td>
+<td>mulatresse</td>
+<td>mulâtresse</td>
+</tr>
+<tr class="even">
+<td>FRAD971_1E35_055_115_010_C_order2</td>
+<td>declaration_date</td>
+<td>jour mai</td>
+<td>Dimanche troisième jour du mois de mai milhuit cent quarante et un</td>
+<td>Dimanche troisième jour du mois de mai 1840</td>
+</tr>
+<tr class="odd">
+<td>FRAD971_1E35_055_115_010_C_order2</td>
+<td>habitation_name</td>
+<td>-</td>
+<td>habitation William Darasse</td>
+<td>son habitation</td>
+</tr>
+<tr class="even">
+<td>1839_FRAD971_1E35_074_118_061_C_order9</td>
+<td>death_date</td>
+<td>-</td>
+<td>ce jour</td>
+<td>vingt neuf novembre 1839</td>
+</tr>
+<tr class="odd">
+<td>1846_FRAD971_1E35_018_102_025_C_order8</td>
+<td>death_place</td>
+<td>-</td>
+<td>null</td>
+<td>habitation Boisnormand</td>
+</tr>
+<tr class="even">
+<td>1846_FRAD971_1E35_018_102_025_C_order8</td>
+<td>habitation_name</td>
+<td>-</td>
+<td>null</td>
+<td>habitation Boisnormand</td>
+</tr>
+<tr class="odd">
+<td>1846_FRAD971_1E35_122_128_024_C_order4</td>
+<td>declaration_date</td>
+<td>L’an mil huit cent quarante six, le trente un août</td>
+<td>L’an mil huit cent quarante six, le trente un du mois d’août, à midi</td>
+<td>le trente un du mois d’août mil huit cent quarante six</td>
+</tr>
+<tr class="even">
+<td>FRAD971_1E35_007_101_028_C_order4</td>
+<td>death_date</td>
+<td>ce jour</td>
+<td>douze du mois d’octobre mil huit cens quarante sept</td>
+<td>12 octobre 1847</td>
+</tr>
+<tr class="odd">
+<td>FRAD971_1E35_007_101_028_C_order4</td>
+<td>death_place</td>
+<td>cette dernière</td>
+<td>une des cases de l’habitation de cette dernière</td>
+<td>habitation de la Demoiselle Marie Madelaine Popote</td>
+</tr>
+<tr class="even">
+<td>FRAD971_1E35_007_101_028_C_order4</td>
+<td>declaration_date</td>
+<td>L’An mil huit cens quarante sept et le Mardi, douze octobre</td>
+<td>Mardi, douze du mois d’octobre mil huit cens quarante sept</td>
+<td>12 octobre 1847</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="per-act-detail" class="level2">
+<h2 class="anchored" data-anchor-id="per-act-detail">Per-Act Detail</h2>
+<section id="lamentin_1840_frad971_1e35_055_115_010_c_order2-deces" class="level3">
+<h3 class="anchored" data-anchor-id="lamentin_1840_frad971_1e35_055_115_010_c_order2-deces">lamentin_1840_FRAD971_1E35_055_115_010_C_order2 (deces)</h3>
+<p><strong>Marge:</strong></p>
+<pre><code>N° 19.
+Décès d'Adol=
+phine habiton
+Vam Darasse.</code></pre>
+<p><strong>Plein Texte:</strong></p>
+<pre><code>L'An milhuit cent quarante et le Dimanche troisième
+jour du mois de mai, à neuf heures du matin, Pardevant nous
+Paul Madeleine Mathurin Brefford, maire de la commune du
+Lamentin Ile Guadeloupe, est comparu en cette maison com=
+mune, le Sieur William Darasse, âgé de quarante ans, propri
+étaire domiciliée dans cette commune, lequel nous a déclaré que
+hier à onze heures du matin, son esclave nommée Adolphine, mula
+tresse âgée de deux ans, portée sur son dénombrement, est décédée
+sur son habitation. D'après cette déclaration, nous avons
+constaté le décès, avons autorisé l'inhumation et avons dressé
+le présent acte que le déclarant a signé avec nous après lecture</code></pre>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Regex</th>
+<th>Flash</th>
+<th>Flash-Lite</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>person_name</td>
+<td>nommée Adolphine, mula tresse</td>
+<td>Adolphine</td>
+<td>Adolphine</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_sex</td>
+<td>-</td>
+<td>femme</td>
+<td>femme</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_qualifier</td>
+<td>-</td>
+<td>mulatresse</td>
+<td>mulâtresse</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="even">
+<td>person_age</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_occupation</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="even">
+<td>person_registration_register</td>
+<td>-</td>
+<td>null</td>
+<td>null</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_registration_number</td>
+<td>-</td>
+<td>null</td>
+<td>null</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>death_date</td>
+<td>hier</td>
+<td>hier à onze heures du matin</td>
+<td>hier</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>death_place</td>
+<td>-</td>
+<td>son habitation</td>
+<td>son habitation</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declaration_date</td>
+<td>jour mai</td>
+<td>Dimanche troisième jour du mois de mai milhuit cent quarante et un</td>
+<td>Dimanche troisième jour du mois de mai 1840</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="odd">
+<td>declarant_name</td>
+<td>-</td>
+<td>William Darasse</td>
+<td>William Darasse</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declarant_age</td>
+<td>-</td>
+<td>40</td>
+<td>40</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>declarant_occupation</td>
+<td>-</td>
+<td>propriétaire</td>
+<td>propriétaire</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_name</td>
+<td>-</td>
+<td>William Darasse</td>
+<td>William Darasse</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>habitation_name</td>
+<td>-</td>
+<td>habitation William Darasse</td>
+<td>son habitation</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="even">
+<td>owner_commune</td>
+<td>-</td>
+<td>Lamentin</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="odd">
+<td>owner_residence</td>
+<td>-</td>
+<td>Lamentin</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="even">
+<td>officer_name</td>
+<td>Paul Madeleine Mathurin Brefford</td>
+<td>Paul Madeleine Mathurin Brefford</td>
+<td>Paul Madeleine Mathurin Brefford</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>commune</td>
+<td>-</td>
+<td>Lamentin</td>
+<td>Lamentin</td>
+<td>=</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="petit_bourg_1839_frad971_1e35_074_118_061_c_order9-deces" class="level3">
+<h3 class="anchored" data-anchor-id="petit_bourg_1839_frad971_1e35_074_118_061_c_order9-deces">petit_bourg_1839_FRAD971_1E35_074_118_061_C_order9 (deces)</h3>
+<p><strong>Marge:</strong></p>
+<pre><code>N° 134
+décès
+d'une femme</code></pre>
+<p><strong>Plein Texte:</strong></p>
+<pre><code>L'an mil huit cent trente neuf, et le vingt
+neuf novembre, pardevant Nous Maire de la commune
+du petit bourg, a comparu monsieur Clement Courau,
+gereur de l'habitation la Retraite, sise en cette commune,
+appartenant à monsieur Petra, lequel nous a déclaré que ce
+jour, la négresse nommée Rosette, agée de cinquante deux
+ans, attachée à la culture de ce bien, est décédée. Dont act
+que le déclarant a signé avec nous. /.</code></pre>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Regex</th>
+<th>Flash</th>
+<th>Flash-Lite</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>person_name</td>
+<td>nommée Rosette</td>
+<td>Rosette</td>
+<td>Rosette</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_sex</td>
+<td>femme</td>
+<td>femme</td>
+<td>femme</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_qualifier</td>
+<td>-</td>
+<td>négresse</td>
+<td>négresse</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_age</td>
+<td>52</td>
+<td>52</td>
+<td>52</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_occupation</td>
+<td>-</td>
+<td>attachée à la culture</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="even">
+<td>person_registration_register</td>
+<td>-</td>
+<td>null</td>
+<td>null</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_registration_number</td>
+<td>-</td>
+<td>null</td>
+<td>null</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>death_date</td>
+<td>-</td>
+<td>ce jour</td>
+<td>vingt neuf novembre 1839</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="odd">
+<td>death_place</td>
+<td>Retraite</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="even">
+<td>declaration_date</td>
+<td>-</td>
+<td>vingt neuf novembre mil huit cent trente neuf</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="odd">
+<td>declarant_name</td>
+<td>-</td>
+<td>Clement Courau</td>
+<td>Clement Courau</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declarant_age</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="odd">
+<td>declarant_occupation</td>
+<td>-</td>
+<td>gereur de l’habitation la Retraite</td>
+<td>gereur de l’habitation la Retraite</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_name</td>
+<td>Petra</td>
+<td>Petra</td>
+<td>Petra</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>habitation_name</td>
+<td>Retraite</td>
+<td>la Retraite</td>
+<td>la Retraite</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_commune</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="odd">
+<td>owner_residence</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="even">
+<td>officer_name</td>
+<td>-</td>
+<td>null</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="odd">
+<td>commune</td>
+<td>-</td>
+<td>petit bourg</td>
+<td>petit bourg</td>
+<td>=</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="anse_bertrand_1846_frad971_1e35_018_102_025_c_order8-deces" class="level3">
+<h3 class="anchored" data-anchor-id="anse_bertrand_1846_frad971_1e35_018_102_025_c_order8-deces">anse_bertrand_1846_FRAD971_1E35_018_102_025_C_order8 (deces)</h3>
+<p><strong>Marge:</strong></p>
+<pre><code>Décès de Pompone
+à M. Boisnormand &amp; Sœurs
+74</code></pre>
+<p><strong>Plein Texte:</strong></p>
+<pre><code>L'an mil huit cent quarante six, le vingtième jour du mois
+d'Octobre, à midi, Nous Louis de Bébian Maire Officier de l'état
+civil de la commune de l'anse Bertrand, avons reçu par lettre
+en date de ce jour qui sera annexée au présent, signée par le Sr
+Boisnormand propriétaire domicilié en cette commune, la
+déclaration que la nommée Pompone de couleur noire, âgée
+de quarante deux ans, inscrite sous le No 1721 du matricule,
+appartenant à M. Boisnormand et sœurs, est décédée hier
+dix neuf du courant à onze heures du matin. En foi de
+quoi le présent acte et avons signé.</code></pre>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Regex</th>
+<th>Flash</th>
+<th>Flash-Lite</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>person_name</td>
+<td>Pompone</td>
+<td>Pompone</td>
+<td>Pompone</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_sex</td>
+<td>femme</td>
+<td>femme</td>
+<td>femme</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_qualifier</td>
+<td>-</td>
+<td>noire</td>
+<td>noire</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_age</td>
+<td>42</td>
+<td>42</td>
+<td>42</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_occupation</td>
+<td>-</td>
+<td>null</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="even">
+<td>person_registration_register</td>
+<td>-</td>
+<td>null</td>
+<td>null</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_registration_number</td>
+<td>1721</td>
+<td>1721</td>
+<td>1721</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>death_date</td>
+<td>la nommée Pompone de couleur noire, âgée de quarante deux ans, inscrite sous le No 1721 du matricule, appartenant</td>
+<td>dix neuf du courant à onze heures du matin</td>
+<td>dix neuf du courant</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>death_place</td>
+<td>-</td>
+<td>null</td>
+<td>habitation Boisnormand</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="even">
+<td>declaration_date</td>
+<td>L’an mil huit cent quarante six, le vingtième jour Octobre</td>
+<td>vingtième jour du mois d’Octobre mil huit cent quarante six</td>
+<td>vingtième jour du mois d’Octobre mil huit cent quarante six</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>declarant_name</td>
+<td>-</td>
+<td>Boisnormand</td>
+<td>Boisnormand</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declarant_age</td>
+<td>-</td>
+<td>null</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="odd">
+<td>declarant_occupation</td>
+<td>-</td>
+<td>propriétaire</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="even">
+<td>owner_name</td>
+<td>M. Boisnormand et sœurs</td>
+<td>M. Boisnormand et sœurs</td>
+<td>Boisnormand et sœurs</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>habitation_name</td>
+<td>-</td>
+<td>null</td>
+<td>habitation Boisnormand</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="even">
+<td>owner_commune</td>
+<td>-</td>
+<td>l’anse Bertrand</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="odd">
+<td>owner_residence</td>
+<td>-</td>
+<td>null</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="even">
+<td>officer_name</td>
+<td>Louis de Bébian</td>
+<td>Louis de Bébian</td>
+<td>Louis de Bébian</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>commune</td>
+<td>l</td>
+<td>l’anse Bertrand</td>
+<td>anse Bertrand</td>
+<td>=</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="sainte_anne_1846_frad971_1e35_122_128_024_c_order4-deces" class="level3">
+<h3 class="anchored" data-anchor-id="sainte_anne_1846_frad971_1e35_122_128_024_c_order4-deces">sainte_anne_1846_FRAD971_1E35_122_128_024_C_order4 (deces)</h3>
+<p><strong>Marge:</strong></p>
+<pre><code>N° 162.
+Décès
+Immiègre</code></pre>
+<p><strong>Plein Texte:</strong></p>
+<pre><code>L'an mil huit cent quarante six, le trente un du mois d'août, à
+midi, nous Le Terrier d'Eschinardville, Soussigné, Maire de la
+Commune de Sainte Anne grand terre Guadeloupe, certifions avoir
+reçu par lettre, signée par Mr Bourgoin, daté de ce jour, habitant
+propriétaire, domicilié en cette Commune, la déclaration que son nègre
+nommé Désiré, âgé de quarante huit ans, tonnelier, immatriculé
+sous le N° 6840, est décédé sur son habitation, le jour d'hier, à
+cinq heures du matin. En foi de quoi nous avons signé le présent
+acte.</code></pre>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Regex</th>
+<th>Flash</th>
+<th>Flash-Lite</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>person_name</td>
+<td>nommé Désiré</td>
+<td>Désiré</td>
+<td>Désiré</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_sex</td>
+<td>homme</td>
+<td>homme</td>
+<td>homme</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_qualifier</td>
+<td>-</td>
+<td>nègre</td>
+<td>nègre</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_age</td>
+<td>48</td>
+<td>48</td>
+<td>48</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_occupation</td>
+<td>tonnelier</td>
+<td>tonnelier</td>
+<td>tonnelier</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_registration_register</td>
+<td>-</td>
+<td>null</td>
+<td>null</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_registration_number</td>
+<td>6840</td>
+<td>6840</td>
+<td>6840</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>death_date</td>
+<td>son nègre nommé Désiré, âgé de quarante huit ans, tonnelier, immatriculé sous le N° 6840, est décédé sur son habitation, le jour d’hier</td>
+<td>le jour d’hier, à cinq heures du matin</td>
+<td>le jour d’hier</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>death_place</td>
+<td>-</td>
+<td>son habitation</td>
+<td>son habitation</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declaration_date</td>
+<td>L’an mil huit cent quarante six, le trente un août</td>
+<td>L’an mil huit cent quarante six, le trente un du mois d’août, à midi</td>
+<td>le trente un du mois d’août mil huit cent quarante six</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="odd">
+<td>declarant_name</td>
+<td>Bourgoin</td>
+<td>Mr Bourgoin</td>
+<td>Mr Bourgoin</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declarant_age</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="odd">
+<td>declarant_occupation</td>
+<td>-</td>
+<td>habitant propriétaire</td>
+<td>habitant propriétaire</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_name</td>
+<td>Bourgoin</td>
+<td>Mr Bourgoin</td>
+<td>Mr Bourgoin</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>habitation_name</td>
+<td>-</td>
+<td>son habitation</td>
+<td>son habitation</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_commune</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="odd">
+<td>owner_residence</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="even">
+<td>officer_name</td>
+<td>Le Terrier d’Eschinardville</td>
+<td>Le Terrier d’Eschinardville</td>
+<td>Le Terrier d’Eschinardville</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>commune</td>
+<td>sainte</td>
+<td>Sainte Anne grand terre Guadeloupe</td>
+<td>Sainte Anne grand terre Guadeloupe</td>
+<td>=</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="abymes_1847_frad971_1e35_007_101_028_c_order4-deces" class="level3">
+<h3 class="anchored" data-anchor-id="abymes_1847_frad971_1e35_007_101_028_c_order4-deces">abymes_1847_FRAD971_1E35_007_101_028_C_order4 (deces)</h3>
+<p><strong>Marge:</strong></p>
+<pre><code>Augustin, fils de Marie
+appt. à la Dlle Popote
+décédé le 12. 8bre 1847
+N: 79</code></pre>
+<p><strong>Plein Texte:</strong></p>
+<pre><code>L'An mil huit cens quarante sept et le Mardi, douze du mois d'octobre,
+à deux heures et demie de l'après midi. Pardevant nous François Elie David,
+Maire de la commune des Abymes, ile grand'Terre Guadeloupe, remplissant
+les fonctions d'officier de l'état civil de la dite commune, est comparu le Sieur
+Victor Théotime, âgé de quarante quatre ans, maçon domicilié à la Pointe-
+à-Pitre, lequel nous a déclaré que ce jour, à deux heures du matin, l'esclave
+Augustin, négrillon d'un an, fils de Marie, immatriculé registre T. n° 1499 et appartenant
+à la Demoiselle Marie Madelaine Popote, est décédé dans une des cases de
+l'habitation de cette dernière, sise en la commune des Abymes, et le déclarant a signé
+avec nous le présent acte après lecture.</code></pre>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Regex</th>
+<th>Flash</th>
+<th>Flash-Lite</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>person_name</td>
+<td>-</td>
+<td>Augustin</td>
+<td>Augustin</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_sex</td>
+<td>-</td>
+<td>homme</td>
+<td>homme</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_qualifier</td>
+<td>-</td>
+<td>négrillon</td>
+<td>négrillon</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>person_age</td>
+<td>-</td>
+<td>1</td>
+<td>1</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_occupation</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="even">
+<td>person_registration_register</td>
+<td>T</td>
+<td>T</td>
+<td>T</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>person_registration_number</td>
+<td>1499</td>
+<td>1499</td>
+<td>1499</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>death_date</td>
+<td>ce jour</td>
+<td>douze du mois d’octobre mil huit cens quarante sept</td>
+<td>12 octobre 1847</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="odd">
+<td>death_place</td>
+<td>cette dernière</td>
+<td>une des cases de l’habitation de cette dernière</td>
+<td>habitation de la Demoiselle Marie Madelaine Popote</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="even">
+<td>declaration_date</td>
+<td>L’An mil huit cens quarante sept et le Mardi, douze octobre</td>
+<td>Mardi, douze du mois d’octobre mil huit cens quarante sept</td>
+<td>12 octobre 1847</td>
+<td><strong>!=</strong></td>
+</tr>
+<tr class="odd">
+<td>declarant_name</td>
+<td>-</td>
+<td>Victor Théotime</td>
+<td>Victor Théotime</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>declarant_age</td>
+<td>-</td>
+<td>44</td>
+<td>44</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>declarant_occupation</td>
+<td>-</td>
+<td>maçon</td>
+<td>maçon</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_name</td>
+<td>Marie Madelaine Popote</td>
+<td>Marie Madelaine Popote</td>
+<td>Marie Madelaine Popote</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>habitation_name</td>
+<td>cette dernière</td>
+<td>habitation de la Demoiselle Marie Madelaine Popote</td>
+<td>habitation de la Demoiselle Marie Madelaine Popote</td>
+<td>=</td>
+</tr>
+<tr class="even">
+<td>owner_commune</td>
+<td>-</td>
+<td>Les Abymes</td>
+<td>-</td>
+<td>flash&gt;</td>
+</tr>
+<tr class="odd">
+<td>owner_residence</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+</tr>
+<tr class="even">
+<td>officer_name</td>
+<td>François Elie David</td>
+<td>François Elie David</td>
+<td>François Elie David</td>
+<td>=</td>
+</tr>
+<tr class="odd">
+<td>commune</td>
+<td>abymes</td>
+<td>Les Abymes</td>
+<td>Les Abymes</td>
+<td>=</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button,
+          { trigger: "manual",
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config);
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined;
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              }
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            }
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

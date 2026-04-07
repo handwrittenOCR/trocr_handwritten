@@ -11,6 +11,7 @@ import asyncio
 import base64
 import json
 import logging
+import random
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -31,17 +32,17 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
-    "3. OCR/2. TrOCR/5. Data (output)/ECES/Gemini3_transcribed/"
+    "3. OCR/2. TrOCR/5. Data (output)/ECES"
 )
-NER_DIR = BASE_DIR / "ner"
+NER_DIR = BASE_DIR / "NER_datasets/regex"
+ACTS_DATASET = BASE_DIR / "NER_datasets/raw/acts_dataset.json"
 LOG_DIR = Path("c:/Users/marie/Github/trocr_handwritten/logs")
 COST_LOG_DIR = NER_DIR / "cost_logs"
 
 MODEL_A = "gemini-3-flash-preview"
-MODEL_B = "gemini-2.5-flash-lite"
-N_ACTS = 20
+MODEL_B = "gemini-3.1-flash-lite-preview"
+N_ACTS = 5
 MAX_CONCURRENT = 5
-
 
 # ---------------------------------------------------------------------------
 # Flatten nested regex/LLM NER results
@@ -99,6 +100,7 @@ def flatten_nested_ner(record: dict) -> dict:
                 "child_qualifier": child.get("qualifier"),
                 "mother_name": mother.get("name"),
                 "mother_age": mother.get("age"),
+                "mother_qualifier": mother.get("qualifier"),
                 "mother_registration_register": mother.get("registration_register"),
                 "mother_registration_number": mother.get("registration_number"),
                 "father_name": father.get("name"),
@@ -127,26 +129,35 @@ def flatten_nested_ner(record: dict) -> dict:
 
 
 def load_acts_and_regex():
-    """Load acts dataset and existing regex results (flattened)."""
-    with open(NER_DIR / "acts_dataset.json", encoding="utf-8") as f:
+    """Load acts dataset and existing regex results (flattened).
+    Select a random sample of N_ACTS acts from acts_dataset.json"""
+    with open(ACTS_DATASET, encoding="utf-8") as f:
         all_acts = [ActRecord(**a) for a in json.load(f)]
 
+    # fetch regex results for the selected acts
     with open(NER_DIR / "ner_regex.json", encoding="utf-8") as f:
         all_regex = json.load(f)
 
-    # Filter non-unknown acts, take first N
-    acts = [a for a in all_acts if a.act_type in ("deces", "naissance")][:N_ACTS]
+    # act_type is set in ner_regex.json, not acts_dataset.json
+    regex_typed = {
+        r["act_id"]: r for r in all_regex if r.get("act_type") in ("deces", "naissance")
+    }
+    acts_typed = [a for a in all_acts if a.act_id in regex_typed]
+    acts = random.sample(acts_typed, N_ACTS)
     act_ids = {a.act_id for a in acts}
 
+    # Patch act_type from regex results onto ActRecord objects
+    for a in acts:
+        a.act_type = regex_typed[a.act_id]["act_type"]
+
     # Flatten regex results
-    regex_by_id = {}
-    for r in all_regex:
-        if r["act_id"] in act_ids:
-            regex_by_id[r["act_id"]] = flatten_nested_ner(r)
+    regex_by_id = {
+        act_id: flatten_nested_ner(regex_typed[act_id]) for act_id in act_ids
+    }
 
     # Load existing LLM results (gemini-3-flash) if available — also flatten
     llm_flash = {}
-    llm_path = NER_DIR / "ner_llm.json"
+    llm_path = NER_DIR / "ner_flash_compare.json"
     if llm_path.exists():
         with open(llm_path, encoding="utf-8") as f:
             for r in json.load(f):
@@ -187,8 +198,12 @@ async def run_extraction(acts: list[ActRecord], model_name: str) -> dict[str, di
 
 def find_crop_images(act: ActRecord) -> dict[str, list[str]]:
     """Return {Marge: [paths], Plein Texte: [paths]} for an act."""
-    page_dir = BASE_DIR / act.source_page
-    meta_path = page_dir / "metadata.json"
+    # the page_dir is going to be in a SUBFOLDER of BASE_DIR (e.g. Gemini3_transcribed/abymes/1842)
+    # so we need to get the subfolder name from the act.source_page
+    subfolder = act.source_page.split("/")[0]
+    page_dir = BASE_DIR / subfolder / act.source_page
+    # use metadata_reading_order which is the correct one
+    meta_path = page_dir / "metadata_reading_order.json"
     images = {"Marge": [], "Plein Texte": []}
 
     if not meta_path.exists():
@@ -241,20 +256,21 @@ def get_fields_for_type(act_type: str) -> list[str]:
         return [
             "person_name",
             "person_sex",
+            "person_qualifier",
             "person_age",
             "person_occupation",
             "person_registration_register",
             "person_registration_number",
             "death_date",
-            "death_time",
             "death_place",
             "declaration_date",
-            "declaration_time",
             "declarant_name",
             "declarant_age",
             "declarant_occupation",
             "owner_name",
             "habitation_name",
+            "owner_commune",
+            "owner_residence",
             "officer_name",
             "commune",
         ]
@@ -262,23 +278,25 @@ def get_fields_for_type(act_type: str) -> list[str]:
         return [
             "child_name",
             "child_sex",
+            "child_qualifier",
             "child_registration_register",
             "child_registration_number",
             "mother_name",
             "mother_age",
+            "mother_qualifier",
             "mother_registration_register",
             "mother_registration_number",
             "father_name",
             "father_age",
             "birth_date",
-            "birth_time",
             "birth_place",
             "declaration_date",
-            "declaration_time",
             "declarant_name",
             "declarant_age",
             "declarant_occupation",
             "owner_name",
+            "owner_commune",
+            "owner_residence",
             "habitation_name",
             "officer_name",
             "commune",
@@ -301,10 +319,10 @@ def compare_value(a, b):
 
 
 def escape_md(val):
-    """Escape pipe characters for markdown tables."""
+    """Escape pipe characters and newlines for markdown tables."""
     if val is None:
         return "-"
-    s = str(val).strip()
+    s = str(val).strip().replace("\n", " ").replace("\r", "")
     return s.replace("|", "\\|") if s else "-"
 
 
@@ -451,11 +469,16 @@ async def main():
     )
 
     # --- Run gemini-3-flash-preview on acts that don't have results yet ---
+    flash_path = NER_DIR / "ner_flash_compare.json"
     acts_needing_flash = [a for a in acts if a.act_id not in existing_flash]
     if acts_needing_flash:
         logger.info(f"Running {MODEL_A} on {len(acts_needing_flash)} acts...")
         new_flash = await run_extraction(acts_needing_flash, MODEL_A)
         flash_by_id = {**existing_flash, **new_flash}
+        all_flash = list(flash_by_id.values())
+        with open(flash_path, "w", encoding="utf-8") as f:
+            json.dump(all_flash, f, ensure_ascii=False, indent=2)
+        logger.info(f"Flash results saved to {flash_path}")
     else:
         flash_by_id = existing_flash
         logger.info(f"All {len(acts)} acts already have {MODEL_A} results")
@@ -466,7 +489,7 @@ async def main():
         logger.info(f"Loading existing {MODEL_B} results from disk (no re-run)...")
         with open(flash_lite_path, encoding="utf-8") as f:
             flash_lite_raw = json.load(f)
-        flash_lite_by_id = {r["act_id"]: r for r in flash_lite_raw}
+        flash_lite_by_id = {r["act_id"]: flatten_nested_ner(r) for r in flash_lite_raw}
         logger.info(f"Loaded {len(flash_lite_by_id)} flash-lite results")
     else:
         logger.info(f"Running {MODEL_B} on {len(acts)} acts...")
