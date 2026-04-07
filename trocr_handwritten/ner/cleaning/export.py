@@ -1,9 +1,9 @@
 """Export cleaned NER results to per-type CSVs.
 
 Reads ner_llm.json, applies date/age/entity cleaning, writes:
-  - ner_birth.csv
-  - ner_death.csv
-  - ner_marriage.csv
+  - ner_llm_birth.csv
+  - ner_llm_death.csv
+  - ner_llm_marriage.csv
 """
 
 import csv
@@ -57,7 +57,7 @@ def export_deaths(
     plantation_lookup: dict,
     output_path: Path,
 ) -> int:
-    """Write ner_death.csv. Returns number of rows written."""
+    """Write ner_llm_death.csv. Returns number of rows written."""
     rows = []
     for r in records:
         if r.get("act_type") != "deces" or not r.get("death_act"):
@@ -127,7 +127,7 @@ def export_births(
     plantation_lookup: dict,
     output_path: Path,
 ) -> int:
-    """Write ner_birth.csv. Returns number of rows written."""
+    """Write ner_llm_birth.csv. Returns number of rows written."""
     rows = []
     for r in records:
         if r.get("act_type") != "naissance" or not r.get("birth_act"):
@@ -212,7 +212,7 @@ def export_marriages(
     plantation_lookup: dict,
     output_path: Path,
 ) -> int:
-    """Write ner_marriage.csv. Returns number of rows written."""
+    """Write ner_llm_marriage.csv. Returns number of rows written."""
     rows = []
     for r in records:
         if r.get("act_type") != "mariage" or not r.get("marriage_act"):
@@ -298,7 +298,7 @@ def _write_csv(rows: list[dict], path: Path) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(rows[0].keys())
-    with open(path, "w", encoding="utf-8", newline="") as f:
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)

@@ -18,8 +18,8 @@ BASE = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
     "3. OCR/2. TrOCR/5. Data (output)/ECES"
 )
-NER_JSON = BASE / "NER_datasets/ner_llm.json"
-OUTPUT_DIR = BASE / "NER_datasets"
+NER_JSON = BASE / "NER_datasets/llm/ner_llm.json"
+OUTPUT_DIR = BASE / "NER_datasets/llm/cleaned"
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
         tmp_path = NER_JSON.parent / f"ner_llm_{args.commune}_tmp.json"
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(records_to_export, f, ensure_ascii=False)
-        export_all(tmp_path, OUTPUT_DIR / args.commune)
+        export_all(tmp_path, OUTPUT_DIR)
         tmp_path.unlink()
     else:
         export_all(NER_JSON, OUTPUT_DIR)
