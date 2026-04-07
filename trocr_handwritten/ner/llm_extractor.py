@@ -272,51 +272,51 @@ def _build_marriage_tool() -> dict:
                     **_MARGE_FIELDS,
                     "spouse1_name": {
                         "type": ["string", "null"],
-                        "description": "Nom complet du premier esclave (généralement l'homme)",
+                        "description": "Nom complet de l'ÉPOUX (homme) — qualificatif masculin : nègre, négrillon, mulâtre, rouge",
                     },
                     "spouse1_age": {
                         "type": ["string", "null"],
-                        "description": "Âge du premier esclave (en chiffres)",
+                        "description": "Âge de l'époux (en chiffres)",
                     },
                     "spouse1_qualifier": {
                         "type": ["string", "null"],
-                        "description": "Qualificatif racial tel qu'écrit : nègre, mulâtre, rouge, etc.",
+                        "description": "Qualificatif racial masculin tel qu'écrit : nègre, négrillon, mulâtre, rouge, etc.",
                     },
                     "spouse1_occupation": {
                         "type": ["string", "null"],
-                        "description": "Profession du premier esclave (ex: cultivateur)",
+                        "description": "Profession de l'époux (ex: cultivateur)",
                     },
                     "spouse1_registration_register": {
                         "type": ["string", "null"],
-                        "description": "Lettre du registre d'immatriculation du premier esclave (A, B, C, D...)",
+                        "description": "Lettre du registre d'immatriculation de l'époux (A, B, C, D...)",
                     },
                     "spouse1_registration_number": {
                         "type": ["string", "null"],
-                        "description": "Numéro d'immatriculation du premier esclave",
+                        "description": "Numéro d'immatriculation de l'époux",
                     },
                     "spouse2_name": {
                         "type": ["string", "null"],
-                        "description": "Nom complet du second esclave (généralement la femme). OBLIGATOIRE — toujours présent dans le texte.",
+                        "description": "Nom complet de l'ÉPOUSE (femme) — qualificatif féminin : négresse, négrette, mulâtresse. OBLIGATOIRE — toujours présent dans le texte.",
                     },
                     "spouse2_age": {
                         "type": ["string", "null"],
-                        "description": "Âge du second esclave (en chiffres)",
+                        "description": "Âge de l'épouse (en chiffres)",
                     },
                     "spouse2_qualifier": {
                         "type": ["string", "null"],
-                        "description": "Qualificatif racial tel qu'écrit : négresse, mulâtresse, rouge, etc.",
+                        "description": "Qualificatif racial féminin tel qu'écrit : négresse, négrette, négritte, mulâtresse, rouge, etc.",
                     },
                     "spouse2_occupation": {
                         "type": ["string", "null"],
-                        "description": "Profession du second esclave (ex: cultivatrice)",
+                        "description": "Profession de l'épouse (ex: cultivatrice)",
                     },
                     "spouse2_registration_register": {
                         "type": ["string", "null"],
-                        "description": "Lettre du registre d'immatriculation du second esclave (A, B, C, D...)",
+                        "description": "Lettre du registre d'immatriculation de l'épouse (A, B, C, D...)",
                     },
                     "spouse2_registration_number": {
                         "type": ["string", "null"],
-                        "description": "Numéro d'immatriculation du second esclave",
+                        "description": "Numéro d'immatriculation de l'épouse",
                     },
                     "marriage_date": {"type": ["string", "null"]},
                     "declaration_date": {"type": ["string", "null"]},

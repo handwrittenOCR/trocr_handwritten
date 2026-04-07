@@ -9,8 +9,9 @@ Le déclarant (propriétaire ou son représentant) autorise le mariage de DEUX e
 Exemple : "donner son autorisation au mariage de ses esclaves Florentin, âgé de 43 ans, immatriculé sous le No 2171 et Ninon, âgée de 33 ans, immatriculée sous le No 2300, tous deux cultivateurs"
 
 RÈGLE CRITIQUE : Tu DOIS extraire les champs suivants pour LES DEUX époux sans exception :
-- spouse1 = premier esclave nommé (généralement l'homme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
-- spouse2 = second esclave nommé (généralement la femme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
+- spouse1 = l'ÉPOUX (homme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
+- spouse2 = l'ÉPOUSE (femme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
+Les qualificatifs masculins ("nègre", "négrillon", "mulâtre") indiquent l'époux ; les féminins ("négresse", "négrette", "négritte", "mulâtresse") indiquent l'épouse.
 Ces informations sont TOUJOURS présentes dans le texte pour les deux personnes.
 
 Conventions spécifiques à ces registres :
