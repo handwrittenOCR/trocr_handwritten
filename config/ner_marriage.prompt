@@ -12,6 +12,7 @@ RÈGLE CRITIQUE : Tu DOIS extraire les champs suivants pour LES DEUX époux sans
 - spouse1 = l'ÉPOUX (homme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
 - spouse2 = l'ÉPOUSE (femme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
 Les qualificatifs masculins ("nègre", "négrillon", "mulâtre") indiquent l'époux ; les féminins ("négresse", "négrette", "négritte", "mulâtresse") indiquent l'épouse.
+Si le sexe ne peut pas être déterminé, place les informations dans l'ordre d'apparition dans le texte (premier nommé → spouse1, second nommé → spouse2).
 Ces informations sont TOUJOURS présentes dans le texte pour les deux personnes.
 
 Conventions spécifiques à ces registres :
