@@ -3,6 +3,11 @@
 Iterates over every commune/year folder in the OCR_gem31 output
 directory, calls build_dataset + save_dataset, and prints a summary.
 
+Prints summary of the number of acts and crops for each commune/year.
+Saves the dataset to NER_datasets/raw/acts_dataset.json.
+
+Prints examples of split acts after processing.
+
 Usage:
     python scripts/build_all_datasets.py
     python scripts/build_all_datasets.py --commune abymes
