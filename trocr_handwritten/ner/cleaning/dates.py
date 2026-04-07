@@ -61,12 +61,14 @@ _FRENCH_DAYS = {
     "trente et un": 31,
     "trente-et-un": 31,
     "trente-un": 31,
+    "trente un": 31,
 }
 
 _FRENCH_MONTHS = {
     "janvier": 1,
     "février": 2,
     "fevrier": 2,
+    "fevrai": 2,
     "mars": 3,
     "avril": 4,
     "mai": 5,
@@ -75,10 +77,15 @@ _FRENCH_MONTHS = {
     "août": 8,
     "aout": 8,
     "septembre": 9,
+    "7bre": 9,
     "octobre": 10,
+    "8bre": 10,
     "novembre": 11,
+    "9bre": 11,
     "décembre": 12,
     "decembre": 12,
+    "xbre": 12,
+    "10bre": 12,
 }
 
 _FRENCH_YEAR_UNITS = {
@@ -141,33 +148,51 @@ _FRENCH_TENS = {
 
 
 def _normalise(text: str) -> str:
-    """Lowercase, collapse whitespace, strip punctuation."""
+    """Lowercase, collapse whitespace, strip punctuation and OCR noise."""
     text = text.lower().strip()
+    # Remove bracketed illegible tokens and uncertainty markers
+    text = re.sub(r"\[illisible[^\]]*\]", " ", text)
+    text = re.sub(r"[\[\]?]", "", text)
+    # Strip time-of-day phrases
+    text = re.sub(r"à\s+\w+\s+heures.*$", "", text)
     text = re.sub(r"[,\.\!\?;:]+", " ", text)
     text = re.sub(r"\s+", " ", text)
-    return text
+    return text.strip()
 
 
 def _parse_french_day(text: str) -> Optional[int]:
-    """Extract day number from normalised French text fragment."""
+    """Extract day number from anywhere in normalised French text."""
     text = _normalise(text)
-    # Try multi-word matches first (longest first)
     for phrase in sorted(_FRENCH_DAYS, key=len, reverse=True):
-        if text.startswith(phrase):
+        if re.search(r"\b" + re.escape(phrase) + r"\b", text):
             return _FRENCH_DAYS[phrase]
-    # Numeric fallback
-    m = re.match(r"^(\d{1,2})", text)
+    m = re.search(r"\b(\d{1,2})\b", text)
     if m:
         return int(m.group(1))
     return None
 
 
 def _parse_french_month(text: str) -> Optional[int]:
-    """Return month number from a normalised French month name."""
-    text = _normalise(text)
+    """Return month number from a normalised French month name, with fuzzy fallback."""
+    norm = _normalise(text)
     for name, num in _FRENCH_MONTHS.items():
-        if name in text:
+        if name in norm:
             return num
+    # Fuzzy fallback: match any token in the text against known month names
+    try:
+        from rapidfuzz import process, fuzz
+
+        tokens = norm.split()
+        for token in tokens:
+            if len(token) < 3:
+                continue
+            match = process.extractOne(
+                token, list(_FRENCH_MONTHS.keys()), scorer=fuzz.ratio, score_cutoff=75
+            )
+            if match:
+                return _FRENCH_MONTHS[match[0]]
+    except ImportError:
+        pass
     return None
 
 
@@ -178,10 +203,10 @@ def _parse_french_year(text: str) -> Optional[int]:
     m = re.search(r"\b(18\d{2})\b", text)
     if m:
         return int(m.group(1))
-    # 'mil huit cent ...'
-    if "mil huit cent" not in text and "mil-huit-cent" not in text:
+    # 'mil huit cent ...' — allow OCR/spelling variants: cens, huis, huip
+    if not re.search(r"mil.{0,6}hui[tsp].{0,6}cen[ts]", text):
         return None
-    suffix = re.sub(r".*mil.{0,5}huit.{0,5}cent\s*", "", text).strip()
+    suffix = re.sub(r".*mil.{0,6}hui[tsp].{0,6}cen[ts]\s*", "", text).strip()
     if not suffix or suffix in ("", "s"):
         return 1800
     for phrase in sorted(_FRENCH_TENS, key=len, reverse=True):
@@ -195,34 +220,51 @@ def _parse_french_year(text: str) -> Optional[int]:
 # ---------------------------------------------------------------------------
 
 
-def parse_declaration_date(text: str) -> Optional[date]:
+def parse_declaration_date(
+    text: str, year_registry: Optional[int] = None
+) -> Optional[date]:
     """Parse a fully-specified French declaration date.
 
     Handles: 'Lundi quatre du mois de Janvier mil huit cent quarante un'
+    Uses year_registry as fallback when year is absent from text.
     Returns a date object or None if unparseable.
     """
+    import calendar
+
     if not text or text.strip().lower() in ("null", "none", ""):
         return None
 
     norm = _normalise(text)
 
-    # Strip leading weekday
-    norm = re.sub(
-        r"^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+", "", norm
-    )
-    # Strip 'ce jour' / 'aujourd'hui'
-    norm = re.sub(r"^(ce jour|aujourd.?hui)\s*", "", norm)
+    # Strip leading "l'an" / "l an" / "le"
+    norm = re.sub(r"^l.?an\s+", "", norm)
+    norm = re.sub(r"^le\s+", "", norm)
+
+    # "dernier jour du mois de [month]"
+    m_dernier = re.match(r"dernier jour du mois de (\w+)", norm)
+    if m_dernier:
+        month = _parse_french_month(m_dernier.group(1))
+        year = _parse_french_year(norm) or year_registry
+        if month and year:
+            last_day = calendar.monthrange(year, month)[1]
+            try:
+                return date(year, month, last_day)
+            except ValueError:
+                return None
+        return None
 
     day = _parse_french_day(norm)
-
     month = _parse_french_month(norm)
-    year = _parse_french_year(norm)
+    year = _parse_french_year(norm) or year_registry
 
     if day and month and year:
         try:
             return date(year, month, day)
         except ValueError:
             return None
+    # month+year only (no day): use day=1 as proxy
+    if month and year:
+        return date(year, month, 1)
     return None
 
 
@@ -236,17 +278,22 @@ def parse_event_date(text: str, declaration_date: Optional[date]) -> Optional[st
 
     Returns ISO string 'YYYY-MM-DD', 'YYYY-MM', or 'YYYY', or None.
     """
-    if not text or text.strip().lower() in ("null", "none", "", "ce jour"):
-        if text and "ce jour" in text.lower() and declaration_date:
-            return declaration_date.isoformat()
+    if not text or text.strip().lower() in ("null", "none", ""):
         return None
 
     norm = _normalise(text)
 
-    # Strip leading weekday
-    norm = re.sub(
-        r"^(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+", "", norm
-    )
+    # Relative-day shortcuts
+    if re.search(r"\b(ce jour|aujourd.?hui)\b", norm) and declaration_date:
+        return declaration_date.isoformat()
+    if norm.startswith("hier") and declaration_date:
+        from datetime import timedelta
+
+        return (declaration_date - timedelta(days=1)).isoformat()
+    if norm.startswith("avant hier") and declaration_date:
+        from datetime import timedelta
+
+        return (declaration_date - timedelta(days=2)).isoformat()
 
     has_dernier = "dernier" in norm or "der " in norm
     has_courant = "courant" in norm or "cour " in norm
@@ -302,14 +349,8 @@ def parse_act_dates(
         event_date_raw: Raw event date string (birth/death/marriage date).
         year_registry: Year extracted from act_id, used as fallback.
     """
-    decl = parse_declaration_date(declaration_date_raw)
-
-    # If declaration_date failed but year_registry is known, use Jan 1 as proxy
-    if decl is None and year_registry:
-        decl = date(year_registry, 1, 1)
-        decl_iso = None
-    else:
-        decl_iso = decl.isoformat() if decl else None
+    decl = parse_declaration_date(declaration_date_raw, year_registry=year_registry)
+    decl_iso = decl.isoformat() if decl else None
 
     event_iso = parse_event_date(event_date_raw, decl)
     return decl_iso, event_iso
