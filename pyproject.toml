@@ -40,6 +40,7 @@ dependencies = [
     "tornado>=6.5",
     "fonttools>=4.60.2",
     "requests>=2.32.4",
+    "rapidfuzz>=3.0.0",
 ]
 
 [project.scripts]
