@@ -132,10 +132,13 @@ class CostTracker:
             )
         return "\n".join(lines)
 
+    DROPBOX_LOG_DIR = r"C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\logs"
+
     def log_summary(self, log_dir: str = "logs") -> None:
-        """Log the usage summary and append to persistent cost log."""
+        """Log the usage summary and append to persistent cost log in both local and Dropbox directories."""
         logger.info(f"\n{'='*50}\nCost Summary\n{'='*50}\n{self.summary()}")
         self._append_to_cost_log(log_dir)
+        self._append_to_cost_log(self.DROPBOX_LOG_DIR)
 
     def _append_to_cost_log(self, log_dir: str = "logs") -> None:
         """Append cost entry to a persistent JSON Lines log file."""
