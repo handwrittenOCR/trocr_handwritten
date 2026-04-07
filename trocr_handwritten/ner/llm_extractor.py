@@ -272,28 +272,52 @@ def _build_marriage_tool() -> dict:
                     **_MARGE_FIELDS,
                     "spouse1_name": {
                         "type": ["string", "null"],
-                        "description": "Nom complet de l'époux",
+                        "description": "Nom complet du premier esclave (généralement l'homme)",
                     },
-                    "spouse1_age": {"type": ["string", "null"]},
+                    "spouse1_age": {
+                        "type": ["string", "null"],
+                        "description": "Âge du premier esclave (en chiffres)",
+                    },
                     "spouse1_qualifier": {
                         "type": ["string", "null"],
-                        "description": "Qualificatif racial tel qu'écrit",
+                        "description": "Qualificatif racial tel qu'écrit : nègre, mulâtre, rouge, etc.",
                     },
-                    "spouse1_occupation": {"type": ["string", "null"]},
-                    "spouse1_registration_register": {"type": ["string", "null"]},
-                    "spouse1_registration_number": {"type": ["string", "null"]},
+                    "spouse1_occupation": {
+                        "type": ["string", "null"],
+                        "description": "Profession du premier esclave (ex: cultivateur)",
+                    },
+                    "spouse1_registration_register": {
+                        "type": ["string", "null"],
+                        "description": "Lettre du registre d'immatriculation du premier esclave (A, B, C, D...)",
+                    },
+                    "spouse1_registration_number": {
+                        "type": ["string", "null"],
+                        "description": "Numéro d'immatriculation du premier esclave",
+                    },
                     "spouse2_name": {
                         "type": ["string", "null"],
-                        "description": "Nom complet de l'épouse",
+                        "description": "Nom complet du second esclave (généralement la femme). OBLIGATOIRE — toujours présent dans le texte.",
                     },
-                    "spouse2_age": {"type": ["string", "null"]},
+                    "spouse2_age": {
+                        "type": ["string", "null"],
+                        "description": "Âge du second esclave (en chiffres)",
+                    },
                     "spouse2_qualifier": {
                         "type": ["string", "null"],
-                        "description": "Qualificatif racial tel qu'écrit",
+                        "description": "Qualificatif racial tel qu'écrit : négresse, mulâtresse, rouge, etc.",
                     },
-                    "spouse2_occupation": {"type": ["string", "null"]},
-                    "spouse2_registration_register": {"type": ["string", "null"]},
-                    "spouse2_registration_number": {"type": ["string", "null"]},
+                    "spouse2_occupation": {
+                        "type": ["string", "null"],
+                        "description": "Profession du second esclave (ex: cultivatrice)",
+                    },
+                    "spouse2_registration_register": {
+                        "type": ["string", "null"],
+                        "description": "Lettre du registre d'immatriculation du second esclave (A, B, C, D...)",
+                    },
+                    "spouse2_registration_number": {
+                        "type": ["string", "null"],
+                        "description": "Numéro d'immatriculation du second esclave",
+                    },
                     "marriage_date": {"type": ["string", "null"]},
                     "declaration_date": {"type": ["string", "null"]},
                     "declarant_name": {"type": ["string", "null"]},
@@ -308,7 +332,11 @@ def _build_marriage_tool() -> dict:
                 },
                 "required": [
                     "spouse1_name",
+                    "spouse1_age",
+                    "spouse1_registration_number",
                     "spouse2_name",
+                    "spouse2_age",
+                    "spouse2_registration_number",
                     "owner_name",
                     "declarant_name",
                 ],
