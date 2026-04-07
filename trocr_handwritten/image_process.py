@@ -13,7 +13,6 @@ from typing import List, Optional
 import cv2
 from pathlib import Path
 
-
 input_dir = Path("data/raw/images")
 output_dir = Path("data/raw/images/preprocess")
 output_dir.mkdir(parents=True, exist_ok=True)  # create it if needed
