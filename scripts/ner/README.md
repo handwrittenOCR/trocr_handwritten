@@ -13,7 +13,7 @@
 | 7 | Investigate discrepancies between act count and crop count | DONE |
 | 8 | Improve the regex performance | In progress |
 | 9 | Identify structure of manually transcribed data from Martinique | DONE |
-| 10 | Run NER comparison (regex vs Flash vs Flash-Lite) on corrected dataset | pending |
+| 10 | Run NER comparison (regex vs Flash vs Flash-Lite) on corrected dataset | DONE |
 | 11 | Launch NER (regex + LLM) on all communes | pending |
 
 ## Completed: investigate act vs crop discrepancies
@@ -45,7 +45,9 @@ Possible causes: missing preamble variants, OCR errors in preamble text, legitim
 - Regex extractor now extracts from both Marge (type, name, owner, number) and Plein Texte
 - LLM NER sends both Marge + Plein Texte together
 
-## In progress: regexes on birth, deces, marriage records
+## Completed: regexes on birth, deces, marriage records
+
+- regex stored in `ECES\NER_datasets\ner_regex.json`
 
 ## Completed: Martinique variable dictionary
 
@@ -96,6 +98,27 @@ Dataset: `C:\Users\marie\Dropbox\...\NER_datasets\raw\Martinique_manually_transc
 - `owner_commune` and `owner_residence` added to all three entity classes
 - Per-type tables preferred over Martinique's flat mixed table
 
-## TODO : run examples of LLMS on some pages, generate comparison markdown file
+## Completed : run examples of LLMS on some pages, generate comparison markdown file
 
-**create script** to automatically generate a markdown report similarly to `logs\ner_model_comparison_2026-04-03.md` based on n-examples
+- `scripts\ner\compare_ner_models.py` compares regex extraction with two llms: gemini 3 flash and gemini 3.1 flash lite, and saves a markdown report into `logs\ner_model_comparison_2026-04-07.md`
+
+**create script** to automatically generate a markdown report similarly to based on n-examples
+
+## Completed: run gemini 3 flash on 1 commune
+
+- Verify the following:
+    - are all act correctly assigned an acte_type?
+    - do we have the same number of acts as in the original dataset?
+    - what is the structure of data like?
+
+- Changes made:
+    - marge information is now extracted by the llm
+
+
+## In progress: cleaning pipeline on 1 commune
+
+cleaning/
+├── dates.py      # French date parser (declaration_date first, then event dates)
+├── ages.py       # French number words → int
+├── entities.py   # Owner/plantation fuzzy clustering → canonical name + ID
+└── export.py     # Read ner_llm.json → apply cleaning → write 3 CSVs
