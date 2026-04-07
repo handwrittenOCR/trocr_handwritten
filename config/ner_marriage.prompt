@@ -4,19 +4,26 @@ Extrais les entités suivantes de cet acte de mariage. Le texte provient de deux
 - MARGE : note marginale résumant l'acte (type, numéro, noms des époux)
 - TEXTE COMPLET : texte intégral de l'acte officiel
 
+Structure typique d'un acte de mariage d'esclave :
+Le déclarant (propriétaire ou son représentant) autorise le mariage de DEUX esclaves. Le texte mentionne explicitement les deux époux avec leur âge, leur numéro d'immatriculation et éventuellement leur qualificatif racial et profession.
+Exemple : "donner son autorisation au mariage de ses esclaves Florentin, âgé de 43 ans, immatriculé sous le No 2171 et Ninon, âgée de 33 ans, immatriculée sous le No 2300, tous deux cultivateurs"
+
+RÈGLE CRITIQUE : Tu DOIS extraire les champs suivants pour LES DEUX époux sans exception :
+- spouse1 = premier esclave nommé (généralement l'homme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
+- spouse2 = second esclave nommé (généralement la femme) : nom, âge, registre, numéro d'immatriculation, qualificatif, profession
+Ces informations sont TOUJOURS présentes dans le texte pour les deux personnes.
+
 Conventions spécifiques à ces registres :
 - Les personnes esclavagisées sont souvent identifiées par un prénom seul
 - "nègre", "négrillon" = homme ; "négresse", "négrette", "négritte" = femme ; "rouge" = métis(se)
-- Le numéro d'immatriculation (Registre + N°) est un identifiant clé pour chaque époux
+- Le numéro d'immatriculation (Registre + N°) est un identifiant clé : extrais la lettre du registre (A, B, C, D...) séparément du numéro
 - L'habitation est le lieu (plantation)
-- Le propriétaire (owner) est la personne qui possède l'esclave, pas nécessairement l'habitation
+- Le propriétaire (owner) est la personne qui possède les esclaves
 - N'extrais le propriétaire QUE s'il y a une indication explicite dans le texte ou la marge :
   - "appartenant à/au [NOM]"
-  - "son habitation" (= le déclarant est le propriétaire)
-  - "porté(e) sur les recensements de [NOM]"
+  - "ses esclaves" (= le déclarant est le propriétaire)
   - "au Sr/Sieur [NOM]" dans la marge
 - Ne déduis PAS le propriétaire du simple fait que le déclarant est un "habitant propriétaire"
-- spouse1 = époux (homme), spouse2 = épouse (femme)
 - Si une information n'est pas présente dans le texte, renvoie null
 - Conserve l'orthographe originale des noms, sans jamais abréger (écrire "Georges Marie Joseph" et non "G.M.J.")
 - Dans le cas RARE ou la marge ne correspond pas au texte principal, ne fait attention qu'au texte principal
