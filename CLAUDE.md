@@ -75,7 +75,7 @@ make preprocess   # image preprocessing only
 - All paths on this Windows machine use forward slashes in shell commands.
 - Do not delete any file
 - Never re-run LLM API calls when results already exist on disk. Always check for and load saved JSON/CSV outputs first (e.g. `ner_llm.json`, `ner_regex.json`, `acts_dataset.json`).
-- Start a log at the beginning of each session and save the log at the end of the session in logs/
+- Start a log at the beginning of each session and save the log at the end of the session in **both** `logs/` and `C:\Users\marie\Dropbox\Personnelle\2. Travail\1. Recherche\3. JMP\3. OCR\2. TrOCR\5. Data (output)\ECES\logs\`
 - Always read the previous logs at the beginning of each session
 - **ALWAYS call `cost_tracker.log_summary(log_dir="logs")` at the end of every script that makes LLM API calls.** Never write a script with API calls without this line — it appends to `logs/api_costs.jsonl` and is the only way to track costs.
 - Pay SPECIAL attention to API prices. I have had skyrocketing costs for Gemini API and want to avoid that at all costs.
