@@ -94,6 +94,7 @@ Dataset: `C:\Users\marie\Dropbox\...\NER_datasets\raw\Martinique_manually_transc
 - `father_*` fields
 
 ### Schema decisions
+- remove all time variables (no use)
 - `child_age` and `child_occupation` removed from `BirthActEntity` (newborns have no age)
 - `owner_commune` and `owner_residence` added to all three entity classes
 - Per-type tables preferred over Martinique's flat mixed table
@@ -117,8 +118,33 @@ Dataset: `C:\Users\marie\Dropbox\...\NER_datasets\raw\Martinique_manually_transc
 
 ## In progress: cleaning pipeline on 1 commune
 
+New module: `trocr_handwritten/ner/cleaning/`
+
+```
 cleaning/
 ├── dates.py      # French date parser (declaration_date first, then event dates)
 ├── ages.py       # French number words → int
 ├── entities.py   # Owner/plantation fuzzy clustering → canonical name + ID
 └── export.py     # Read ner_llm.json → apply cleaning → write 3 CSVs
+```
+
+### Paths
+
+| File | Path |
+|---|---|
+| Input | `NER_datasets/llm/ner_llm.json` |
+| Output (deaths) | `NER_datasets/llm/cleaned/ner_death.csv` |
+| Output (births) | `NER_datasets/llm/cleaned/ner_birth.csv` |
+| Output (marriages) | `NER_datasets/llm/cleaned/ner_marriage.csv` |
+
+All CSVs are UTF-8 with BOM (`utf-8-sig`) for R/Excel compatibility.
+
+### Usage
+
+```bash
+# Export all communes
+python scripts/ner/export_cleaned.py
+
+# Export one commune only (output still goes to cleaned/)
+python scripts/ner/export_cleaned.py --commune abymes
+```
