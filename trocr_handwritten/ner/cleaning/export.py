@@ -289,6 +289,85 @@ def export_marriages(
 
 
 # ---------------------------------------------------------------------------
+# Post-processing: fill missing declaration months from neighbouring acts
+# ---------------------------------------------------------------------------
+
+
+def _fill_missing_months(rows: list[dict]) -> list[dict]:
+    """Fill declaration_date where month is unknown using the next act's month.
+
+    For acts where declaration_date is None but year_registry is known, look
+    forward (then backward) within the same commune × year_registry group to
+    borrow a month from the nearest act with a valid ISO declaration_date.
+    """
+    from datetime import date as _date
+
+    rows_sorted = sorted(rows, key=lambda r: r["act_id"])
+
+    # Index rows by (commune, year_registry) for fast neighbour lookup
+    from collections import defaultdict
+
+    group_indices: dict = defaultdict(list)
+    for i, r in enumerate(rows_sorted):
+        key = (r["commune"], r["year_registry"])
+        group_indices[key].append(i)
+
+    for key, indices in group_indices.items():
+        year = key[1]
+        if not year:
+            continue
+        for pos, idx in enumerate(indices):
+            r = rows_sorted[idx]
+            if r["declaration_date"] is not None:
+                continue
+            # Search forward then backward within group for a valid month
+            month = None
+            for offset in range(1, len(indices)):
+                for direction in (1, -1):
+                    neighbour_pos = pos + direction * offset
+                    if 0 <= neighbour_pos < len(indices):
+                        nd = rows_sorted[indices[neighbour_pos]]["declaration_date"]
+                        if nd and len(nd) >= 7:
+                            month = int(nd[5:7])
+                            break
+                if month:
+                    break
+            if month:
+                try:
+                    rows_sorted[idx]["declaration_date"] = _date(
+                        year, month, 1
+                    ).isoformat()
+                except ValueError:
+                    pass
+
+    # Restore original order
+    order = {r["act_id"]: i for i, r in enumerate(rows)}
+    return sorted(rows_sorted, key=lambda r: order.get(r["act_id"], 0))
+
+
+# ---------------------------------------------------------------------------
+# Post-process: patch missing declaration months via CSV round-trip
+# ---------------------------------------------------------------------------
+
+
+def _patch_csv_missing_months(path: Path) -> None:
+    """Read a cleaned CSV, fill missing declaration months, write back in place."""
+    if not path.exists():
+        return
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fieldnames = reader.fieldnames
+    if not rows or "declaration_date" not in rows[0]:
+        return
+    rows = _fill_missing_months(rows)
+    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ---------------------------------------------------------------------------
 # CSV writer
 # ---------------------------------------------------------------------------
 
@@ -330,6 +409,10 @@ def export_all(ner_json_path: Path, output_dir: Path) -> None:
     n_marriages = export_marriages(
         records, owner_lookup, plantation_lookup, output_dir / "ner_marriage.csv"
     )
+
+    # Post-process: fill missing declaration months from neighbouring acts
+    for csv_name in ("ner_death.csv", "ner_birth.csv", "ner_marriage.csv"):
+        _patch_csv_missing_months(output_dir / csv_name)
 
     print(f"Exported: {n_deaths} deaths, {n_births} births, {n_marriages} marriages")
     print(f"Output: {output_dir}")
