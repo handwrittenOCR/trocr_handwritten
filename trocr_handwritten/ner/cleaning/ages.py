@@ -143,3 +143,11 @@ def parse_age(text: Optional[str]) -> Optional[int]:
             return _FRENCH_NUMBERS[phrase]
 
     return None
+
+
+def parse_age_validated(text: Optional[str], min_age: int = 0) -> Optional[int]:
+    """Parse age and return None if below min_age threshold."""
+    age = parse_age(text)
+    if age is not None and age < min_age:
+        return None
+    return age

@@ -35,6 +35,7 @@ _FRENCH_DAYS = {
     "dix sept": 17,
     "dix-huit": 18,
     "dix huit": 18,
+    "dix huis": 18,
     "dix-neuf": 19,
     "dix neuf": 19,
     "vingt": 20,
@@ -63,6 +64,7 @@ _FRENCH_DAYS = {
     "trente-un": 31,
     "trente un": 31,
 }
+
 
 _FRENCH_MONTHS = {
     "janvier": 1,
@@ -155,13 +157,13 @@ def _normalise(text: str) -> str:
     text = re.sub(r"[\[\]?]", "", text)
     # Strip time-of-day phrases
     text = re.sub(r"à\s+\w+\s+heures.*$", "", text)
-    text = re.sub(r"[,\.\!\?;:]+", " ", text)
+    text = re.sub(r"[,\.\!\?;:()\[\]]+", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 
 def _parse_french_day(text: str) -> Optional[int]:
-    """Extract day number from anywhere in normalised French text."""
+    """Extract day number from a short text (no month context)."""
     text = _normalise(text)
     for phrase in sorted(_FRENCH_DAYS, key=len, reverse=True):
         if re.search(r"\b" + re.escape(phrase) + r"\b", text):
@@ -169,6 +171,35 @@ def _parse_french_day(text: str) -> Optional[int]:
     m = re.search(r"\b(\d{1,2})\b", text)
     if m:
         return int(m.group(1))
+    return None
+
+
+def _find_month_position(norm: str) -> tuple[Optional[int], Optional[int]]:
+    """Return (month_number, start_index_of_month_token) for the first month found."""
+    for name, num in sorted(
+        _FRENCH_MONTHS.items(), key=lambda x: len(x[0]), reverse=True
+    ):
+        m = re.search(r"\b" + re.escape(name) + r"\b", norm)
+        if m:
+            return num, m.start()
+    return None, None
+
+
+def _parse_day_from_context(norm: str, month_start: int) -> Optional[int]:
+    """Parse day from tokens before the month, skipping 'du mois de/d'' fillers."""
+    before = norm[:month_start].strip()
+    # Strip trailing filler between day and month: "du présent mois", "du courant mois", "du mois de/d'", "de ce mois"
+    before = re.sub(r"\s+d[eu]\s+\w+\s+mois\s*$", "", before).strip()
+    before = re.sub(r"\s+du\s+mois\s+d[e']?\s*$", "", before).strip()
+    before = re.sub(r"\s+de\s+ce\s+mois\s*$", "", before).strip()
+    tokens = before.split()
+    window = " ".join(tokens[-4:]) if tokens else ""
+    for phrase in sorted(_FRENCH_DAYS, key=len, reverse=True):
+        if re.search(r"\b" + re.escape(phrase) + r"\b", window):
+            return _FRENCH_DAYS[phrase]
+    digit = re.search(r"\b(\d{1,2})\b", window)
+    if digit:
+        return int(digit.group(1))
     return None
 
 
@@ -187,7 +218,7 @@ def _parse_french_month(text: str) -> Optional[int]:
             if len(token) < 3:
                 continue
             match = process.extractOne(
-                token, list(_FRENCH_MONTHS.keys()), scorer=fuzz.ratio, score_cutoff=75
+                token, list(_FRENCH_MONTHS.keys()), scorer=fuzz.ratio, score_cutoff=80
             )
             if match:
                 return _FRENCH_MONTHS[match[0]]
@@ -236,8 +267,8 @@ def parse_declaration_date(
 
     norm = _normalise(text)
 
-    # Strip leading "l'an" / "l an" / "le"
-    norm = re.sub(r"^l.?an\s+", "", norm)
+    # Strip leading apostrophe/l'an / l an / le
+    norm = re.sub(r"^['\u2019]?\s*l.?an\s+", "", norm)
     norm = re.sub(r"^le\s+", "", norm)
 
     # "dernier jour du mois de [month]"
@@ -253,9 +284,14 @@ def parse_declaration_date(
                 return None
         return None
 
-    day = _parse_french_day(norm)
-    month = _parse_french_month(norm)
     year = _parse_french_year(norm) or year_registry
+
+    month, month_start = _find_month_position(norm)
+    if month_start is not None:
+        day = _parse_day_from_context(norm, month_start)
+    else:
+        month = _parse_french_month(norm)
+        day = _parse_french_day(norm)
 
     if day and month and year:
         try:
@@ -296,11 +332,18 @@ def parse_event_date(text: str, declaration_date: Optional[date]) -> Optional[st
         return (declaration_date - timedelta(days=2)).isoformat()
 
     has_dernier = "dernier" in norm or "der " in norm
-    has_courant = "courant" in norm or "cour " in norm
+    has_courant = (
+        "courant" in norm or "cour " in norm or "présent" in norm or "present" in norm
+    )
 
-    day = _parse_french_day(norm)
-    month = _parse_french_month(norm)
     year = _parse_french_year(norm)
+
+    month, month_start = _find_month_position(norm)
+    if month_start is not None:
+        day = _parse_day_from_context(norm, month_start)
+    else:
+        month = _parse_french_month(norm)
+        day = _parse_french_day(norm)
 
     # Resolve relative month references using declaration_date
     if declaration_date and not year:
@@ -326,7 +369,7 @@ def parse_event_date(text: str, declaration_date: Optional[date]) -> Optional[st
         except ValueError:
             pass
     if month and year:
-        return f"{year:04d}-{month:02d}"
+        return f"{year:04d}-{month:02d}-01"
     if year:
         return str(year)
     return None
