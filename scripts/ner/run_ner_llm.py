@@ -31,8 +31,36 @@ BASE = Path(
     "3. OCR/2. TrOCR/5. Data (output)/ECES"
 )
 ACTS_DATASET = BASE / "NER_datasets/raw/acts_dataset.json"
-NER_OUTPUT = BASE / "NER_datasets/ner_llm.json"
+NER_OUTPUT = BASE / "NER_datasets/llm/ner_llm.json"
 CHUNK_SIZE = 500
+
+
+def merge_all_runs() -> None:
+    """Merge ner_llm.json and all ner_llm_N.json into ner_llm_all.json."""
+    merged: dict[str, dict] = {}
+    candidates = sorted(NER_OUTPUT.parent.glob("ner_llm*.json"))
+    all_path = NER_OUTPUT.with_stem("ner_llm_all")
+    sources = [p for p in candidates if p != all_path]
+    for path in sources:
+        with open(path, encoding="utf-8") as f:
+            for r in json.load(f):
+                merged[r["act_id"]] = r
+    all_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(all_path, "w", encoding="utf-8") as f:
+        json.dump(list(merged.values()), f, ensure_ascii=False, indent=2)
+    print(f"Merged {len(merged)} acts from {len(sources)} file(s) → {all_path.name}")
+
+
+def resolve_output_path() -> Path:
+    """Return NER_OUTPUT if it doesn't exist, else ner_llm_1.json, ner_llm_2.json, ..."""
+    if not NER_OUTPUT.exists():
+        return NER_OUTPUT
+    i = 1
+    while True:
+        candidate = NER_OUTPUT.with_stem(f"ner_llm_{i}")
+        if not candidate.exists():
+            return candidate
+        i += 1
 
 
 def load_acts(
@@ -64,17 +92,17 @@ def load_existing_results() -> dict[str, NERResult]:
 
 
 def save_merged_results(
-    existing: dict[str, NERResult], new_results: list[NERResult]
+    existing: dict[str, NERResult], new_results: list[NERResult], output_path: Path
 ) -> None:
     """Merge new results into existing and save."""
     for r in new_results:
         existing[r.act_id] = r
-    NER_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    with open(NER_OUTPUT, "w", encoding="utf-8") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(
             [r.model_dump() for r in existing.values()], f, ensure_ascii=False, indent=2
         )
-    logger.info("Saved %d total results to %s", len(existing), NER_OUTPUT)
+    logger.info("Saved %d total results to %s", len(existing), output_path)
 
 
 async def run(
@@ -88,6 +116,9 @@ async def run(
     """Main async runner."""
     all_records = load_acts(commune, year, limit)
     existing = load_existing_results()
+    output_path = resolve_output_path()
+    if output_path != NER_OUTPUT:
+        print(f"ner_llm.json already exists — saving new results to {output_path.name}")
 
     pending = [r for r in all_records if r.act_id not in existing]
     print(
@@ -108,7 +139,7 @@ async def run(
         print(f"\nChunk {idx + 1}/{len(chunks)}: {len(chunk)} acts")
         results = await extractor.extract_batch(chunk, max_concurrent=max_concurrent)
         all_new.extend(results)
-        save_merged_results(existing, results)
+        save_merged_results(existing, results, output_path)
 
         cost = extractor.cost_tracker.get_total_cost()
         adjusted = cost * 1.30
@@ -121,6 +152,8 @@ async def run(
     print(f"\nProcessed {len(all_new)} new acts.")
     print(extractor.cost_tracker.summary())
     extractor.cost_tracker.log_summary(log_dir="logs")
+
+    merge_all_runs()
 
     if extractor.failed:
         failed_path = NER_OUTPUT.parent / "failed_ner.json"
