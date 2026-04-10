@@ -59,6 +59,7 @@ def export_deaths(
     owner_lookup: dict,
     plantation_lookup: dict,
     output_path: Path,
+    append: bool = False,
 ) -> int:
     """Write ner_llm_death.csv. Returns number of rows written."""
     rows = []
@@ -123,7 +124,7 @@ def export_deaths(
             }
         )
 
-    _write_csv(rows, output_path)
+    _write_csv(rows, output_path, append=append)
     return len(rows)
 
 
@@ -132,6 +133,7 @@ def export_births(
     owner_lookup: dict,
     plantation_lookup: dict,
     output_path: Path,
+    append: bool = False,
 ) -> int:
     """Write ner_llm_birth.csv. Returns number of rows written."""
     rows = []
@@ -211,7 +213,7 @@ def export_births(
             }
         )
 
-    _write_csv(rows, output_path)
+    _write_csv(rows, output_path, append=append)
     return len(rows)
 
 
@@ -220,6 +222,7 @@ def export_marriages(
     owner_lookup: dict,
     plantation_lookup: dict,
     output_path: Path,
+    append: bool = False,
 ) -> int:
     """Write ner_llm_marriage.csv. Returns number of rows written."""
     rows = []
@@ -296,7 +299,7 @@ def export_marriages(
             }
         )
 
-    _write_csv(rows, output_path)
+    _write_csv(rows, output_path, append=append)
     return len(rows)
 
 
@@ -539,14 +542,17 @@ def _patch_dates(path: Path, event_col: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _write_csv(rows: list[dict], path: Path) -> None:
+def _write_csv(rows: list[dict], path: Path, append: bool = False) -> None:
     if not rows:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(rows[0].keys())
-    with open(path, "w", encoding="utf-8-sig", newline="") as f:
+    write_header = not append or not path.exists()
+    mode = "a" if append else "w"
+    with open(path, mode, encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
+        if write_header:
+            writer.writeheader()
         writer.writerows(rows)
 
 
@@ -559,6 +565,7 @@ def export_all(
     ner_json_path: Path,
     output_dir: Path,
     clusters_json_path: Optional[Path] = None,
+    append: bool = False,
 ) -> None:
     """Read ner_llm.json and write the three cleaned CSVs.
 
@@ -590,13 +597,25 @@ def export_all(
         )
 
     n_deaths = export_deaths(
-        records, owner_lookup, plantation_lookup, output_dir / "ner_death.csv"
+        records,
+        owner_lookup,
+        plantation_lookup,
+        output_dir / "ner_death.csv",
+        append=append,
     )
     n_births = export_births(
-        records, owner_lookup, plantation_lookup, output_dir / "ner_birth.csv"
+        records,
+        owner_lookup,
+        plantation_lookup,
+        output_dir / "ner_birth.csv",
+        append=append,
     )
     n_marriages = export_marriages(
-        records, owner_lookup, plantation_lookup, output_dir / "ner_marriage.csv"
+        records,
+        owner_lookup,
+        plantation_lookup,
+        output_dir / "ner_marriage.csv",
+        append=append,
     )
 
     _patch_dates(output_dir / "ner_death.csv", "death_date")

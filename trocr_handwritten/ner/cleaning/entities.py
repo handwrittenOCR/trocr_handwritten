@@ -6,6 +6,7 @@ Collects all unique raw names, normalises them, clusters via fuzzy matching
 
 import re
 import unicodedata
+from pathlib import Path
 from typing import Optional
 
 from rapidfuzz import fuzz
@@ -127,6 +128,34 @@ def build_entity_table(
 # ---------------------------------------------------------------------------
 # Build both tables from a list of NERResult dicts
 # ---------------------------------------------------------------------------
+
+
+def load_clusters_lookup(
+    clusters_json_path: Path, entity_type: str = "owner"
+) -> dict[str, tuple[str, int]]:
+    """Build a raw_name → (canonical, entity_id) lookup from a Claude-generated clusters JSON.
+
+    The JSON is {"owner_clusters": [...], "plantation_clusters": [...]} where each cluster is
+    {"canonical": str|null, "variants": [...]}.
+    entity_type must be "owner" or "plantation".
+    Singletons not listed in the file keep their raw name as canonical (caller handles this).
+    """
+    import json
+
+    with open(clusters_json_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    key = "owner_clusters" if entity_type == "owner" else "plantation_clusters"
+    clusters = data.get(key, [])
+
+    lookup: dict[str, tuple[str, int]] = {}
+    for entity_id, cluster in enumerate(clusters, start=1):
+        canonical = cluster.get("canonical")
+        for raw in cluster.get("variants", []):
+            if raw and str(raw).strip():
+                lookup[raw] = (canonical, entity_id)
+
+    return lookup
 
 
 def build_entity_tables(
