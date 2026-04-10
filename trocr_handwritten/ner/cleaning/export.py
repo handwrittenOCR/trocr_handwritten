@@ -49,6 +49,40 @@ def _clean_str(val: Optional[str]) -> Optional[str]:
     return val
 
 
+def _ocr_quality(raw_text: Optional[str], act_id: str) -> str:
+    """Score OCR quality from raw plein_texte. Returns 'good', 'low', or 'bad'.
+
+    Checks: [illisible] ratio, commune mismatch, year mismatch.
+    """
+    if not raw_text or not raw_text.strip():
+        return "bad"
+
+    text = raw_text.lower()
+    lines = text.strip().splitlines()
+    n_lines = max(len(lines), 1)
+    n_illisible = text.count("[illisible")
+    illisible_ratio = n_illisible / n_lines
+
+    commune = act_id.split("_")[0]
+    year_registry = _year_from_act_id(act_id)
+
+    commune_found = commune in text.replace("-", " ").replace("_", " ")
+
+    year_mismatch = False
+    if year_registry:
+        m = re.search(r"\b(1[0-9]{3})\b", text)
+        if m and abs(int(m.group(1)) - year_registry) > 2:
+            year_mismatch = True
+        if re.search(r"mil\s+sept\s+cent", text):
+            year_mismatch = True
+
+    if illisible_ratio > 0.5 or year_mismatch:
+        return "bad"
+    if illisible_ratio > 0.2 or not commune_found:
+        return "low"
+    return "good"
+
+
 # ---------------------------------------------------------------------------
 # Per-type export
 # ---------------------------------------------------------------------------
@@ -86,6 +120,7 @@ def export_deaths(
                 "commune": r["act_id"].split("_")[0],
                 "year_registry": year_registry,
                 "raw_plein_texte": r.get("raw_plein_texte"),
+                "ocr_quality": _ocr_quality(r.get("raw_plein_texte"), r["act_id"]),
                 "marge_act_type": _clean_str(r.get("marge_act_type")),
                 "marge_act_name": _clean_str(r.get("marge_act_name")),
                 "marge_act_number": _clean_str(r.get("marge_act_number")),
@@ -162,6 +197,7 @@ def export_births(
                 "commune": r["act_id"].split("_")[0],
                 "year_registry": year_registry,
                 "raw_plein_texte": r.get("raw_plein_texte"),
+                "ocr_quality": _ocr_quality(r.get("raw_plein_texte"), r["act_id"]),
                 "marge_act_type": _clean_str(r.get("marge_act_type")),
                 "marge_act_name": _clean_str(r.get("marge_act_name")),
                 "marge_act_number": _clean_str(r.get("marge_act_number")),
@@ -250,6 +286,7 @@ def export_marriages(
                 "commune": r["act_id"].split("_")[0],
                 "year_registry": year_registry,
                 "raw_plein_texte": r.get("raw_plein_texte"),
+                "ocr_quality": _ocr_quality(r.get("raw_plein_texte"), r["act_id"]),
                 "marge_act_type": _clean_str(r.get("marge_act_type")),
                 "marge_act_name": _clean_str(r.get("marge_act_name")),
                 "marge_act_number": _clean_str(r.get("marge_act_number")),
@@ -429,64 +466,32 @@ def _fill_event_dates(rows: list[dict], event_col: str) -> list[dict]:
     return rows
 
 
-def _fix_declaration_month_order(rows: list[dict], n_neighbors: int = 5) -> list[dict]:
-    """Fix declaration months that break ascending order within commune × year group.
+def _fix_declaration_month_order(rows: list[dict], event_col: str) -> list[dict]:
+    """Fix declaration_date month using the event date as anchor.
 
-    Acts are sorted by act_id (document order). When a month is strictly less
-    than the previous act's month, replace it with the most common month among
-    the nearest n_neighbors on each side. The original day is preserved.
+    The event (birth/death/marriage) must fall in the same month as the
+    declaration or at most 1 month before.  When the gap is larger,
+    replace declaration_date month with the event month.
     """
-    from collections import defaultdict, Counter
     from datetime import date as _date
 
-    rows_sorted = sorted(rows, key=lambda r: r["act_id"])
+    for r in rows:
+        decl = r.get("declaration_date")
+        ev = r.get(event_col)
+        if not _is_full_iso(decl) or not _is_full_iso(ev):
+            continue
+        decl_month = int(str(decl)[5:7])
+        ev_month = int(str(ev)[5:7])
+        diff = decl_month - ev_month
+        if diff < 0 or diff > 1:
+            year, day = str(decl)[:4], str(decl)[8:10]
+            try:
+                _date(int(year), ev_month, int(day))
+                r["declaration_date"] = f"{year}-{ev_month:02d}-{day}"
+            except ValueError:
+                r["declaration_date"] = f"{year}-{ev_month:02d}-01"
 
-    group_indices: dict = defaultdict(list)
-    for i, r in enumerate(rows_sorted):
-        group_indices[(r["commune"], r.get("year_registry"))].append(i)
-
-    for indices in group_indices.values():
-        months = [
-            (
-                int(str(rows_sorted[idx]["declaration_date"])[5:7])
-                if _is_full_iso(rows_sorted[idx].get("declaration_date"))
-                else None
-            )
-            for idx in indices
-        ]
-
-        prev_month = None
-        for pos, idx in enumerate(indices):
-            m = months[pos]
-            if m is None:
-                continue
-            if prev_month is not None and m < prev_month:
-                neighbor_months = []
-                for offset in range(1, n_neighbors + 1):
-                    for direction in (1, -1):
-                        np_ = pos + direction * offset
-                        if 0 <= np_ < len(indices) and months[np_] is not None:
-                            neighbor_months.append(months[np_])
-                if neighbor_months:
-                    valid = [mo for mo in neighbor_months if mo >= prev_month]
-                    best_month = Counter(valid or neighbor_months).most_common(1)[0][0]
-                    d = str(rows_sorted[idx]["declaration_date"])
-                    year, day = d[:4], d[8:10]
-                    try:
-                        _date(int(year), best_month, int(day))
-                        rows_sorted[idx][
-                            "declaration_date"
-                        ] = f"{year}-{best_month:02d}-{day}"
-                    except ValueError:
-                        rows_sorted[idx][
-                            "declaration_date"
-                        ] = f"{year}-{best_month:02d}-01"
-                    months[pos] = best_month
-            else:
-                prev_month = m
-
-    order = {r["act_id"]: i for i, r in enumerate(rows)}
-    return sorted(rows_sorted, key=lambda r: order.get(r["act_id"], 0))
+    return rows
 
 
 def _fix_event_date_anomalies(rows: list[dict], event_col: str) -> list[dict]:
@@ -528,7 +533,7 @@ def _patch_dates(path: Path, event_col: str) -> None:
     if event_col and event_col in rows[0]:
         rows = _fill_event_dates(rows, event_col)
     rows = _normalise_years(rows, event_col)
-    rows = _fix_declaration_month_order(rows)
+    rows = _fix_declaration_month_order(rows, event_col)
     if event_col and event_col in rows[0]:
         rows = _fix_event_date_anomalies(rows, event_col)
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
