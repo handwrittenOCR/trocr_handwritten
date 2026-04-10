@@ -20,9 +20,21 @@ BASE = Path(
     "C:/Users/marie/Dropbox/Personnelle/2. Travail/1. Recherche/3. JMP/"
     "3. OCR/2. TrOCR/5. Data (output)/ECES"
 )
-NER_JSON = BASE / "NER_datasets/llm/ner_llm.json"
+NER_JSON = BASE / "NER_datasets/llm/ner_llm_all.json"
 PAIRS_DIR = BASE / "NER_datasets/llm/owner_pairs"
 OUTPUT_DIR = BASE / "NER_datasets/llm/cleaned"
+
+
+def _dedup_records(records: list[dict]) -> list[dict]:
+    """Remove duplicate act_ids, keeping the first occurrence."""
+    seen: dict[str, dict] = {}
+    for r in records:
+        if r["act_id"] not in seen:
+            seen[r["act_id"]] = r
+    n_dupes = len(records) - len(seen)
+    if n_dupes:
+        print(f"Removed {n_dupes} duplicate act_id(s) (kept first occurrence)")
+    return sorted(seen.values(), key=lambda r: r["act_id"])
 
 
 def _find_clusters(commune: str | None, clusters_arg: str | None) -> Path | None:
@@ -54,7 +66,7 @@ def main():
     args = parser.parse_args()
 
     with open(NER_JSON, encoding="utf-8") as f:
-        all_records = json.load(f)
+        all_records = _dedup_records(json.load(f))
 
     if args.commune:
         clusters_path = _find_clusters(args.commune, args.clusters)
