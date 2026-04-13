@@ -136,7 +136,7 @@ def load_clusters_lookup(
     """Build a raw_name → (canonical, entity_id) lookup from a Claude-generated clusters JSON.
 
     The JSON is {"owner_clusters": [...], "plantation_clusters": [...]} where each cluster is
-    {"canonical": str|null, "variants": [...]}.
+    {"canonical": str|null, "family": str|null (owners only), "variants": [...]}.
     entity_type must be "owner" or "plantation".
     Singletons not listed in the file keep their raw name as canonical (caller handles this).
     """
@@ -156,6 +156,24 @@ def load_clusters_lookup(
                 lookup[raw] = (canonical, entity_id)
 
     return lookup
+
+
+def load_owner_family_map(clusters_json_path: Path) -> dict[str, str]:
+    """Return raw_name → family for owners. Empty if family field is absent."""
+    import json
+
+    with open(clusters_json_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    family_map: dict[str, str] = {}
+    for cluster in data.get("owner_clusters", []):
+        family = cluster.get("family")
+        if not family:
+            continue
+        for raw in cluster.get("variants", []):
+            if raw and str(raw).strip():
+                family_map[raw] = family
+    return family_map
 
 
 def build_entity_tables(

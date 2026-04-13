@@ -31,7 +31,7 @@ BASE = Path(
     "3. OCR/2. TrOCR/5. Data (output)/ECES"
 )
 ACTS_DATASET = BASE / "NER_datasets/raw/acts_dataset.json"
-NER_OUTPUT = BASE / "NER_datasets/llm/ner_llm.json"
+NER_OUTPUT = BASE / "NER_datasets/llm/ner_llm_all.json"
 CHUNK_SIZE = 500
 
 
@@ -83,12 +83,18 @@ def load_acts(
 
 
 def load_existing_results() -> dict[str, NERResult]:
-    """Load already-processed results keyed by act_id."""
-    if not NER_OUTPUT.exists():
-        return {}
-    with open(NER_OUTPUT, encoding="utf-8") as f:
-        raw = json.load(f)
-    return {r["act_id"]: NERResult(**r) for r in raw}
+    """Load already-processed results from all ner_llm*.json files, keyed by act_id."""
+    all_path = NER_OUTPUT.with_stem("ner_llm_all")
+    candidates = sorted(NER_OUTPUT.parent.glob("ner_llm*.json"))
+    sources = [p for p in candidates if p != all_path]
+    if all_path.exists():
+        sources = [all_path]
+    merged: dict[str, NERResult] = {}
+    for path in sources:
+        with open(path, encoding="utf-8") as f:
+            for r in json.load(f):
+                merged[r["act_id"]] = NERResult(**r)
+    return merged
 
 
 def save_merged_results(
@@ -120,9 +126,18 @@ async def run(
     if output_path != NER_OUTPUT:
         print(f"ner_llm.json already exists — saving new results to {output_path.name}")
 
+    failed_path = NER_OUTPUT.parent / "failed_ner.json"
+    failed_ids: set[str] = set()
+    if failed_path.exists():
+        with open(failed_path, encoding="utf-8") as f:
+            failed_ids = set(json.load(f).keys())
+        for fid in failed_ids:
+            existing.pop(fid, None)
+
     pending = [r for r in all_records if r.act_id not in existing]
     print(
-        f"Acts: {len(all_records)} total, {len(existing)} done, {len(pending)} pending"
+        f"Acts: {len(all_records)} total, {len(existing)} done, "
+        f"{len(failed_ids)} failed, {len(pending)} pending"
     )
 
     if not pending:

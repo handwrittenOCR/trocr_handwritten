@@ -17,6 +17,7 @@ from trocr_handwritten.ner.cleaning.dates import parse_act_dates
 from trocr_handwritten.ner.cleaning.entities import (
     build_entity_tables,
     load_clusters_lookup,
+    load_owner_family_map,
 )
 
 # ---------------------------------------------------------------------------
@@ -94,8 +95,10 @@ def export_deaths(
     plantation_lookup: dict,
     output_path: Path,
     append: bool = False,
+    family_map: Optional[dict] = None,
 ) -> int:
     """Write ner_llm_death.csv. Returns number of rows written."""
+    family_map = family_map or {}
     rows = []
     for r in records:
         if r.get("act_type") != "deces" or not r.get("death_act"):
@@ -109,7 +112,9 @@ def export_deaths(
             _clean_str(d.get("death_date")),
             year_registry,
         )
-        owner_clean, owner_id = _resolve(owner_lookup, _clean_str(d.get("owner_name")))
+        _owner_raw = _clean_str(d.get("owner_name"))
+        owner_clean, owner_id = _resolve(owner_lookup, _owner_raw)
+        owner_family = family_map.get(_owner_raw) if _owner_raw else None
         plant_clean, plant_id = _resolve(
             plantation_lookup, _clean_str(d.get("habitation_name"))
         )
@@ -149,6 +154,7 @@ def export_deaths(
                 "owner_name_raw": _clean_str(d.get("owner_name")),
                 "owner_name_clean": owner_clean,
                 "owner_id": owner_id,
+                "owner_family": owner_family,
                 "owner_commune": _clean_str(d.get("owner_commune")),
                 "owner_residence": _clean_str(d.get("owner_residence")),
                 "habitation_name_raw": _clean_str(d.get("habitation_name")),
@@ -169,8 +175,10 @@ def export_births(
     plantation_lookup: dict,
     output_path: Path,
     append: bool = False,
+    family_map: Optional[dict] = None,
 ) -> int:
     """Write ner_llm_birth.csv. Returns number of rows written."""
+    family_map = family_map or {}
     rows = []
     for r in records:
         if r.get("act_type") != "naissance" or not r.get("birth_act"):
@@ -186,7 +194,9 @@ def export_births(
             _clean_str(b.get("birth_date")),
             year_registry,
         )
-        owner_clean, owner_id = _resolve(owner_lookup, _clean_str(b.get("owner_name")))
+        _owner_raw = _clean_str(b.get("owner_name"))
+        owner_clean, owner_id = _resolve(owner_lookup, _owner_raw)
+        owner_family = family_map.get(_owner_raw) if _owner_raw else None
         plant_clean, plant_id = _resolve(
             plantation_lookup, _clean_str(b.get("habitation_name"))
         )
@@ -239,6 +249,7 @@ def export_births(
                 "owner_name_raw": _clean_str(b.get("owner_name")),
                 "owner_name_clean": owner_clean,
                 "owner_id": owner_id,
+                "owner_family": owner_family,
                 "owner_commune": _clean_str(b.get("owner_commune")),
                 "owner_residence": _clean_str(b.get("owner_residence")),
                 "habitation_name_raw": _clean_str(b.get("habitation_name")),
@@ -259,8 +270,10 @@ def export_marriages(
     plantation_lookup: dict,
     output_path: Path,
     append: bool = False,
+    family_map: Optional[dict] = None,
 ) -> int:
     """Write ner_llm_marriage.csv. Returns number of rows written."""
+    family_map = family_map or {}
     rows = []
     for r in records:
         if r.get("act_type") != "mariage" or not r.get("marriage_act"):
@@ -275,7 +288,9 @@ def export_marriages(
             _clean_str(m.get("marriage_date")),
             year_registry,
         )
-        owner_clean, owner_id = _resolve(owner_lookup, _clean_str(m.get("owner_name")))
+        _owner_raw = _clean_str(m.get("owner_name"))
+        owner_clean, owner_id = _resolve(owner_lookup, _owner_raw)
+        owner_family = family_map.get(_owner_raw) if _owner_raw else None
         plant_clean, plant_id = _resolve(
             plantation_lookup, _clean_str(m.get("habitation_name"))
         )
@@ -326,6 +341,7 @@ def export_marriages(
                 "owner_name_raw": _clean_str(m.get("owner_name")),
                 "owner_name_clean": owner_clean,
                 "owner_id": owner_id,
+                "owner_family": owner_family,
                 "owner_commune": _clean_str(m.get("owner_commune")),
                 "owner_residence": _clean_str(m.get("owner_residence")),
                 "habitation_name_raw": _clean_str(m.get("habitation_name")),
@@ -542,6 +558,61 @@ def _patch_dates(path: Path, event_col: str) -> None:
         writer.writerows(rows)
 
 
+def _propagate_owner_plantation(paths: list[Path]) -> None:
+    """Fill missing plantation for owners that have an explicit plantation in other acts.
+
+    Across all CSVs, build owner_id -> {plantation_id: count}. For owners whose plantation
+    is unambiguous (single non-null plantation), back-fill rows where plantation is null.
+    Updates habitation_name_clean and plantation_id; preserves habitation_name_raw.
+    """
+    from collections import defaultdict, Counter
+
+    owner_to_plant: dict = defaultdict(Counter)
+    plant_id_to_clean: dict = {}
+
+    for path in paths:
+        if not path.exists():
+            continue
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            for row in csv.DictReader(f):
+                owner_id = row.get("owner_id")
+                plant_id = row.get("plantation_id")
+                if owner_id and plant_id and plant_id.strip():
+                    owner_to_plant[owner_id][plant_id] += 1
+                    plant_id_to_clean[plant_id] = row.get("habitation_name_clean") or ""
+
+    owner_default: dict = {}
+    for oid, counts in owner_to_plant.items():
+        if len(counts) == 1:
+            pid = next(iter(counts))
+            owner_default[oid] = (plant_id_to_clean.get(pid, ""), pid)
+
+    for path in paths:
+        if not path.exists():
+            continue
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+            fieldnames = reader.fieldnames
+        if not rows:
+            continue
+        n_filled = 0
+        for row in rows:
+            oid = row.get("owner_id")
+            pid = row.get("plantation_id")
+            if oid in owner_default and (not pid or not pid.strip()):
+                clean, new_pid = owner_default[oid]
+                row["habitation_name_clean"] = clean
+                row["plantation_id"] = new_pid
+                n_filled += 1
+        with open(path, "w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        if n_filled:
+            print(f"  Propagated plantation for {n_filled} rows in {path.name}")
+
+
 # ---------------------------------------------------------------------------
 # CSV writer
 # ---------------------------------------------------------------------------
@@ -591,12 +662,14 @@ def export_all(
         plantation_lookup = load_clusters_lookup(
             clusters_json_path, entity_type="plantation"
         )
+        family_map = load_owner_family_map(clusters_json_path)
         print(
             f"Entity tables (Claude clusters): {len(owner_lookup)} owners, "
-            f"{len(plantation_lookup)} plantations"
+            f"{len(plantation_lookup)} plantations, {len(family_map)} family entries"
         )
     else:
         owner_lookup, plantation_lookup = build_entity_tables(records)
+        family_map = {}
         print(
             f"Entity tables (fuzzy): {len(owner_lookup)} owners, {len(plantation_lookup)} plantations"
         )
@@ -607,6 +680,7 @@ def export_all(
         plantation_lookup,
         output_dir / "ner_death.csv",
         append=append,
+        family_map=family_map,
     )
     n_births = export_births(
         records,
@@ -614,6 +688,7 @@ def export_all(
         plantation_lookup,
         output_dir / "ner_birth.csv",
         append=append,
+        family_map=family_map,
     )
     n_marriages = export_marriages(
         records,
@@ -621,11 +696,20 @@ def export_all(
         plantation_lookup,
         output_dir / "ner_marriage.csv",
         append=append,
+        family_map=family_map,
     )
 
     _patch_dates(output_dir / "ner_death.csv", "death_date")
     _patch_dates(output_dir / "ner_birth.csv", "birth_date")
     _patch_dates(output_dir / "ner_marriage.csv", "marriage_date")
+
+    _propagate_owner_plantation(
+        [
+            output_dir / "ner_death.csv",
+            output_dir / "ner_birth.csv",
+            output_dir / "ner_marriage.csv",
+        ]
+    )
 
     print(f"Exported: {n_deaths} deaths, {n_births} births, {n_marriages} marriages")
     print(f"Output: {output_dir}")

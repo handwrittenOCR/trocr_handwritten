@@ -29,31 +29,43 @@ PAIRS_DIR = BASE / "NER_datasets/llm/owner_pairs"
 SYSTEM_PROMPT = """You are an expert in 19th-century French colonial civil registries from Guadeloupe.
 You will receive a list of (owner_name_raw, habitation_name_raw, count) tuples from a single commune.
 These were extracted by OCR from handwritten documents and contain many spelling variants, OCR errors,
-abbreviations, and partial names referring to the same real person.
+abbreviations, and partial names.
 
-Your task: identify clusters of entries that refer to the same individual or legal entity.
+Your task: produce two separate cluster lists — one for owners, one for plantations.
 
-Rules:
+OWNER CLUSTERING RULES:
 - Use BOTH the owner name AND the plantation name as evidence. Same plantation = strong signal of same owner.
 - Consider: OCR errors (P/B/D confusion, T/F, ai/oi, accents missing), abbreviations (Sr/Sieur, Mme/Dame,
-  Vve/Veuve, Dlle/Demoiselle, Mlle), name order swaps, partial names (surname only vs full name),
-  spelling variants of the same name.
-- héritiers X and X are the same family/estate — merge them.
-- père/fils indicate different generations — keep separate unless plantation confirms same person.
-- Dame Veuve X and X are different people (widow vs deceased husband) — keep separate.
-- [illisible], [non précisé] and similar → map to null (canonical: null).
-- l'habitation X entries where X is a plantation name, not an owner name → map to null.
-- Do NOT merge people who share only a common surname if their first names differ.
-- For each cluster, pick the canonical name: the most complete and most frequent form.
+  Vve/Veuve, Dlle/Demoiselle, Mlle), name order swaps, partial names (surname only vs full name).
+- héritiers X and X → same family/estate, merge.
+- père/fils → different generations, keep separate unless plantation confirms same person.
+- Dame Veuve X and X → different people (widow ≠ deceased husband), keep separate.
+- Multiple family members with the same surname but different first names on the SAME plantation → keep
+  them as separate owners (they are different people sharing one estate).
+- [illisible], [non précisé] and similar → canonical: null.
+- Entries where owner_name_raw is actually a plantation description (e.g. "l'habitation Belleplaine") → canonical: null.
+- Do NOT merge people who share only a common surname if their first names differ and the plantation differs.
+- Canonical = most complete and most frequent form.
 
-Output a JSON array of clusters. Each cluster is an object:
+PLANTATION CLUSTERING RULES:
+- Cluster spelling variants, OCR errors, and abbreviations of the same plantation name.
+- Use the owner as supporting evidence: if two plantation spellings always co-occur with the same owner, they are likely the same plantation.
+- A plantation name that is null stays null — do not invent a canonical name.
+- Canonical = most complete and most frequent form.
+
+Output a single JSON object with two arrays:
 {
-  "canonical": "<canonical owner name, or null>",
-  "variants": ["<raw name 1>", "<raw name 2>", ...]
+  "owner_clusters": [
+    {"canonical": "<canonical owner name or null>", "variants": ["<raw1>", "<raw2>", ...]},
+    ...
+  ],
+  "plantation_clusters": [
+    {"canonical": "<canonical plantation name or null>", "variants": ["<raw1>", "<raw2>", ...]},
+    ...
+  ]
 }
 
-Only include names that have at least one variant or need normalization. Singletons with no variants
-can be omitted — they will keep their raw name as canonical."""
+Only include entries that have variants or need mapping to null. Clean singletons can be omitted."""
 
 USER_TEMPLATE = """Commune: {commune}
 
@@ -61,7 +73,7 @@ Here are all unique (owner_name_raw, habitation_name_raw, count) pairs, sorted b
 
 {pairs_text}
 
-Identify all clusters of entries referring to the same person. Output the JSON array of clusters."""
+Produce the owner_clusters and plantation_clusters JSON."""
 
 
 def build_pairs_text(pairs: list[dict]) -> str:
@@ -80,7 +92,8 @@ def cluster_commune(
     pairs: list[dict],
     client: anthropic.Anthropic,
     model: str,
-) -> list[dict]:
+) -> dict:
+    """Return {"owner_clusters": [...], "plantation_clusters": [...]}."""
     pairs_text = build_pairs_text(pairs)
     user_msg = USER_TEMPLATE.format(commune=commune, pairs_text=pairs_text)
 
@@ -93,14 +106,16 @@ def cluster_commune(
 
     raw = response.content[0].text.strip()
 
-    # Extract JSON from response (may be wrapped in ```json ... ```)
     if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
         raw = raw.strip()
 
-    return json.loads(raw)
+    result = json.loads(raw)
+    if not isinstance(result, dict) or "owner_clusters" not in result:
+        raise ValueError(f"Unexpected response format: {str(result)[:200]}")
+    return result
 
 
 def main():
@@ -124,7 +139,7 @@ def main():
 
     for pair_file in pair_files:
         commune = pair_file.stem.replace("_owner_pairs", "")
-        out_path = PAIRS_DIR / f"{commune}_owner_clusters.json"
+        out_path = PAIRS_DIR / f"{commune}_clusters.json"
 
         if out_path.exists():
             print(f"  {commune}: clusters already exist, skipping ({out_path.name})")
