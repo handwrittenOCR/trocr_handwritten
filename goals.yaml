@@ -1,0 +1,83 @@
+# Goals & Objectives — trocr_handwritten
+# Project: OCR pipeline for 19th-century Guadeloupe civil registries
+
+meta:
+  quarter: "Q2-2026"
+  push_level: moderate
+  next_review: "2026-04-24"
+
+objectives:
+
+  - id: ocr-transcription
+    name: "Complete OCR Transcription"
+    weight: 0.20
+    status: active
+    key_results:
+      - id: remaining-communes
+        description: "Transcribe gosier (168p), lamentin (273p), deshaies (76p) through YOLO+Gemini pipeline"
+        progress: 1.0
+        at_risk: false
+        notes: "All 8 communes transcribed. gosier/lamentin/deshaies launched 2026-04-04."
+
+      - id: quality-validation
+        description: "Validate transcription quality on sample of completed communes"
+        progress: 0.6
+        at_risk: false
+        notes: "OCR quality flag added (good/low/bad). abymes: 838 good, 60 low, 305 bad out of 1203 acts."
+
+  - id: ner-extraction
+    name: "NER & Data Extraction"
+    weight: 0.35
+    status: active
+    key_results:
+      - id: ner-abymes
+        description: "Complete NER extraction on abymes (1,203 acts)"
+        progress: 0.9
+        at_risk: false
+        notes: "Done with gemini-3-flash. 702 deaths, 497 births, 4 marriages. Marge fields added but need re-run to populate. Marriage schema fixed."
+
+      - id: ner-remaining
+        description: "Run NER on remaining communes (~8,500 acts)"
+        progress: 1
+        at_risk: false
+        notes: "Model: gemini-3-flash. Cost estimate: EUR 10.67 for flash. Pipeline ready (run_ner_llm.py)."
+
+      - id: clean-dataset
+        description: "Produce cleaned, export-ready dataset with owner clustering"
+        progress: 0.5
+        at_risk: false
+        notes: "Cleaning pipeline built (dates, ages, entities). Export to CSV working. Claude clustering done for abymes owners. Remaining communes need extract_owner_pairs + clustering."
+
+  - id: pipeline-tooling
+    name: "Pipeline & Tooling Maintenance"
+    weight: 0.15
+    status: active
+    key_results:
+      - id: cost-control
+        description: "Keep total Gemini API costs under EUR 50 for remaining transcription + NER"
+        progress: 1
+        at_risk: false
+        notes: "1.30x inflation factor added. Budget enforcement in cost_tracker.py. OCR done; NER projected EUR 20-30."
+
+      - id: reading-order
+        description: "Fix Marge/Plein Texte pairing and act splitting"
+        progress: 1.0
+        at_risk: false
+        notes: "Page-side aware matching fixed (74% were wrong). metadata_reading_order.json saved for all 1,668 pages. Registry splitting for gosier-style pages done."
+
+      - id: date-cleaning
+        description: "Robust French date parser for civil registry dates"
+        progress: 0.9
+        at_risk: false
+        notes: "Month-anchored day parsing, OCR variants, relative dates (hier/avant-hier/ce jour), cascading month fix. 52->4 unresolvable missing dates on abymes."
+
+      - id: reproducibility
+        description: "Document pipeline so full run is reproducible from raw images"
+        progress: 0.4
+        at_risk: false
+        notes: "CLAUDE.md, scripts/, session logs. Needs final documentation pass."
+
+upcoming_deadlines: []
+  # - date: "2026-04-11"
+  #   description: "Full NER run + cleaning on all communes (target from 2026-04-07 log)"
+  #   objective: ner-extraction
