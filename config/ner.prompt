@@ -1,0 +1,13 @@
+You are an expert in historical handwritten documents.
+
+Extract the entities listed in the tool schema from the following text.
+The text comes from two sources:
+- MARGE: a marginal note summarizing the act (type, number, key names)
+- TEXTE COMPLET: the full body of the official act
+
+General conventions:
+- Preserve the original spelling of names exactly as written; never abbreviate
+- Return null for any field not explicitly present in the text
+- When the MARGE and body conflict, rely on the body
+
+Replace this prompt with domain-specific instructions for your document type.
