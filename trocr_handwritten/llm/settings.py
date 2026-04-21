@@ -29,6 +29,11 @@ class LLMSettings(BaseModel):
         default=os.getenv("MISTRAL_API_KEY"),
         description="Mistral AI API key",
     )
+    reasoning_effort: Optional[str] = Field(
+        default=None,
+        description="Reasoning effort for Gemini thinking models: 'low', 'medium', 'high'. "
+        "None disables thinking.",
+    )
     temperature: float = Field(
         default=0.0,
         description="Temperature for text generation",
