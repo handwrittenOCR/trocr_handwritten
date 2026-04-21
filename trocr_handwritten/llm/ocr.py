@@ -57,6 +57,8 @@ async def process_image_async(
     output_extension: str,
     cost_tracker: CostTracker,
     semaphore: asyncio.Semaphore,
+    output_dir: Optional[Path] = None,
+    input_dir: Optional[Path] = None,
 ) -> bool:
     """
     Process a single image asynchronously and save the transcription.
@@ -68,11 +70,18 @@ async def process_image_async(
         output_extension: Extension for output file.
         cost_tracker: Cost tracker instance.
         semaphore: Semaphore for concurrency control.
+        output_dir: If set, write predictions here preserving subfolder structure.
+        input_dir: Root input directory, used to compute relative paths for output_dir.
 
     Returns:
         True if processed successfully, False otherwise.
     """
-    output_path = image_path.with_suffix(output_extension)
+    if output_dir and input_dir:
+        rel = image_path.relative_to(input_dir)
+        output_path = output_dir / rel.with_suffix(output_extension)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        output_path = image_path.with_suffix(output_extension)
 
     if output_path.exists():
         logger.debug(f"Skipping {image_path.name}, output already exists")
@@ -105,6 +114,8 @@ async def process_all_images(
     output_extension: str,
     cost_tracker: CostTracker,
     max_concurrent: int = 10,
+    output_dir: Optional[Path] = None,
+    input_dir: Optional[Path] = None,
 ) -> None:
     """
     Process all images concurrently with rate limiting.
@@ -116,11 +127,20 @@ async def process_all_images(
         output_extension: Extension for output file.
         cost_tracker: Cost tracker instance.
         max_concurrent: Maximum number of concurrent requests.
+        output_dir: If set, write predictions here preserving subfolder structure.
+        input_dir: Root input directory, used to compute relative paths for output_dir.
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     tasks = [
         process_image_async(
-            image_path, provider, prompt, output_extension, cost_tracker, semaphore
+            image_path,
+            provider,
+            prompt,
+            output_extension,
+            cost_tracker,
+            semaphore,
+            output_dir=output_dir,
+            input_dir=input_dir,
         )
         for image_path in images
     ]
@@ -174,6 +194,20 @@ def main():
         default=10,
         help="Maximum number of concurrent API calls",
     )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=None,
+        help="Directory to write predictions (preserves subfolder structure). "
+        "If not set, predictions are written next to images.",
+    )
+    parser.add_argument(
+        "--reasoning_effort",
+        type=str,
+        default=None,
+        choices=["low", "medium", "high"],
+        help="Reasoning effort for Gemini thinking models",
+    )
     args = parser.parse_args()
 
     model_defaults = {
@@ -188,6 +222,7 @@ def main():
         provider=args.provider,
         model_name=model_name,
         prompt_path=args.prompt_path,
+        reasoning_effort=args.reasoning_effort,
     )
 
     ocr_settings = OCRSettings(
@@ -207,6 +242,10 @@ def main():
     images = find_images(input_path, ocr_settings.image_pattern, limit=args.n)
     logger.info(f"Found {len(images)} images to process")
 
+    output_dir = Path(args.output_dir) if args.output_dir else None
+    if output_dir:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
     asyncio.run(
         process_all_images(
             images,
@@ -215,10 +254,33 @@ def main():
             ocr_settings.output_extension,
             cost_tracker,
             max_concurrent=args.max_concurrent,
+            output_dir=output_dir,
+            input_dir=input_path,
         )
     )
 
+    if hasattr(provider, "total_thinking_tokens"):
+        cost_tracker.thinking_tokens = provider.total_thinking_tokens
+
     cost_tracker.log_summary()
+
+    if output_dir:
+        summary_path = output_dir / "summary.json"
+        summary_data = {
+            "timestamp": datetime.now().isoformat(),
+            "model": model_name,
+            "provider": args.provider,
+            "reasoning_effort": args.reasoning_effort,
+            "total_calls": cost_tracker.total_calls,
+            "input_tokens": cost_tracker.input_tokens,
+            "output_tokens": cost_tracker.output_tokens,
+            "thinking_tokens": cost_tracker.thinking_tokens,
+            "estimated_cost_usd": cost_tracker.get_cost(),
+            "elapsed_seconds": round(cost_tracker.elapsed_seconds(), 1),
+            "failed_count": len(failed_images),
+        }
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(summary_data, f, indent=2)
 
     if failed_images:
         failed_path = input_path / "failed_ocr.json"

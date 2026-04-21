@@ -35,6 +35,8 @@ def _get_subfolder(image_path, images_root):
     """
     rel = image_path.relative_to(Path(images_root).resolve())
     parts = rel.parts
+    if len(parts) >= 3 and parts[-2] == "images":
+        return parts[-3]
     if len(parts) >= 2:
         return parts[-2]
     return ""
@@ -42,18 +44,25 @@ def _get_subfolder(image_path, images_root):
 
 def _read_inference(image_path, inference_ext):
     """
-    Read the inference file next to an image.
+    Read the inference/label file for an image.
+    Checks next to the image first, then in a sibling 'label/' directory.
 
     Args:
         image_path: Path to the image
-        inference_ext: Extension of inference files (e.g. ".md")
+        inference_ext: Extension of inference files (e.g. ".md" or ".txt")
 
     Returns:
-        str: Inference text, or empty string
+        str: File text, or empty string
     """
     inf_path = image_path.with_suffix(inference_ext)
     if inf_path.exists():
         return inf_path.read_text(encoding="utf-8").strip()
+
+    label_dir = image_path.parent.parent / "label"
+    label_path = label_dir / (image_path.stem + inference_ext)
+    if label_path.exists():
+        return label_path.read_text(encoding="utf-8").strip()
+
     return ""
 
 
@@ -203,6 +212,15 @@ class OCRAnnotationHandler(SimpleHTTPRequestHandler):
             self.send_error(404)
 
     def _handle_annotate(self, params):
+        if not self.state["images"]:
+            self._send_html(
+                "<html><body style='background:#1a1a2e;color:#64ffda;"
+                "display:flex;justify-content:center;align-items:center;height:100vh;"
+                "font-family:sans-serif;font-size:1.5rem'>"
+                "All images have been annotated.</body></html>"
+            )
+            return
+
         idx = int(params.get("idx", ["0"])[0])
         idx = max(0, min(idx, len(self.state["images"]) - 1))
 
