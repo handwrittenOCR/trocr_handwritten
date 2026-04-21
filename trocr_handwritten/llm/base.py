@@ -12,7 +12,7 @@ FALLBACK_MODELS = {
     "gemini-3-pro-preview": "gemini-3-flash-preview",
     "gemini-3-flash-preview": "gemini-2.5-pro",
     "gemini-2.5-pro": "gemini-2.0-flash",
-    "gpt-5.2": "gpt-5",
+    "gpt-5.4": "gpt-5.4",
     "gpt-5": "gpt-4o",
     "mistral-large-latest": "pixtral-large-latest",
 }
