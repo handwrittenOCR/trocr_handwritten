@@ -1,9 +1,10 @@
 import argparse
+import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean, median, stdev
 
-import evaluate
 import jiwer
 
 from trocr_handwritten.utils.logging_config import get_logger
@@ -35,17 +36,47 @@ def _collect_pairs(predictions_dir, labels_dir, pred_ext=".md", label_ext=".txt"
         label_map[(subfolder, f.stem)] = f
 
     pairs = []
+    skipped = []
     for f in sorted(pred_path.rglob(f"*{pred_ext}")):
         rel = f.relative_to(pred_path)
         subfolder = str(rel.parent) if rel.parent != Path(".") else ""
         key = (subfolder, f.stem)
         if key in label_map:
-            pred_text = f.read_text(encoding="utf-8").strip()
-            ref_text = label_map[key].read_text(encoding="utf-8").strip()
-            if pred_text and ref_text:
-                pairs.append((subfolder, f.stem, pred_text, ref_text))
+            pred_text = _normalize_text(f.read_text(encoding="utf-8").strip())
+            ref_text = _normalize_text(
+                label_map[key].read_text(encoding="utf-8").strip()
+            )
+            if not pred_text or not ref_text:
+                continue
+            ratio = len(pred_text) / max(len(ref_text), 1)
+            if ratio > OUTLIER_LENGTH_RATIO:
+                skipped.append((subfolder, f.stem, ratio))
+                continue
+            pairs.append((subfolder, f.stem, pred_text, ref_text))
+
+    if skipped:
+        logger.warning(
+            f"Skipped {len(skipped)} outliers (pred/ref length ratio > {OUTLIER_LENGTH_RATIO}): "
+            f"{[(s[0] + '/' + s[1]) for s in skipped[:5]]}"
+        )
 
     return pairs
+
+
+OUTLIER_LENGTH_RATIO = 10.0
+
+
+def _normalize_text(text):
+    """
+    Normalize text for fair metric comparison.
+    Strips markdown artifacts, collapses whitespace, removes blank lines.
+    """
+    text = re.sub(r"~~(.*?)~~", r"\1", text)
+    text = re.sub(r"[.·]{3,}", "", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    lines = [line.strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    return "\n".join(lines)
 
 
 def _levenshtein_distance(ref, hyp):
@@ -73,15 +104,12 @@ def compute_metrics(pairs):
     Returns:
         dict: Per-subfolder and global metrics
     """
-    cer_metric = evaluate.load("cer")
-    wer_metric = evaluate.load("wer")
-
     per_item = []
     by_subfolder = defaultdict(list)
 
     for subfolder, stem, prediction, reference in pairs:
-        item_cer = cer_metric.compute(predictions=[prediction], references=[reference])
-        item_wer = wer_metric.compute(predictions=[prediction], references=[reference])
+        item_cer = jiwer.cer(reference, prediction)
+        item_wer = jiwer.wer(reference, prediction)
         item_lev = _levenshtein_distance(reference, prediction)
         item_exact = 1.0 if prediction == reference else 0.0
 
@@ -184,6 +212,12 @@ def main():
     )
     parser.add_argument("--pred-ext", type=str, default=".md")
     parser.add_argument("--label-ext", type=str, default=".txt")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to save metrics JSON (default: metrics.json in predictions dir)",
+    )
     args = parser.parse_args()
 
     pairs = _collect_pairs(args.predictions, args.labels, args.pred_ext, args.label_ext)
@@ -194,6 +228,13 @@ def main():
     logger.info(f"Found {len(pairs)} prediction/label pairs")
     results = compute_metrics(pairs)
     log_metrics(results, logger)
+
+    output_path = (
+        Path(args.output) if args.output else Path(args.predictions) / "metrics.json"
+    )
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    logger.info(f"Metrics saved to {output_path}")
 
 
 if __name__ == "__main__":
