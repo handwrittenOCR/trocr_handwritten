@@ -173,8 +173,21 @@ def main():
         "--provider",
         type=str,
         default="gemini",
-        choices=["openai", "gemini", "mistral"],
+        choices=["openai", "gemini", "mistral", "vllm"],
         help="LLM provider to use",
+    )
+    parser.add_argument(
+        "--vllm_base_url",
+        type=str,
+        default=None,
+        help="Base URL of the vLLM server (overrides VLLM_BASE_URL env var). "
+        "Required when --provider=vllm.",
+    )
+    parser.add_argument(
+        "--vllm_api_key",
+        type=str,
+        default=None,
+        help="API key for the vLLM server (overrides VLLM_API_KEY env var).",
     )
     parser.add_argument(
         "--model",
@@ -208,6 +221,23 @@ def main():
         choices=["low", "medium", "high"],
         help="Reasoning effort for Gemini thinking models",
     )
+    parser.add_argument(
+        "--max_tokens",
+        type=int,
+        default=None,
+        help="Max output tokens per call (defaults to LLMSettings.max_tokens).",
+    )
+    parser.add_argument(
+        "--request_timeout",
+        type=float,
+        default=None,
+        help="Per-request HTTP timeout in seconds (defaults to 120).",
+    )
+    parser.add_argument(
+        "--disable_thinking",
+        action="store_true",
+        help="vLLM-only: disable <think> block for Qwen3/Qwen3-Next models.",
+    )
     args = parser.parse_args()
 
     model_defaults = {
@@ -216,14 +246,31 @@ def main():
         "mistral": "mistral-large-latest",
     }
 
+    if args.provider == "vllm" and not args.model:
+        parser.error(
+            "--model is required when --provider=vllm (HF repo id served by vLLM)"
+        )
+
     model_name = args.model or model_defaults.get(args.provider, "gemini-2.0-flash")
 
-    llm_settings = LLMSettings(
-        provider=args.provider,
-        model_name=model_name,
-        prompt_path=args.prompt_path,
-        reasoning_effort=args.reasoning_effort,
-    )
+    llm_kwargs = {
+        "provider": args.provider,
+        "model_name": model_name,
+        "prompt_path": args.prompt_path,
+        "reasoning_effort": args.reasoning_effort,
+    }
+    if args.vllm_base_url:
+        llm_kwargs["vllm_base_url"] = args.vllm_base_url
+    if args.vllm_api_key:
+        llm_kwargs["vllm_api_key"] = args.vllm_api_key
+    if args.max_tokens is not None:
+        llm_kwargs["max_tokens"] = args.max_tokens
+    if args.request_timeout is not None:
+        llm_kwargs["request_timeout"] = args.request_timeout
+    if args.disable_thinking:
+        llm_kwargs["disable_thinking"] = True
+
+    llm_settings = LLMSettings(**llm_kwargs)
 
     ocr_settings = OCRSettings(
         input_dir=args.input_dir,

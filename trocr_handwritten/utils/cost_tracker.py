@@ -28,6 +28,20 @@ PRICING = {
     "ministral-14b-2512": {"input": 0.20, "output": 0.20},
 }
 
+VLLM_HOURLY_EUR = 2.8
+EUR_TO_USD = 1.08
+
+VLLM_MODELS = {
+    "gemma-4-26B-A4B-it",
+    "Qwen3.6-35B-A3B",
+    "Qwen2.5-VL-7B-DAI-CReTDHI-RecordGold-ATR",
+}
+
+
+def is_vllm_model(model_name: str) -> bool:
+    """Return True if the model is self-hosted via vLLM (time-based billing)."""
+    return model_name in VLLM_MODELS
+
 
 @dataclass
 class CostTracker:
@@ -61,9 +75,13 @@ class CostTracker:
         """
         Calculate total cost in USD.
 
-        Returns:
-            Total cost based on token usage and model pricing.
+        For vLLM self-hosted models, cost is proportional to elapsed runtime
+        (H100 instance at VLLM_HOURLY_EUR/h). For API models, cost is based on
+        token usage and per-model pricing.
         """
+        if is_vllm_model(self.model_name):
+            hours = self.elapsed_seconds() / 3600.0
+            return hours * VLLM_HOURLY_EUR * EUR_TO_USD
         pricing = self._pricing.get(self.model_name, {"input": 0.0, "output": 0.0})
         input_cost = (self.input_tokens / 1_000_000) * pricing["input"]
         output_cost = (self.output_tokens / 1_000_000) * pricing["output"]
@@ -92,7 +110,13 @@ class CostTracker:
         ]
         if self.thinking_tokens:
             lines.append(f"Thinking tokens: {self.thinking_tokens:,}")
-        lines.append(f"Estimated cost: ${cost:.4f}")
+        if is_vllm_model(self.model_name):
+            lines.append(
+                f"Estimated cost: ${cost:.4f} "
+                f"(vLLM: {VLLM_HOURLY_EUR}€/h × {elapsed/3600:.3f}h)"
+            )
+        else:
+            lines.append(f"Estimated cost: ${cost:.4f}")
         lines.append(f"Elapsed time: {minutes}m{seconds:02d}s")
         return "\n".join(lines)
 
