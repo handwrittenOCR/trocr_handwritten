@@ -3,11 +3,13 @@ from trocr_handwritten.llm.settings import LLMSettings
 from trocr_handwritten.llm.providers.openai import OpenAIProvider
 from trocr_handwritten.llm.providers.gemini import GeminiProvider
 from trocr_handwritten.llm.providers.mistral import MistralProvider
+from trocr_handwritten.llm.providers.vllm import VLLMProvider
 
 PROVIDERS = {
     "openai": OpenAIProvider,
     "gemini": GeminiProvider,
     "mistral": MistralProvider,
+    "vllm": VLLMProvider,
 }
 
 
