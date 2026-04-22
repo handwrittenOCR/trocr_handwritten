@@ -9,7 +9,7 @@ load_dotenv()
 class LLMSettings(BaseModel):
     """Configuration settings for LLM-based OCR."""
 
-    provider: Literal["openai", "gemini", "mistral"] = Field(
+    provider: Literal["openai", "gemini", "mistral", "vllm"] = Field(
         default="gemini",
         description="LLM provider to use for OCR",
     )
@@ -28,6 +28,15 @@ class LLMSettings(BaseModel):
     mistral_api_key: Optional[str] = Field(
         default=os.getenv("MISTRAL_API_KEY"),
         description="Mistral AI API key",
+    )
+    vllm_base_url: Optional[str] = Field(
+        default=os.getenv("VLLM_BASE_URL"),
+        description="Base URL of a self-hosted vLLM OpenAI-compatible server "
+        "(e.g. http://h100.example.com:8000/v1)",
+    )
+    vllm_api_key: Optional[str] = Field(
+        default=os.getenv("VLLM_API_KEY"),
+        description="API key for the vLLM server. Defaults to 'EMPTY' if unset.",
     )
     reasoning_effort: Optional[str] = Field(
         default=None,
