@@ -28,7 +28,7 @@ class TestLLMSettings:
 
     def test_max_tokens_default(self):
         settings = LLMSettings()
-        assert settings.max_tokens == 128000
+        assert settings.max_tokens == 16000
 
     def test_custom_settings(self):
         settings = LLMSettings(
