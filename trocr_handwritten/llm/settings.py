@@ -48,8 +48,17 @@ class LLMSettings(BaseModel):
         description="Temperature for text generation",
     )
     max_tokens: int = Field(
-        default=128000,
+        default=16000,
         description="Maximum number of tokens to generate",
+    )
+    request_timeout: float = Field(
+        default=120.0,
+        description="Per-request HTTP timeout in seconds.",
+    )
+    disable_thinking: bool = Field(
+        default=False,
+        description="For vLLM-served Qwen3/Qwen3-Next models, disable the "
+        "<think>...</think> reasoning block via chat_template_kwargs.",
     )
     prompt_path: str = Field(
         default="config/ocr.prompt",
