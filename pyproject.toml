@@ -37,7 +37,7 @@ dependencies = [
     "urllib3>=2.6.3",
     "aiohttp>=3.13.4",
     "h11>=0.16.0",
-    "tornado>=6.5",
+    "tornado>=6.5.7",
     "fonttools>=4.60.2",
     "requests>=2.33.0",
 ]
