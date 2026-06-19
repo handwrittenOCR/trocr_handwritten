@@ -9,7 +9,7 @@ load_dotenv()
 class LLMSettings(BaseModel):
     """Configuration settings for LLM-based OCR."""
 
-    provider: Literal["openai", "gemini", "mistral"] = Field(
+    provider: Literal["openai", "gemini", "mistral", "vllm"] = Field(
         default="gemini",
         description="LLM provider to use for OCR",
     )
@@ -29,6 +29,15 @@ class LLMSettings(BaseModel):
         default=os.getenv("MISTRAL_API_KEY"),
         description="Mistral AI API key",
     )
+    vllm_base_url: Optional[str] = Field(
+        default=os.getenv("VLLM_BASE_URL"),
+        description="Base URL of a self-hosted vLLM OpenAI-compatible server "
+        "(e.g. http://h100.example.com:8000/v1)",
+    )
+    vllm_api_key: Optional[str] = Field(
+        default=os.getenv("VLLM_API_KEY"),
+        description="API key for the vLLM server. Defaults to 'EMPTY' if unset.",
+    )
     reasoning_effort: Optional[str] = Field(
         default=None,
         description="Reasoning effort for Gemini thinking models: 'low', 'medium', 'high'. "
@@ -39,8 +48,17 @@ class LLMSettings(BaseModel):
         description="Temperature for text generation",
     )
     max_tokens: int = Field(
-        default=128000,
+        default=16000,
         description="Maximum number of tokens to generate",
+    )
+    request_timeout: float = Field(
+        default=120.0,
+        description="Per-request HTTP timeout in seconds.",
+    )
+    disable_thinking: bool = Field(
+        default=False,
+        description="For vLLM-served Qwen3/Qwen3-Next models, disable the "
+        "<think>...</think> reasoning block via chat_template_kwargs.",
     )
     prompt_path: str = Field(
         default="config/ocr.prompt",
