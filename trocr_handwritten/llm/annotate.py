@@ -293,7 +293,7 @@ class OCRAnnotationHandler(SimpleHTTPRequestHandler):
         if existing:
             existing["text"] = text
         else:
-            split = assign_split()
+            split = assign_split(filename, annotations)
             annotations.append(
                 {
                     "filename": filename,
