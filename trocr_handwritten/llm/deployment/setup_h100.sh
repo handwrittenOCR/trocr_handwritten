@@ -38,7 +38,8 @@ fi
 source .venv/bin/activate
 
 uv pip install --upgrade pip
-uv pip install "vllm>=0.7.0" "huggingface_hub[cli]" "hf_transfer"
+# Qwen3-VL and DeepSeek-OCR-2 need a recent vLLM with their model definitions.
+uv pip install "vllm>=0.11.0" "huggingface_hub[cli]" "hf_transfer"
 
 echo "==> HuggingFace cache dir: $HF_HOME"
 mkdir -p "$HF_HOME"

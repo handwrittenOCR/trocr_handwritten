@@ -76,22 +76,57 @@ class VLLMProvider(LLMProvider):
             return text.split("</think>", 1)[1].lstrip("\n ")
         return text
 
-    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
-        """Make a synchronous API call."""
-        response = self.client.chat.completions.create(
-            **self._build_kwargs(model, messages)
-        )
-        text = self._strip_thinking(response.choices[0].message.content)
+    @staticmethod
+    def _extract(response) -> Tuple[str, int, int]:
+        """Pull stripped text and token usage out of a completion response."""
+        text = VLLMProvider._strip_thinking(response.choices[0].message.content)
         input_tokens = response.usage.prompt_tokens if response.usage else 0
         output_tokens = response.usage.completion_tokens if response.usage else 0
         return text, input_tokens, output_tokens
 
-    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
-        """Make an asynchronous API call."""
-        response = await self.async_client.chat.completions.create(
-            **self._build_kwargs(model, messages)
+    def _retry_kwargs(self, model: str, messages: list) -> dict:
+        """Kwargs for an empty-response retry, forcing sampling to break greedy EOS."""
+        kwargs = self._build_kwargs(model, messages)
+        kwargs["temperature"] = max(self.settings.temperature, 0.5)
+        return kwargs
+
+    def _call_api(self, model: str, messages: list) -> Tuple[str, int, int]:
+        """Make a synchronous API call, retrying once with sampling if empty."""
+        text, in_tok, out_tok = self._extract(
+            self.client.chat.completions.create(**self._build_kwargs(model, messages))
         )
-        text = self._strip_thinking(response.choices[0].message.content)
-        input_tokens = response.usage.prompt_tokens if response.usage else 0
-        output_tokens = response.usage.completion_tokens if response.usage else 0
-        return text, input_tokens, output_tokens
+        if not text or not text.strip():
+            rtext, rin, rout = self._extract(
+                self.client.chat.completions.create(
+                    **self._retry_kwargs(model, messages)
+                )
+            )
+            in_tok += rin
+            out_tok += rout
+            if rtext and rtext.strip():
+                text = rtext
+        return text, in_tok, out_tok
+
+    async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
+        """Make an async API call, retrying once with sampling if empty.
+
+        Greedy decoding (temperature 0) can emit an immediate stop token on hard
+        or very long crops, yielding an empty transcription. A single sampled
+        retry recovers most of these.
+        """
+        text, in_tok, out_tok = self._extract(
+            await self.async_client.chat.completions.create(
+                **self._build_kwargs(model, messages)
+            )
+        )
+        if not text or not text.strip():
+            rtext, rin, rout = self._extract(
+                await self.async_client.chat.completions.create(
+                    **self._retry_kwargs(model, messages)
+                )
+            )
+            in_tok += rin
+            out_tok += rout
+            if rtext and rtext.strip():
+                text = rtext
+        return text, in_tok, out_tok
