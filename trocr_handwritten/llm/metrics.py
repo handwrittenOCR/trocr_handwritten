@@ -108,8 +108,8 @@ def compute_metrics(pairs):
     by_subfolder = defaultdict(list)
 
     for subfolder, stem, prediction, reference in pairs:
-        item_cer = jiwer.cer(reference, prediction)
-        item_wer = jiwer.wer(reference, prediction)
+        item_cer = min(jiwer.cer(reference, prediction), 1.0)
+        item_wer = min(jiwer.wer(reference, prediction), 1.0)
         item_lev = _levenshtein_distance(reference, prediction)
         item_exact = 1.0 if prediction == reference else 0.0
 
