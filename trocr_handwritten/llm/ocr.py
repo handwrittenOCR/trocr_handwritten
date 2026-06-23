@@ -8,6 +8,7 @@ from tqdm.asyncio import tqdm_asyncio
 
 from trocr_handwritten.utils.logging_config import get_logger
 from trocr_handwritten.utils.cost_tracker import CostTracker
+from trocr_handwritten.utils.prompt import load_prompt
 from trocr_handwritten.llm.settings import LLMSettings, OCRSettings
 from trocr_handwritten.llm.factory import get_provider
 
@@ -34,20 +35,6 @@ def find_images(
     if limit:
         images = images[:limit]
     return images
-
-
-def load_prompt(prompt_path: str) -> str:
-    """
-    Load the OCR prompt template from file.
-
-    Args:
-        prompt_path: Path to the prompt file.
-
-    Returns:
-        Prompt template string.
-    """
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        return f.read()
 
 
 async def process_image_async(
