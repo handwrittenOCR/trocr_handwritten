@@ -1,0 +1,16 @@
+<View>
+  <Style>.lsf-main-content { max-height: 92vh; }</Style>
+  <View style="display: flex; gap: 1em;">
+    <View style="flex: 55%;">
+      <Image name="image" value="$image" zoom="true" zoomControl="true"/>
+    </View>
+    <View style="flex: 45%;">
+      <Header value="Transcription"/>
+      <TextArea name="transcription" toName="image" value="$transcription"
+                rows="10" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Choices name="status" toName="image" choice="single" showInLine="true">
+        <Choice value="reject"/>
+      </Choices>
+    </View>
+  </View>
+</View>
