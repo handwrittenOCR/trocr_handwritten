@@ -28,6 +28,40 @@ def page_key(filename):
     return m.group(1) if m else stem
 
 
+def register_key(filename):
+    """
+    Return the archival register/volume a crop belongs to.
+
+    A register (matricule volume, microfilm reel or civil-status cote) is written
+    by a single hand, so grouping splits by register instead of page keeps a whole
+    scribe out of dev/test and measures generalization to unseen hands. The key is
+    read from the file name across the known corpus grammars; unknown patterns fall
+    back to stripping the trailing page and crop indices.
+
+    Args:
+        filename: Crop file name or stem.
+
+    Returns:
+        str: The register key.
+    """
+    parts = Path(filename).stem.split("_")
+    if parts and parts[0].isdigit() and len(parts) >= 3:
+        parts = parts[1:]
+    stem = "_".join(parts)
+    patterns = (
+        r"^(FRANOM\d+_COLH78_\d+)",
+        r"^(FRANOM\d+_\d+MIOM\d+)",
+        r"^(FRAD\d+_[A-Za-z0-9]+_\d+)",
+        r"^(DAFCAOM\d+_[A-Za-z0-9]+_\d+)",
+        r"^(p\d+)",
+    )
+    for pattern in patterns:
+        m = re.match(pattern, stem)
+        if m:
+            return m.group(1)
+    return "_".join(parts[:-2]) if len(parts) > 2 else stem
+
+
 def assign_split(filename=None, annotations=None):
     """
     Assign a split, keeping all crops of a page together to avoid leakage.
@@ -187,19 +221,24 @@ def _move_crop(base, subfolder, filename, old_split, new_split):
             shutil.move(str(src), str(dst))
 
 
-def regroup_by_page(base_dir, seed=42, logger=None):
+def regroup_by_page(base_dir, seed=42, logger=None, group_by="page"):
     """
-    Re-split existing OCR data grouped by page to remove train/test leakage.
+    Re-split existing OCR data grouped by page (or register) to remove leakage.
 
-    Every crop of a page is forced into the same split. Whole pages are greedily
-    packed to match SPLIT_WEIGHTS by crop count. Image and label files are moved to
-    their new split and annotations.json is rebuilt complete and consistent with
-    disk.
+    Every crop of a group is forced into the same split. Whole groups are greedily
+    packed so that SPLIT_WEIGHTS is matched within each subfolder (region) at once,
+    keeping train/dev/test balanced per category even though a group may mix several
+    categories. With ``group_by="register"`` the atomic unit is the archival volume
+    (one scribe), so a whole hand stays out of dev/test and the eval measures
+    generalization to unseen hands; ``"page"`` only prevents page-level leakage.
+    Image and label files are moved to their new split and annotations.json is
+    rebuilt complete and consistent with disk.
 
     Args:
         base_dir: Root directory containing the split subdirectories.
-        seed: Seed controlling the page shuffle for reproducibility.
+        seed: Seed controlling the group shuffle for reproducibility.
         logger: Optional logger for progress reporting.
+        group_by: Grouping unit, ``"page"`` or ``"register"``.
 
     Returns:
         dict: Per-split crop counts.
@@ -211,31 +250,45 @@ def regroup_by_page(base_dir, seed=42, logger=None):
             logger.warning(f"No crops found under {base_dir}")
         return {s: 0 for s in SPLITS}
 
+    key_fn = register_key if group_by == "register" else page_key
+
     unique = {}
     for r in records:
         unique.setdefault((r["subfolder"], r["filename"]), r)
     total = len(unique)
 
     pages = {}
+    cat_totals = {}
     for r in unique.values():
-        pages.setdefault(r["page"], []).append(r)
+        pages.setdefault(key_fn(r["filename"]), []).append(r)
+        cat_totals[r["subfolder"]] = cat_totals.get(r["subfolder"], 0) + 1
 
     rng = random.Random(seed)
     items = list(pages.items())
     rng.shuffle(items)
     items.sort(key=lambda kv: len(kv[1]), reverse=True)
 
-    counts = {s: 0 for s in SPLITS}
+    counts = {s: {c: 0 for c in cat_totals} for s in SPLITS}
     page_split = {}
     for key, group in items:
-        need = {s: SPLIT_WEIGHTS[s] * total - counts[s] for s in SPLITS}
-        target = max(need, key=need.get)
-        page_split[key] = target
-        counts[target] += len(group)
+        vec = {}
+        for r in group:
+            vec[r["subfolder"]] = vec.get(r["subfolder"], 0) + 1
+        best, best_score = None, None
+        for s in SPLITS:
+            score = sum(
+                n * (SPLIT_WEIGHTS[s] * cat_totals[c] - counts[s][c])
+                for c, n in vec.items()
+            )
+            if best_score is None or score > best_score:
+                best, best_score = s, score
+        page_split[key] = best
+        for c, n in vec.items():
+            counts[best][c] += n
 
     moved = 0
     for r in records:
-        new = page_split[r["page"]]
+        new = page_split[key_fn(r["filename"])]
         if new != r["split"]:
             _move_crop(base, r["subfolder"], r["filename"], r["split"], new)
             moved += 1
@@ -431,9 +484,20 @@ def main():
         help="Root directory containing train/dev/test (default: data/ocr)",
     )
     parser.add_argument("--seed", type=int, default=42, help="Shuffle seed")
+    parser.add_argument(
+        "--group-by",
+        choices=["page", "register"],
+        default="page",
+        help="Atomic split unit: page (no page leakage) or register (unseen hands)",
+    )
     args = parser.parse_args()
 
-    regroup_by_page(args.base_dir, seed=args.seed, logger=get_logger(__name__))
+    regroup_by_page(
+        args.base_dir,
+        seed=args.seed,
+        logger=get_logger(__name__),
+        group_by=args.group_by,
+    )
 
 
 if __name__ == "__main__":
