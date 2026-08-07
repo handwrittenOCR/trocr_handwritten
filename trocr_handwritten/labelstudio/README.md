@@ -53,7 +53,7 @@ export LS_URL=... LS_TOKEN=...
 python -m trocr_handwritten.labelstudio.export --projects 1 --out ./transcriptions
 ```
 
-Writes one `<name>.txt` per transcribed image into `--out`, plus a `transcriptions.json` list of `{filename, text}`. Rejected images and empty boxes are skipped. Pass several ids to `--projects` to merge multiple projects.
+Collects only **validated** crops: annotated, with a non-empty transcription and **no status box ticked**. Any crop flagged `reject` or `to verify` is skipped (counted separately in the run summary). Writes one `<name>.txt` per collected image into `--out`, plus a `transcriptions.json` list of `{filename, text}`. Pass several ids to `--projects` to merge multiple projects.
 
 ## Notes
 - Images are uploaded public-read for durable URLs. For a private bucket, switch to presigned URLs or a Label Studio S3 source storage connection.
