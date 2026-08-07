@@ -10,6 +10,7 @@
                 rows="10" editable="true" maxSubmissions="1" showSubmitButton="false"/>
       <Choices name="status" toName="image" choice="single" showInLine="true">
         <Choice value="reject"/>
+        <Choice value="to verify"/>
       </Choices>
     </View>
   </View>
