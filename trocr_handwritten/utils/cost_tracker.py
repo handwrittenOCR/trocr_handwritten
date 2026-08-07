@@ -21,6 +21,7 @@ PRICING = {
     "gemini-3.1-pro-preview": {"input": 2.00, "output": 12.00},
     "gemini-3-pro-preview": {"input": 2.00, "output": 12.00},
     "gemini-3-flash-preview": {"input": 0.50, "output": 3.00},
+    "gemini-3.5-flash": {"input": 1.50, "output": 9.00},
     "mistral-large-latest": {"input": 0.50, "output": 1.50},
     "pixtral-large-latest": {"input": 2.00, "output": 6.00},
     "ministral-3b-2512": {"input": 0.10, "output": 0.10},

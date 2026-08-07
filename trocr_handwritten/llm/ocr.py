@@ -205,8 +205,9 @@ def main():
         "--reasoning_effort",
         type=str,
         default=None,
-        choices=["low", "medium", "high"],
-        help="Reasoning effort for Gemini thinking models",
+        choices=["none", "low", "medium", "high"],
+        help="Reasoning effort for Gemini models. Use 'none' to disable thinking "
+        "(Flash models; Pro models require thinking).",
     )
     parser.add_argument(
         "--max_tokens",

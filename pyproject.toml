@@ -15,7 +15,6 @@ dependencies = [
     "albumentations>=1.4.0",
     "torchvision>=0.23.0",
     "shapely>=2.0.3",
-    "opencv-python>=4.9.0.80",
     "matplotlib>=3.8.3",
     "ipykernel>=6.29.2",
     "datasets>=2.17.1",
@@ -40,6 +39,7 @@ dependencies = [
     "tornado>=6.5.7",
     "fonttools>=4.60.2",
     "requests>=2.33.0",
+    "opencv-python-headless>=4.13.0.92",
 ]
 
 [project.scripts]
