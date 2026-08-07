@@ -15,29 +15,30 @@ logger = get_logger(__name__)
 
 def parse_task(task: Dict):
     """
-    Extract (filename, text, status) from an annotated task.
+    Extract (filename, text, flags) from an annotated task.
 
-    Returns None if the task has no human annotation yet. Falls back to the
-    pre-filled transcription when the annotation carries no text.
+    Returns None if the task has no human annotation yet. ``flags`` holds every
+    ticked status choice (e.g. "reject", "to verify"); an empty list means the
+    crop was validated with no box ticked. Falls back to the pre-filled
+    transcription when the annotation carries no text.
     """
     anns = task.get("annotations") or []
     if not anns:
         return None
-    text, status = "", "ok"
+    text, flags = "", []
     for res in anns[0].get("result", []):
         if res.get("from_name") == "transcription":
             vals = res.get("value", {}).get("text", [])
             text = vals[0] if vals else ""
         elif res.get("from_name") == "status":
-            choices = res.get("value", {}).get("choices", [])
-            status = choices[0] if choices else "ok"
+            flags = res.get("value", {}).get("choices", [])
     data = task.get("data", {})
     if not text:
         text = data.get("transcription", "")
     return {
         "filename": data.get("filename"),
         "text": (text or "").strip(),
-        "status": status,
+        "flags": flags,
     }
 
 
@@ -63,15 +64,18 @@ def main():
     ls = LabelStudio(_env("LS_URL"), _env("LS_TOKEN"))
 
     results = []
-    stats = {"written": 0, "rejected": 0, "skipped": 0}
+    stats = {"written": 0, "flagged": 0, "empty": 0, "unannotated": 0}
     for pid in args.projects:
         for task in ls.export_tasks(pid):
             rec = parse_task(task)
             if rec is None or not rec["filename"]:
-                stats["skipped"] += 1
+                stats["unannotated"] += 1
                 continue
-            if rec["status"].startswith("reject") or not rec["text"]:
-                stats["rejected"] += 1
+            if rec["flags"]:
+                stats["flagged"] += 1
+                continue
+            if not rec["text"]:
+                stats["empty"] += 1
                 continue
             (out_dir / (Path(rec["filename"]).stem + ".txt")).write_text(
                 rec["text"], encoding="utf-8"
