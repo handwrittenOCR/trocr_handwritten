@@ -19,10 +19,12 @@ def main(settings: LayoutParserSettings, logger):
     model = YOLOModel(settings, logger)
 
     logger.info(f"Predicting on {settings.path_folder}...")
-    det_res = model.predict(settings.path_folder)
-
-    logger.info("Creating structured crops...")
-    create_structured_crops(det_res, settings.class_names, settings.path_output)
+    det_res = []
+    for res in model.predict(settings.path_folder):
+        create_structured_crops([res], settings.class_names, settings.path_output)
+        res.orig_img = None
+        det_res.append(res)
+    logger.info(f"Structured crops created for {len(det_res)} pages")
 
     if settings.create_annotation_json:
         predictions = create_predictions_json(
@@ -41,11 +43,13 @@ if __name__ == "__main__":
     parser.add_argument("path_folder", nargs="?", default="data/raw/images")
     parser.add_argument("--output", type=str, default="data/processed/images/")
     parser.add_argument("--model", type=str, default=None)
-    parser.add_argument("--hf-repo", type=str, default="agomberto/historical-layout-ft")
+    parser.add_argument(
+        "--hf-repo", type=str, default="MarieBgl/historical-layout-bagnards-EC"
+    )
     parser.add_argument(
         "--hf-filename",
         type=str,
-        default="20241119_v2_yolov10_50_finetuned.pt",
+        default="20250111_yolov10_bagnards_EC.pt",
     )
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--conf", type=float, default=0.2)

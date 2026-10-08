@@ -226,4 +226,5 @@ class TestYOLOModel:
             conf=mock_settings.conf,
             iou=mock_settings.iou,
             device=mock_settings.device,
+            stream=True,
         )

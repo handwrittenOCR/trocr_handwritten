@@ -124,8 +124,14 @@ class YOLOModel:
             raise ValueError(f"Error loading model from local file: {e}")
 
     def predict(self, path_folder):
+        """Yield one detection result per image, so a folder is never held in memory at once."""
         return self.model.predict(
-            path_folder, imgsz=1024, conf=self.conf, iou=self.iou, device=self.device
+            path_folder,
+            imgsz=1024,
+            conf=self.conf,
+            iou=self.iou,
+            device=self.device,
+            stream=True,
         )
 
 

@@ -49,8 +49,8 @@ class TrainingSettings:
 class EvaluationSettings:
     path_data: str = "data/layout"
     path_model: str = None
-    hf_repo: str = "agomberto/historical-layout-ft"
-    hf_filename: str = "20241119_v2_yolov10_50_finetuned.pt"
+    hf_repo: str = "MarieBgl/historical-layout-bagnards-EC"
+    hf_filename: str = "20250111_yolov10_bagnards_EC.pt"
     split: str = "test"
     conf: float = 0.2
     iou: float = 0.5
