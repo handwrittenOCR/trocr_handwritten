@@ -61,15 +61,15 @@ if __name__ == "__main__":
         "--classes",
         type=str,
         nargs="+",
-        default=None,
-        help="Filter to specific class names (e.g. --classes Marge 'Plein Texte')",
+        default=["Marge", "Plein Texte"],
+        help="Classes cropped and kept in metadata (default: the OCR classes; 'all' for every class)",
     )
     args = parser.parse_args()
 
     from trocr_handwritten.parse.settings import CLASS_NAMES
 
     class_names = dict(CLASS_NAMES)
-    if args.classes:
+    if args.classes and args.classes != ["all"]:
         class_names = {k: v for k, v in class_names.items() if v in args.classes}
 
     settings = LayoutParserSettings(

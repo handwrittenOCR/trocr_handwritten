@@ -21,6 +21,7 @@ def find_images(
     pattern: str,
     limit: Optional[int] = None,
     output_extension: str = ".md",
+    classes: Optional[tuple] = None,
 ) -> List[Path]:
     """
     Find images matching the pattern that have not yet been transcribed.
@@ -30,11 +31,14 @@ def find_images(
         pattern: Glob pattern to match images.
         limit: Maximum number of *untranscribed* images to return.
         output_extension: Extension of output files (to filter already-done).
+        classes: Crop folder names kept (e.g. Marge, Plein Texte); None keeps all.
 
     Returns:
         List of paths to image files.
     """
-    all_images = sorted(input_dir.rglob(pattern))
+    all_images = sorted(
+        p for p in input_dir.rglob(pattern) if not classes or p.parent.name in classes
+    )
     untranscribed = [
         img for img in all_images if not img.with_suffix(output_extension).exists()
     ]
@@ -251,6 +255,7 @@ def main():
         ocr_settings.image_pattern,
         limit=args.n,
         output_extension=ocr_settings.output_extension,
+        classes=ocr_settings.ocr_classes,
     )
 
     asyncio.run(
@@ -268,7 +273,11 @@ def main():
     cost_tracker.log_summary()
 
     # Reconcile against disk: any .jpg without a corresponding .md is failed
-    all_jpgs = sorted(input_path.rglob(ocr_settings.image_pattern))
+    all_jpgs = sorted(
+        p
+        for p in input_path.rglob(ocr_settings.image_pattern)
+        if p.parent.name in ocr_settings.ocr_classes
+    )
     still_failed = {
         str(img): failed_images.get(str(img), "no corresponding output file")
         for img in all_jpgs

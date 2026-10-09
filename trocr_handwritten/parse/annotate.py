@@ -6,6 +6,14 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from trocr_handwritten.parse.gt_store import (
+    LABEL_TO_ID,
+    boxes_from_metadata,
+    gt_path,
+    load_gt,
+    read_queue,
+    save_gt,
+)
 from trocr_handwritten.parse.settings import CLASS_NAMES, CLASS_NAMES_LIST
 from trocr_handwritten.parse.utils import _load_model
 from trocr_handwritten.utils.annotation import (
@@ -80,10 +88,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         overflow: hidden; padding: 0.5rem; min-height: 0; }
 .info { font-size: 0.8rem; color: #8892b0; margin-bottom: 0.3rem; text-align: center; }
 .info strong { color: #ccd6f6; }
-.canvas-wrap { flex: 1; display: flex; justify-content: center; align-items: center;
-               min-height: 0; width: 100%; position: relative; overflow: auto; }
-.canvas-container { position: relative; display: inline-block;
-                    transform-origin: center center; transition: transform 0.1s ease; }
+.canvas-wrap { flex: 1; display: flex; min-height: 0; width: 100%; position: relative;
+               overflow: auto; }
+.canvas-container { position: relative; display: inline-block; margin: auto; flex-shrink: 0; }
 .canvas-container img { display: block; max-width: 100%; max-height: calc(100vh - 180px);
                         object-fit: contain; }
 .canvas-container canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
@@ -128,6 +135,7 @@ let scale = 1;
 let imgW = 0, imgH = 0;
 let drag = null;
 let zoom = 1;
+let baseW = 0, baseH = 0;
 
 const canvas = document.getElementById('overlay');
 const ctx = canvas.getContext('2d');
@@ -136,22 +144,30 @@ const toast = document.getElementById('toast');
 const container = document.querySelector('.canvas-container');
 const zoomInfo = document.getElementById('zoom-info');
 
+/** Resize the image and overlay to zoom x the fitted size; the window scrolls when they overflow. */
 function applyTransform() {
-    container.style.transform = 'scale(' + zoom + ')';
+    const w = baseW * zoom + 'px', h = baseH * zoom + 'px';
+    img.style.maxWidth = 'none';
+    img.style.maxHeight = 'none';
+    img.style.width = w;
+    img.style.height = h;
+    canvas.style.width = w;
+    canvas.style.height = h;
     if (zoomInfo) zoomInfo.textContent = Math.round(zoom * 100) + '%';
 }
 
+/** Measure the fitted (zoom 1) size of the page, size the overlay to it, then reapply the zoom. */
 function initCanvas() {
+    img.style.maxWidth = img.style.maxHeight = img.style.width = img.style.height = '';
     const rect = img.getBoundingClientRect();
-    const baseW = img.naturalWidth;
-    const baseH = img.naturalHeight;
-    const displayW = rect.width / zoom;
-    const displayH = rect.height / zoom;
-    canvas.width = displayW;
-    canvas.height = displayH;
-    scale = displayW / baseW;
-    imgW = baseW;
-    imgH = baseH;
+    baseW = rect.width;
+    baseH = rect.height;
+    canvas.width = baseW;
+    canvas.height = baseH;
+    scale = baseW / img.naturalWidth;
+    imgW = img.naturalWidth;
+    imgH = img.naturalHeight;
+    applyTransform();
     render();
 }
 
@@ -173,7 +189,7 @@ function render() {
         ctx.strokeRect(x, y, w, h);
 
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.08;
+        ctx.globalAlpha = i === selectedIdx ? 0.2 : 0.08;
         ctx.fillRect(x, y, w, h);
         ctx.globalAlpha = 1;
 
@@ -186,9 +202,9 @@ function render() {
         ctx.fillText(txt, x + 4, y - 4);
 
         if (i === selectedIdx) {
-            const hs = 8;
+            const hs = 10 * pxPerScreen();
             ctx.fillStyle = color;
-            [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([hx,hy]) => {
+            [[x,y],[x+w,y],[x,y+h],[x+w,y+h],[x+w/2,y],[x+w/2,y+h],[x,y+h/2],[x+w,y+h/2]].forEach(([hx,hy]) => {
                 ctx.fillRect(hx-hs/2, hy-hs/2, hs, hs);
             });
         }
@@ -224,20 +240,31 @@ function updateLabelButtons() {
     });
 }
 
+function pxPerScreen() {
+    const r = canvas.getBoundingClientRect();
+    return r.width > 0 ? canvas.width / r.width : 1;
+}
+
+function mousePos(e) {
+    const r = canvas.getBoundingClientRect();
+    const k = pxPerScreen();
+    return [(e.clientX - r.left) * k, (e.clientY - r.top) * k];
+}
+
 function hitHandle(box, mx, my) {
-    const hs = 12;
+    const tol = 9 * pxPerScreen();
     const [x, y] = toCvs(box.x, box.y);
     const w = box.width * scale, h = box.height * scale;
-    const corners = [
-        {p:[x,y], c:'nw'}, {p:[x+w,y], c:'ne'},
-        {p:[x,y+h], c:'sw'}, {p:[x+w,y+h], c:'se'},
-    ];
-    for (const corner of corners) {
-        if (Math.abs(mx - corner.p[0]) < hs && Math.abs(my - corner.p[1]) < hs)
-            return corner.c;
-    }
-    return null;
+    const inX = mx > x - tol && mx < x + w + tol, inY = my > y - tol && my < y + h + tol;
+    const nearW = Math.abs(mx - x) < tol, nearE = Math.abs(mx - (x + w)) < tol;
+    const nearN = Math.abs(my - y) < tol, nearS = Math.abs(my - (y + h)) < tol;
+    let v = (nearN && inX) ? 'n' : (nearS && inX) ? 's' : '';
+    let hz = (nearW && inY) ? 'w' : (nearE && inY) ? 'e' : '';
+    return (v + hz) || null;
 }
+
+const CURSORS = {n:'ns-resize', s:'ns-resize', e:'ew-resize', w:'ew-resize',
+                 ne:'nesw-resize', sw:'nesw-resize', nw:'nwse-resize', se:'nwse-resize'};
 
 function hitBox(mx, my) {
     const [ix, iy] = toImg(mx, my);
@@ -250,13 +277,15 @@ function hitBox(mx, my) {
 }
 
 canvas.addEventListener('mousedown', (e) => {
-    const r = canvas.getBoundingClientRect();
-    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const [mx, my] = mousePos(e);
 
-    if (selectedIdx >= 0) {
-        const h = hitHandle(boxes[selectedIdx], mx, my);
+    const order = selectedIdx >= 0 ? [selectedIdx, ...boxes.keys()] : [...boxes.keys()];
+    for (const i of order) {
+        const h = hitHandle(boxes[i], mx, my);
         if (h) {
-            drag = { type:'resize', handle:h, orig:{...boxes[selectedIdx]} };
+            selectedIdx = i;
+            drag = { type:'resize', handle:h, orig:{...boxes[i]} };
+            render();
             return;
         }
     }
@@ -277,9 +306,12 @@ canvas.addEventListener('mousedown', (e) => {
 });
 
 canvas.addEventListener('mousemove', (e) => {
-    if (!drag) return;
-    const r = canvas.getBoundingClientRect();
-    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const [mx, my] = mousePos(e);
+    if (!drag) {
+        const h = selectedIdx >= 0 ? hitHandle(boxes[selectedIdx], mx, my) : null;
+        canvas.style.cursor = h ? CURSORS[h] : (hitBox(mx, my) >= 0 ? 'move' : 'crosshair');
+        return;
+    }
     const [ix, iy] = toImg(mx, my);
 
     if (drag.type === 'draw') {
@@ -299,7 +331,7 @@ canvas.addEventListener('mousemove', (e) => {
     render();
 });
 
-canvas.addEventListener('mouseup', () => {
+window.addEventListener('mouseup', () => {
     if (!drag) return;
     if (drag.type === 'draw') {
         let {x, y, width, height, class_id, label} = drag.box;
@@ -396,11 +428,17 @@ function clearBoxes() {
     render();
 }
 
-document.querySelector('.canvas-wrap').addEventListener('wheel', (e) => {
+const wrap = document.querySelector('.canvas-wrap');
+
+wrap.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    zoom = Math.min(5, Math.max(0.2, zoom * delta));
+    const r = container.getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    zoom = Math.min(5, Math.max(0.2, zoom * (e.deltaY > 0 ? 0.9 : 1.1)));
     applyTransform();
+    const r2 = container.getBoundingClientRect();
+    wrap.scrollLeft += r2.left + fx * r2.width - e.clientX;
+    wrap.scrollTop += r2.top + fy * r2.height - e.clientY;
 }, { passive: false });
 """
 
@@ -519,10 +557,18 @@ class AnnotationHandler(SimpleHTTPRequestHandler):
         image_path = self.state["images"][idx]
         filename = image_path.name
 
-        existing = next(
-            (a for a in self.state["annotations"] if a["filename"] == filename), None
+        gt = self.state.get("gt")
+        existing = (
+            None
+            if gt
+            else next(
+                (a for a in self.state["annotations"] if a["filename"] == filename),
+                None,
+            )
         )
-        if existing:
+        if gt:
+            filename, initial_boxes = self._gt_page(idx)
+        elif existing:
             initial_boxes = existing["boxes"]
         elif self.state["prefill_enabled"]:
             initial_boxes = _prefill_image(image_path, self.state["model"])
@@ -572,9 +618,43 @@ class AnnotationHandler(SimpleHTTPRequestHandler):
         boxes = _prefill_image(image_path, model)
         self._send_json({"boxes": boxes})
 
+    def _gt_page(self, idx):
+        """Title and initial boxes of a queued page: its saved ground truth, else its YOLO boxes."""
+        q = self.state["gt"]["queue"][idx]
+        rec = load_gt(
+            gt_path(self.state["gt"]["dir"], q["commune"], q["year"], q["page_id"])
+        )
+        if rec:
+            boxes = [dict(b, class_id=LABEL_TO_ID[b["label"]]) for b in rec["boxes"]]
+            status = f"ground truth saved ({rec['source']}, {rec['saved_at']})"
+        else:
+            boxes = boxes_from_metadata(q["metadata_path"])
+            status = "YOLO boxes, not yet validated"
+        return f"{q['commune']} {q['year']} · {q['page_id']} · {status}", boxes
+
+    def _save_gt(self, body):
+        """Save the edited boxes of a queued page to the ground-truth store."""
+        q = self.state["gt"]["queue"][body["idx"]]
+        path = save_gt(
+            self.state["gt"]["dir"],
+            q["commune"],
+            q["year"],
+            q["page_id"],
+            body["boxes"],
+            (body["img_w"], body["img_h"]),
+            boxes_from_metadata(q["metadata_path"]),
+            self.state["gt"]["annotator"],
+        )
+        self.state["n_annotated"] = _count_gt(self.state["gt"])
+        logger.info(f"Ground truth saved: {path}")
+        self._send_json({"ok": True, "n_boxes": len(body["boxes"])})
+
     def _handle_save(self):
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length))
+        if self.state.get("gt"):
+            self._save_gt(body)
+            return
 
         idx = body["idx"]
         boxes = body["boxes"]
@@ -623,6 +703,37 @@ class AnnotationHandler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
 
+def _count_gt(gt):
+    """Number of queued pages that already have a ground-truth file."""
+    return sum(
+        gt_path(gt["dir"], q["commune"], q["year"], q["page_id"]).exists()
+        for q in gt["queue"]
+    )
+
+
+def annotate_gt(queue_csv, gt_dir, annotator="", port=8789):
+    """Start the server on a queue of pages; boxes are saved to the ground-truth store."""
+    queue = read_queue(queue_csv)
+    gt = {"queue": queue, "dir": Path(gt_dir), "annotator": annotator}
+    state = {
+        "images": [Path(q["image_path"]) for q in queue],
+        "annotations": [],
+        "n_annotated": _count_gt(gt),
+        "prefill_enabled": False,
+        "model": None,
+        "gt": gt,
+    }
+    logger.info(f"Ground-truth queue: {len(queue)} pages, {state['n_annotated']} done")
+    server = HTTPServer(("127.0.0.1", port), partial(AnnotationHandler, state=state))
+    url = f"http://127.0.0.1:{port}"
+    logger.info(f"Annotation server: {url}")
+    webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+
+
 def annotate(images_dir, prefill=False, model_path=None, port=8789):
     """Start the annotation server."""
     images = collect_images(images_dir)
@@ -669,7 +780,16 @@ def annotate(images_dir, prefill=False, model_path=None, port=8789):
 def main():
     """CLI entry point for layout annotation."""
     parser = argparse.ArgumentParser(description="Annotate layout bounding boxes")
-    parser.add_argument("images_dir", type=str, help="Directory containing images")
+    parser.add_argument(
+        "images_dir", type=str, nargs="?", help="Directory containing images"
+    )
+    parser.add_argument(
+        "--gt-queue", type=str, default=None, help="CSV of pages for ground truth"
+    )
+    parser.add_argument(
+        "--gt-dir", type=str, default=None, help="Ground-truth store directory"
+    )
+    parser.add_argument("--annotator", type=str, default="")
     parser.add_argument("--prefill", action="store_true", help="Enable model prefill")
     parser.add_argument(
         "--model", type=str, default=None, help="Model path for prefill"
@@ -677,6 +797,9 @@ def main():
     parser.add_argument("--port", type=int, default=8789)
     args = parser.parse_args()
 
+    if args.gt_queue:
+        annotate_gt(args.gt_queue, args.gt_dir, args.annotator, args.port)
+        return
     annotate(
         images_dir=args.images_dir,
         prefill=args.prefill,

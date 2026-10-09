@@ -56,6 +56,10 @@ class OCRSettings(BaseModel):
         default="*/*/*.jpg",
         description="Glob pattern to find images relative to input_dir",
     )
+    ocr_classes: tuple[str, ...] = Field(
+        default=("Marge", "Plein Texte"),
+        description="Crop folders sent to OCR; crops of other layout classes are never billed",
+    )
     output_extension: str = Field(
         default=".md",
         description="Extension for output transcription files",
