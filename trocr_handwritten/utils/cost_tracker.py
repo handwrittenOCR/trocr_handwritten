@@ -49,6 +49,7 @@ class CostTracker:
     thinking_tokens: int = 0
     total_calls: int = 0
     budget_eur: float = 0.0  # 0 = no limit
+    batch: bool = False
     _pricing: Dict[str, Dict[str, float]] = field(default_factory=lambda: PRICING)
 
     def add_usage(
@@ -87,16 +88,17 @@ class CostTracker:
 
     def get_cost(self) -> Dict[str, float]:
         """
-        Calculate total cost breakdown in EUR.
+        Calculate total cost breakdown in EUR (batch requests at half the standard rate).
 
         Returns:
             Dict with input_cost, output_cost, thinking_cost, and total.
         """
         pricing = self._pricing.get(self.model_name, {"input": 0.0, "output": 0.0})
-        input_cost = (self.input_tokens / 1_000_000) * pricing["input"]
-        output_cost = (self.output_tokens / 1_000_000) * pricing["output"]
+        rate = 0.5 if self.batch else 1.0
+        input_cost = (self.input_tokens / 1_000_000) * pricing["input"] * rate
+        output_cost = (self.output_tokens / 1_000_000) * pricing["output"] * rate
         # Thinking tokens are billed at output token rate
-        thinking_cost = (self.thinking_tokens / 1_000_000) * pricing["output"]
+        thinking_cost = (self.thinking_tokens / 1_000_000) * pricing["output"] * rate
         return {
             "input_cost": input_cost,
             "output_cost": output_cost,
@@ -150,6 +152,7 @@ class CostTracker:
         entry = {
             "timestamp": datetime.now().isoformat(),
             "model": self.model_name,
+            "batch": self.batch,
             "total_calls": self.total_calls,
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,

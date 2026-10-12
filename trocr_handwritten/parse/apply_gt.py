@@ -11,12 +11,14 @@ the OCR step transcribes every */*/*.jpg below its input folder.
 
 Skipped: pages whose ground truth is the accepted YOLO output (source "yolo_accepted"), pages
 already rebuilt from the same ground-truth version, and pages with an OCR transcription (.md),
-whose text came from the old crops.
+whose text came from the old crops. With --replace-ocred, OCRed pages are rebuilt too: their crops
+and .md files move to the replaced folder (version "yolo_ocred") and the page is OCRed again.
 
 Usage:
     python -m trocr_handwritten.parse.apply_gt --gt-dir <ECES>/layout_gt \
         --ocr-dir <ECES>/OCR_gem31 --image-root D:/ECES \
         --replaced-dir <ECES>/OCR_gem31_replaced [--folders moule/1837 ...] [--dry-run]
+        [--replace-ocred]
 """
 
 import argparse
@@ -67,7 +69,12 @@ def write_crops(img, boxes: list[dict], page_dir: Path) -> dict:
 
 
 def apply_page(
-    gt_file: Path, ocr_dir: Path, image_root: Path, replaced_dir: Path, dry_run: bool
+    gt_file: Path,
+    ocr_dir: Path,
+    image_root: Path,
+    replaced_dir: Path,
+    dry_run: bool,
+    replace_ocred: bool = False,
 ) -> str:
     """Rebuild one page from its ground truth; returns what was done."""
     gt = json.loads(gt_file.read_text(encoding="utf-8"))
@@ -82,14 +89,15 @@ def apply_page(
         done = json.loads(marker.read_text(encoding="utf-8"))
         if done.get("saved_at") == gt.get("saved_at"):
             return "skip: already applied"
-    if any(page_dir.rglob("*.md")):
+    ocred = any(page_dir.rglob("*.md"))
+    if ocred and not replace_ocred:
         return "skip: already OCRed"
     img_path = page_image(image_root, commune, year, page_id)
     if not img_path.exists():
         return f"skip: no image {img_path}"
     if dry_run:
-        return "would apply"
-    version = "yolo"
+        return "would apply (OCRed)" if ocred else "would apply"
+    version = "yolo_ocred" if ocred else "yolo"
     if marker.exists():
         prev = json.loads(marker.read_text(encoding="utf-8")).get("saved_at", "")
         version = "gt_" + "".join(ch for ch in str(prev) if ch.isalnum())
@@ -113,7 +121,7 @@ def apply_page(
         ),
         encoding="utf-8",
     )
-    return "applied"
+    return "applied (OCRed)" if ocred else "applied"
 
 
 def main():
@@ -125,6 +133,11 @@ def main():
     ap.add_argument("--replaced-dir", required=True)
     ap.add_argument("--folders", nargs="*", default=None, help="commune/year")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--replace-ocred",
+        action="store_true",
+        help="Rebuild OCRed pages too; their crops and .md move to the replaced folder",
+    )
     a = ap.parse_args()
     gt_dir = Path(a.gt_dir)
     files = sorted(
@@ -135,7 +148,12 @@ def main():
     counts = {}
     for f in files:
         status = apply_page(
-            f, Path(a.ocr_dir), Path(a.image_root), Path(a.replaced_dir), a.dry_run
+            f,
+            Path(a.ocr_dir),
+            Path(a.image_root),
+            Path(a.replaced_dir),
+            a.dry_run,
+            a.replace_ocred,
         )
         key = "skip: no image" if status.startswith("skip: no image") else status
         counts[key] = counts.get(key, 0) + 1
