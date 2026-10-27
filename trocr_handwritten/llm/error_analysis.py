@@ -1,11 +1,14 @@
 import argparse
+import json
 import re
 from collections import Counter, defaultdict
+from pathlib import Path
 
 import evaluate
 import jiwer
 
-from trocr_handwritten.llm.metrics import _collect_pairs
+from trocr_handwritten.llm.metrics import NORMALIZERS, _collect_pairs
+from trocr_handwritten.utils.annotation import register_key
 from trocr_handwritten.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -190,6 +193,8 @@ def formulaic_vs_free_cer(pairs):
                     ref_to_pred_map[ri] = pi
 
         for ref_line in ref_lines:
+            if not ref_line.strip():
+                continue
             is_formulaic = any(rx.search(ref_line) for _, rx in compiled)
 
             start_word = (
@@ -572,7 +577,364 @@ def log_hallucinations(results, logger):
             )
 
 
-def run_all(pairs):
+def _word_alignment(reference, hypothesis, level="N2"):
+    """
+    Align two texts word by word on the N2 canonical form.
+
+    Returns (ref_tokens, flags, chunks) where flags[i] tells whether reference
+    token i was mis-read, and chunks is the raw jiwer alignment. Sharing this one
+    alignment keeps the positional, linguistic and word analyses consistent.
+    """
+    ref = NORMALIZERS[level](reference).split()
+    hyp = NORMALIZERS[level](hypothesis).split()
+    if not ref:
+        return [], [], []
+    out = jiwer.process_words([" ".join(ref)], [" ".join(hyp) or " "])
+    flags = [False] * len(ref)
+    for chunk in out.alignments[0]:
+        if chunk.type in ("substitute", "delete"):
+            for i in range(chunk.ref_start_idx, chunk.ref_end_idx):
+                if i < len(flags):
+                    flags[i] = True
+    return ref, flags, out.alignments[0]
+
+
+def word_error_profile(pairs, top_n=25):
+    """
+    Break word errors into substitutions, insertions and deletions, and rank the
+    most frequent confusions.
+
+    The character confusion matrix says which glyphs slip; this says which words
+    the model actually gets wrong, which is what a downstream lexicon would fix.
+    """
+    subs, dels, ins = Counter(), Counter(), Counter()
+    totals = Counter()
+    for _, _, prediction, reference in pairs:
+        ref = NORMALIZERS["N2"](reference).split()
+        hyp = NORMALIZERS["N2"](prediction).split()
+        if not ref:
+            continue
+        out = jiwer.process_words([" ".join(ref)], [" ".join(hyp) or " "])
+        totals["ref_words"] += len(ref)
+        totals["hits"] += out.hits
+        totals["substitutions"] += out.substitutions
+        totals["insertions"] += out.insertions
+        totals["deletions"] += out.deletions
+        for chunk in out.alignments[0]:
+            if chunk.type == "substitute":
+                for r, h in zip(
+                    ref[chunk.ref_start_idx : chunk.ref_end_idx],
+                    hyp[chunk.hyp_start_idx : chunk.hyp_end_idx],
+                ):
+                    subs[(r, h)] += 1
+            elif chunk.type == "delete":
+                for r in ref[chunk.ref_start_idx : chunk.ref_end_idx]:
+                    dels[r] += 1
+            elif chunk.type == "insert":
+                for h in hyp[chunk.hyp_start_idx : chunk.hyp_end_idx]:
+                    ins[h] += 1
+    n = max(totals["ref_words"], 1)
+    edits = totals["substitutions"] + totals["insertions"] + totals["deletions"]
+    return {
+        "ref_words": totals["ref_words"],
+        "wer": edits / n,
+        "share": {
+            k: totals[k] / max(edits, 1)
+            for k in ("substitutions", "insertions", "deletions")
+        },
+        "counts": dict(totals),
+        "top_substitutions": subs.most_common(top_n),
+        "top_deletions": dels.most_common(top_n),
+        "top_insertions": ins.most_common(top_n),
+    }
+
+
+def positional_error_profile(pairs, n_bins=10):
+    """
+    Measure the word error rate as a function of relative position in the text.
+
+    Answers whether the model drifts towards the end (decoding fatigue, early
+    EOS) or fumbles the start (header lines, layout entry point).
+    """
+    hit = [0] * n_bins
+    total = [0] * n_bins
+    first_last = Counter()
+    for _, _, prediction, reference in pairs:
+        ref, flags, _ = _word_alignment(reference, prediction)
+        if not ref:
+            continue
+        for i, bad in enumerate(flags):
+            b = min(int(i * n_bins / len(ref)), n_bins - 1)
+            total[b] += 1
+            hit[b] += bad
+        first_last["first_5_err"] += sum(flags[:5])
+        first_last["first_5_tot"] += len(flags[:5])
+        first_last["last_5_err"] += sum(flags[-5:])
+        first_last["last_5_tot"] += len(flags[-5:])
+    return {
+        "n_bins": n_bins,
+        "bins": [
+            {
+                "bin": i,
+                "n": total[i],
+                "error_rate": hit[i] / total[i] if total[i] else 0.0,
+            }
+            for i in range(n_bins)
+        ],
+        "first_5": first_last["first_5_err"] / max(first_last["first_5_tot"], 1),
+        "last_5": first_last["last_5_err"] / max(first_last["last_5_tot"], 1),
+    }
+
+
+def linguistic_error_profile(pairs, tags_path):
+    """
+    Break the word error rate down by part of speech and by named-entity type.
+
+    Uses the LLM-tagged reference cache written by `llm.tag_references`, joined
+    by token index: the tagger tokenises with the same N2 whitespace split as the
+    alignment, so no realignment is needed.
+    """
+    tags = json.loads(Path(tags_path).read_text(encoding="utf-8"))
+    pos_err, pos_tot = Counter(), Counter()
+    ner_err, ner_tot = Counter(), Counter()
+    matched, skipped = 0, 0
+    for subfolder, stem, prediction, reference in pairs:
+        entry = tags.get(f"{subfolder}/{stem}")
+        ref, flags, _ = _word_alignment(reference, prediction)
+        if entry is None or len(entry) != len(ref):
+            skipped += 1
+            continue
+        matched += 1
+        for (_, pos, ner), bad in zip(entry, flags):
+            pos_tot[pos] += 1
+            ner_tot[ner] += 1
+            pos_err[pos] += bad
+            ner_err[ner] += bad
+
+    def _rows(err, tot):
+        return sorted(
+            (
+                {"label": k, "n": tot[k], "error_rate": err[k] / tot[k]}
+                for k in tot
+                if tot[k]
+            ),
+            key=lambda r: -r["error_rate"],
+        )
+
+    overall = sum(pos_err.values()) / max(sum(pos_tot.values()), 1)
+    return {
+        "documents_matched": matched,
+        "documents_skipped": skipped,
+        "overall_word_error_rate": overall,
+        "by_pos": _rows(pos_err, pos_tot),
+        "by_ner": _rows(ner_err, ner_tot),
+    }
+
+
+def document_error_profile(pairs, top_n=15):
+    """
+    Aggregate errors per source document (register) rather than per crop.
+
+    Two distinct questions: how unevenly the error mass is spread across
+    documents, and how likely a given crop is to carry at least one word error.
+    """
+    by_reg = defaultdict(lambda: {"chars": 0, "edits": 0, "items": 0, "clean": 0})
+    clean_items = 0
+    for _, stem, prediction, reference in pairs:
+        ref_text = NORMALIZERS["N2"](reference)
+        hyp_text = NORMALIZERS["N2"](prediction)
+        if not ref_text:
+            continue
+        reg = by_reg[register_key(stem)]
+        edits = jiwer.cer(ref_text, hyp_text or " ") * len(ref_text)
+        reg["chars"] += len(ref_text)
+        reg["edits"] += edits
+        reg["items"] += 1
+        _, flags, _ = _word_alignment(reference, prediction)
+        if not any(flags):
+            reg["clean"] += 1
+            clean_items += 1
+    rows = sorted(
+        (
+            {
+                "register": k,
+                "n_items": v["items"],
+                "cer": v["edits"] / v["chars"] if v["chars"] else 0.0,
+                "clean_rate": v["clean"] / v["items"] if v["items"] else 0.0,
+            }
+            for k, v in by_reg.items()
+        ),
+        key=lambda r: -r["cer"],
+    )
+    cers = [r["cer"] for r in rows]
+    total_edits = sum(v["edits"] for v in by_reg.values())
+    worst = sorted(by_reg.values(), key=lambda v: -v["edits"])
+    top_share = sum(v["edits"] for v in worst[: max(len(worst) // 5, 1)])
+    n_items = sum(v["items"] for v in by_reg.values())
+    return {
+        "n_registers": len(rows),
+        "n_items": n_items,
+        "item_error_probability": 1 - clean_items / max(n_items, 1),
+        "cer_spread": {
+            "min": min(cers) if cers else 0.0,
+            "median": sorted(cers)[len(cers) // 2] if cers else 0.0,
+            "max": max(cers) if cers else 0.0,
+        },
+        "worst_quintile_edit_share": top_share / max(total_edits, 1),
+        "worst": rows[:top_n],
+        "best": rows[-top_n:][::-1],
+    }
+
+
+def image_quality_profile(pairs, images_dir, image_ext=".jpg", n_buckets=4):
+    """
+    Correlate per-crop CER with cheap image-quality proxies.
+
+    Blur is the variance of the Laplacian, contrast the pixel standard deviation,
+    exposure the mean level. Reported as quartile buckets plus a Spearman
+    coefficient, which is rank-based and so immune to the heavy CER tail.
+    """
+    import cv2
+    import numpy as np
+    from scipy.stats import spearmanr
+
+    root = Path(images_dir)
+    rows = []
+    for subfolder, stem, prediction, reference in pairs:
+        path = root / subfolder / f"{stem}{image_ext}"
+        if not path.exists():
+            continue
+        img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            continue
+        ref_text = NORMALIZERS["N2"](reference)
+        if not ref_text:
+            continue
+        rows.append(
+            {
+                "cer": jiwer.cer(ref_text, NORMALIZERS["N2"](prediction) or " "),
+                "blur": float(cv2.Laplacian(img, cv2.CV_64F).var()),
+                "contrast": float(img.std()),
+                "brightness": float(img.mean()),
+                "pixels": float(img.size),
+            }
+        )
+    if not rows:
+        return {"n": 0}
+    out = {"n": len(rows), "metrics": {}}
+    cers = np.array([r["cer"] for r in rows])
+    for key in ("blur", "contrast", "brightness", "pixels"):
+        vals = np.array([r[key] for r in rows])
+        order = np.argsort(vals)
+        buckets = np.array_split(order, n_buckets)
+        rho, p = spearmanr(vals, cers)
+        out["metrics"][key] = {
+            "spearman_rho": float(rho),
+            "p_value": float(p),
+            "buckets": [
+                {
+                    "bucket": i,
+                    "n": len(b),
+                    "value_median": float(np.median(vals[b])),
+                    "cer_mean": float(cers[b].mean()),
+                }
+                for i, b in enumerate(buckets)
+            ],
+        }
+    return out
+
+
+def log_word_errors(results, logger):
+    """Log the word-level edit breakdown and the most frequent confusions."""
+    logger.info("\n=== WORD ERRORS ===")
+    share = results["share"]
+    logger.info(
+        f"WER {results['wer']:.4f} on {results['ref_words']} reference words | "
+        f"sub {share['substitutions']:.0%} / del {share['deletions']:.0%} / "
+        f"ins {share['insertions']:.0%}"
+    )
+    logger.info("  top substitutions (ref -> hyp):")
+    for (r, h), c in results["top_substitutions"][:15]:
+        logger.info(f"    {c:>4}x  {r!r} -> {h!r}")
+    logger.info("  top deletions:")
+    for w, c in results["top_deletions"][:10]:
+        logger.info(f"    {c:>4}x  {w!r}")
+    logger.info("  top insertions:")
+    for w, c in results["top_insertions"][:10]:
+        logger.info(f"    {c:>4}x  {w!r}")
+
+
+def log_positional(results, logger):
+    """Log the word error rate across relative position deciles."""
+    logger.info("\n=== ERROR BY POSITION ===")
+    logger.info(f"{'decile':>8} {'n':>7} {'err rate':>9}")
+    for b in results["bins"]:
+        bar = "#" * int(b["error_rate"] * 100)
+        logger.info(f"{b['bin']:>8} {b['n']:>7} {b['error_rate']:>9.4f}  {bar}")
+    logger.info(
+        f"first 5 words: {results['first_5']:.4f} | last 5 words: {results['last_5']:.4f}"
+    )
+
+
+def log_linguistic(results, logger):
+    """Log the word error rate by POS tag and by entity type."""
+    logger.info("\n=== ERROR BY POS / NER ===")
+    logger.info(
+        f"{results['documents_matched']} documents joined, "
+        f"{results['documents_skipped']} skipped (token count mismatch) | "
+        f"overall word error rate {results['overall_word_error_rate']:.4f}"
+    )
+    for key, title in (("by_pos", "POS"), ("by_ner", "NER")):
+        logger.info(f"  {title:>4}  {'n':>7} {'err rate':>9}  ratio")
+        for row in results[key]:
+            ratio = row["error_rate"] / max(results["overall_word_error_rate"], 1e-9)
+            logger.info(
+                f"  {row['label']:>4}  {row['n']:>7} {row['error_rate']:>9.4f}  x{ratio:.2f}"
+            )
+
+
+def log_documents(results, logger):
+    """Log the spread of CER across source documents."""
+    logger.info("\n=== ERROR BY DOCUMENT ===")
+    spread = results["cer_spread"]
+    logger.info(
+        f"{results['n_registers']} registers, {results['n_items']} crops | "
+        f"CER min {spread['min']:.4f} / median {spread['median']:.4f} / "
+        f"max {spread['max']:.4f}"
+    )
+    logger.info(
+        f"P(a crop carries >=1 word error) = {results['item_error_probability']:.4f} | "
+        f"worst quintile of registers holds {results['worst_quintile_edit_share']:.0%} "
+        f"of all character edits"
+    )
+    logger.info("  worst registers:")
+    for r in results["worst"][:10]:
+        logger.info(
+            f"    {r['register']:>28}  n={r['n_items']:>3} cer={r['cer']:.4f} "
+            f"clean={r['clean_rate']:.2f}"
+        )
+
+
+def log_image_quality(results, logger):
+    """Log the correlation between image-quality proxies and CER."""
+    logger.info("\n=== IMAGE QUALITY vs CER ===")
+    if not results.get("n"):
+        logger.info("  no images matched")
+        return
+    logger.info(f"{results['n']} crops measured")
+    for key, block in results["metrics"].items():
+        logger.info(
+            f"  {key:>10}  spearman rho={block['spearman_rho']:+.3f} "
+            f"p={block['p_value']:.4f}"
+        )
+        for b in block["buckets"]:
+            logger.info(
+                f"      Q{b['bucket'] + 1} n={b['n']:>3} "
+                f"median={b['value_median']:>10.1f}  CER={b['cer_mean']:.4f}"
+            )
+
+
+def run_all(pairs, tags_path=None, images_dir=None):
     """
     Run all error analyses on prediction/reference pairs.
 
@@ -614,7 +976,41 @@ def run_all(pairs):
     results["hallucinations"] = hallucination_detection(pairs)
     log_hallucinations(results["hallucinations"], logger)
 
+    logger.info("  + Word-level error breakdown...")
+    results["word_errors"] = word_error_profile(pairs)
+    log_word_errors(results["word_errors"], logger)
+
+    logger.info("  + Error by position...")
+    results["positional"] = positional_error_profile(pairs)
+    log_positional(results["positional"], logger)
+
+    logger.info("  + Error by document...")
+    results["documents"] = document_error_profile(pairs)
+    log_documents(results["documents"], logger)
+
+    if tags_path:
+        logger.info("  + Error by POS / NER...")
+        results["linguistic"] = linguistic_error_profile(pairs, tags_path)
+        log_linguistic(results["linguistic"], logger)
+
+    if images_dir:
+        logger.info("  + Image quality vs CER...")
+        results["image_quality"] = image_quality_profile(pairs, images_dir)
+        log_image_quality(results["image_quality"], logger)
+
     return results
+
+
+def _jsonable(obj):
+    """Recursively turn tuple dict keys into strings so results can be dumped."""
+    if isinstance(obj, dict):
+        return {
+            (" → ".join(map(str, k)) if isinstance(k, tuple) else k): _jsonable(v)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, (list, tuple)):
+        return [_jsonable(v) for v in obj]
+    return obj
 
 
 def main():
@@ -636,6 +1032,21 @@ def main():
     )
     parser.add_argument("--pred-ext", type=str, default=".md")
     parser.add_argument("--label-ext", type=str, default=".txt")
+    parser.add_argument(
+        "--tags",
+        type=str,
+        default=None,
+        help="POS/NER cache from llm.tag_references; enables the linguistic split.",
+    )
+    parser.add_argument(
+        "--images",
+        type=str,
+        default=None,
+        help="Image directory mirroring the labels; enables the quality analysis.",
+    )
+    parser.add_argument(
+        "--output", type=str, default=None, help="Write the full results as JSON."
+    )
     args = parser.parse_args()
 
     pairs = _collect_pairs(args.predictions, args.labels, args.pred_ext, args.label_ext)
@@ -643,7 +1054,15 @@ def main():
         logger.error("No matching prediction/label pairs found")
         return
 
-    run_all(pairs)
+    results = run_all(pairs, tags_path=args.tags, images_dir=args.images)
+    if args.output:
+        out = Path(args.output)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps(_jsonable(results), ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+        logger.info(f"\nWrote {out}")
 
 
 if __name__ == "__main__":
