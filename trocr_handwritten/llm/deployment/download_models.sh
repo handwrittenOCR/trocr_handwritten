@@ -31,6 +31,12 @@ CATALOGUE=(
     "Qwen/Qwen3-VL-2B-Instruct"
     "Qwen/Qwen3-VL-8B-Instruct"
     "Qwen/Qwen3-VL-32B-Instruct"
+    "Qwen/Qwen3.6-27B"
+    "Qwen/Qwen3.5-27B"
+    "Qwen/Qwen3.5-9B"
+    "Qwen/Qwen3.5-4B"
+    "Qwen/Qwen3.5-2B"
+    "Qwen/Qwen3.5-0.8B"
     "google/gemma-4-12B-it"
     "google/gemma-4-31B-it"
 )
