@@ -5,13 +5,18 @@ from pathlib import Path
 from trocr_handwritten.llm.finetune.settings import CurveSettings
 
 
-def stats(metrics_path):
-    """Return (cer_mean, cer_median, cer_std, n) from a metrics.json, or None."""
+def stats(metrics_path, level="N2"):
+    """Return (micro_cer, macro_cer, micro_cer_N0, n) from a metrics.json, or None."""
     p = Path(metrics_path)
     if not p.exists():
         return None
     g = json.loads(p.read_text())["global"]
-    return g["cer_mean"], g["cer_median"], g["cer_std"], g["n"]
+    return (
+        g[level]["micro_cer"],
+        g[level]["macro_cer"],
+        g["N0"]["micro_cer"],
+        g[level]["n"],
+    )
 
 
 def cell(key, palier, split, settings):
@@ -34,23 +39,23 @@ def main():
     settings = settings.model_copy(update={"ocr_dir": args.ocr_dir})
 
     for key in settings.keys:
-        print(f"\n=== {key} (CER clipped@1) ===")
+        print(f"\n=== {key} (micro-CER, N2 primary / N0 secondary) ===")
         print(
-            f"{'palier':>6} | {'dev mean':>8} {'median':>7} {'std':>6} "
-            f"| {'test mean':>9} {'median':>7} {'std':>6}"
+            f"{'palier':>6} | {'dev N2':>8} {'dev N0':>7} "
+            f"| {'test N2':>8} {'test macro':>10} {'test N0':>7}"
         )
         for p in settings.paliers:
             d = cell(key, p, "dev", settings)
             t = cell(key, p, "test", settings)
 
-            def fmt(s):
-                return (
-                    f"{s[0]:>8.4f} {s[1]:>7.4f} {s[2]:>6.3f}"
-                    if s
-                    else f"{'-':>8} {'-':>7} {'-':>6}"
-                )
+            def fmt(s, cols):
+                if not s:
+                    return " ".join(f"{'-':>{w}}" for _, w in cols)
+                return " ".join(f"{s[i]:>{w}.4f}" for i, w in cols)
 
-            print(f"{p:>6} | {fmt(d)} | {fmt(t)}")
+            dev = fmt(d, [(0, 8), (2, 7)])
+            test = fmt(t, [(0, 8), (1, 10), (2, 7)])
+            print(f"{p:>6} | {dev} | {test}")
 
 
 if __name__ == "__main__":
