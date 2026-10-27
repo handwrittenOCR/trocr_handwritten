@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Dict, List, Optional, Literal
 import os
 from dotenv import load_dotenv
 
@@ -63,6 +63,46 @@ class LLMSettings(BaseModel):
     prompt_path: str = Field(
         default="config/ocr.prompt",
         description="Path to the OCR prompt template",
+    )
+
+
+class MetricsSettings(BaseModel):
+    """Configuration for OCR metric scoring over the normalization ladder."""
+
+    pred_ext: str = Field(default=".md", description="Prediction file extension.")
+    label_ext: str = Field(default=".txt", description="Reference file extension.")
+    outlier_length_ratio: float = Field(
+        default=10.0,
+        description="hyp/ref length ratio above which an item is a failure (CER=1.0).",
+    )
+    levels: Dict[str, str] = Field(
+        default_factory=lambda: {
+            "N0": "raw",
+            "N1": "lowercased",
+            "N2": "canonical",
+            "N3": "ascii",
+        },
+        description="Normalization ladder legend (paper 2 codes -> transform name).",
+    )
+    primary_levels: List[str] = Field(
+        default_factory=lambda: ["N0", "N2"],
+        description="Co-primary levels reported in the body (N0 raw, N2 canonical).",
+    )
+
+
+class StatsSettings(BaseModel):
+    """Configuration for register-cluster bootstrap CIs and paired contrasts."""
+
+    bootstrap_samples: int = Field(
+        default=10_000, description="Number of bootstrap replicates B."
+    )
+    seed: int = Field(default=42, description="Bootstrap RNG seed.")
+    default_level: str = Field(
+        default="N2", description="Normalization level used when none is given."
+    )
+    mde_factor: float = Field(
+        default=2.8,
+        description="MDE multiplier on SE (80% power, alpha=.05, two-sided).",
     )
 
 
