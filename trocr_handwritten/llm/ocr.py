@@ -134,6 +134,81 @@ async def process_all_images(
     await tqdm_asyncio.gather(*tasks, desc="Processing images")
 
 
+def run_once(
+    images,
+    provider,
+    prompt,
+    output_extension,
+    model_name,
+    provider_name,
+    max_concurrent,
+    output_dir,
+    input_path,
+    reasoning_effort,
+):
+    """
+    Run one full inference pass and write predictions, a summary and failures.
+
+    Returns the CostTracker so callers can aggregate throughput/cost across passes.
+    """
+    failed_images.clear()
+    cost_tracker = CostTracker(model_name=model_name)
+    if output_dir:
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    asyncio.run(
+        process_all_images(
+            images,
+            provider,
+            prompt,
+            output_extension,
+            cost_tracker,
+            max_concurrent=max_concurrent,
+            output_dir=output_dir,
+            input_dir=input_path,
+        )
+    )
+
+    if hasattr(provider, "total_thinking_tokens"):
+        cost_tracker.thinking_tokens = provider.total_thinking_tokens
+    cost_tracker.log_summary()
+
+    if output_dir:
+        summary_data = {
+            "timestamp": datetime.now().isoformat(),
+            "model": model_name,
+            "provider": provider_name,
+            "reasoning_effort": reasoning_effort,
+            "total_calls": cost_tracker.total_calls,
+            "input_tokens": cost_tracker.input_tokens,
+            "output_tokens": cost_tracker.output_tokens,
+            "thinking_tokens": cost_tracker.thinking_tokens,
+            "estimated_cost_usd": cost_tracker.get_cost(),
+            "elapsed_seconds": round(cost_tracker.elapsed_seconds(), 1),
+            "failed_count": len(failed_images),
+        }
+        with open(output_dir / "summary.json", "w", encoding="utf-8") as f:
+            json.dump(summary_data, f, indent=2)
+
+    if failed_images:
+        failed_root = output_dir if output_dir else input_path
+        failed_data = {
+            "timestamp": datetime.now().isoformat(),
+            "model": model_name,
+            "provider": provider_name,
+            "failed_count": len(failed_images),
+            "images": dict(failed_images),
+        }
+        with open(failed_root / "failed_ocr.json", "w", encoding="utf-8") as f:
+            json.dump(failed_data, f, indent=2, ensure_ascii=False)
+        logger.warning(
+            f"Failed to process {len(failed_images)} images. "
+            f"See {failed_root / 'failed_ocr.json'}"
+        )
+
+    return cost_tracker
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Apply LLM-based OCR to processed images."
@@ -226,7 +301,24 @@ def main():
         action="store_true",
         help="vLLM-only: disable <think> block for Qwen3/Qwen3-Next models.",
     )
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        help="Run inference N times into <output_dir>/run{i} to measure "
+        "variability. Requires --output_dir when > 1.",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="Sampling temperature (defaults to LLMSettings). Set > 0 so repeated "
+        "runs actually differ; greedy (0.0) makes --repeat a no-op.",
+    )
     args = parser.parse_args()
+
+    if args.repeat > 1 and not args.output_dir:
+        parser.error("--repeat > 1 requires --output_dir")
 
     model_defaults = {
         "openai": "gpt-5.2",
@@ -255,6 +347,8 @@ def main():
         llm_kwargs["max_tokens"] = args.max_tokens
     if args.request_timeout is not None:
         llm_kwargs["request_timeout"] = args.request_timeout
+    if args.temperature is not None:
+        llm_kwargs["temperature"] = args.temperature
     if args.disable_thinking:
         llm_kwargs["disable_thinking"] = True
 
@@ -271,65 +365,29 @@ def main():
 
     prompt = load_prompt(ocr_settings.llm_settings.prompt_path)
     provider = get_provider(llm_settings)
-    cost_tracker = CostTracker(model_name=model_name)
 
     input_path = Path(ocr_settings.input_dir)
     images = find_images(input_path, ocr_settings.image_pattern, limit=args.n)
     logger.info(f"Found {len(images)} images to process")
 
-    output_dir = Path(args.output_dir) if args.output_dir else None
-    if output_dir:
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-    asyncio.run(
-        process_all_images(
+    base_dir = Path(args.output_dir) if args.output_dir else None
+    for r in range(args.repeat):
+        if base_dir and args.repeat > 1:
+            run_dir = base_dir / f"run{r + 1}"
+            logger.info(f"=== Run {r + 1}/{args.repeat} -> {run_dir} ===")
+        else:
+            run_dir = base_dir
+        run_once(
             images,
             provider,
             prompt,
             ocr_settings.output_extension,
-            cost_tracker,
-            max_concurrent=args.max_concurrent,
-            output_dir=output_dir,
-            input_dir=input_path,
-        )
-    )
-
-    if hasattr(provider, "total_thinking_tokens"):
-        cost_tracker.thinking_tokens = provider.total_thinking_tokens
-
-    cost_tracker.log_summary()
-
-    if output_dir:
-        summary_path = output_dir / "summary.json"
-        summary_data = {
-            "timestamp": datetime.now().isoformat(),
-            "model": model_name,
-            "provider": args.provider,
-            "reasoning_effort": args.reasoning_effort,
-            "total_calls": cost_tracker.total_calls,
-            "input_tokens": cost_tracker.input_tokens,
-            "output_tokens": cost_tracker.output_tokens,
-            "thinking_tokens": cost_tracker.thinking_tokens,
-            "estimated_cost_usd": cost_tracker.get_cost(),
-            "elapsed_seconds": round(cost_tracker.elapsed_seconds(), 1),
-            "failed_count": len(failed_images),
-        }
-        with open(summary_path, "w", encoding="utf-8") as f:
-            json.dump(summary_data, f, indent=2)
-
-    if failed_images:
-        failed_path = input_path / "failed_ocr.json"
-        failed_data = {
-            "timestamp": datetime.now().isoformat(),
-            "model": model_name,
-            "provider": args.provider,
-            "failed_count": len(failed_images),
-            "images": failed_images,
-        }
-        with open(failed_path, "w", encoding="utf-8") as f:
-            json.dump(failed_data, f, indent=2, ensure_ascii=False)
-        logger.warning(
-            f"Failed to process {len(failed_images)} images. See {failed_path}"
+            model_name,
+            args.provider,
+            args.max_concurrent,
+            run_dir,
+            input_path,
+            args.reasoning_effort,
         )
 
     logger.info("OCR processing completed")

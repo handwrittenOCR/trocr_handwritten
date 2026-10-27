@@ -8,6 +8,10 @@ LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_FORMAT_SIMPLE = "%(levelname)s - %(message)s"
 DEFAULT_LEVEL = logging.INFO
 
+# Third-party libraries that log one INFO line per HTTP request; kept at WARNING
+# so API OCR runs stay readable.
+NOISY_LOGGERS = ("httpx", "httpcore", "openai", "urllib3", "google_genai")
+
 _configured = False
 
 
@@ -57,6 +61,9 @@ def setup_logging(
             file_handler.setLevel(level)
             file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
             root_logger.addHandler(file_handler)
+
+        for noisy in NOISY_LOGGERS:
+            logging.getLogger(noisy).setLevel(logging.WARNING)
 
         _configured = True
 
