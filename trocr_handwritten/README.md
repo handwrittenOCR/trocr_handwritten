@@ -13,7 +13,14 @@ In this page we explain a bit more in detail the different components of the pip
 4. [Handwritten Optical Character Recognition (OCR)](#-optical-character-recognition-ocr)
    - [Training](#-training-a-custom-trocr-model)
    - [Applying](#-applying-trocr)
-5. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
+5. [LLM-based OCR](#-llm-based-ocr)
+   - [Annotating](#️-annotating-ocr-transcriptions)
+   - [Metrics and confidence intervals](#-ocr-metrics)
+   - [Error analysis](#-error-analysis)
+6. [Fine-tuning vision-language models with LoRA](#️-fine-tuning-vision-language-models-with-lora)
+7. [Image preprocessing](#-image-preprocessing)
+8. [Transcribing with Label Studio](labelstudio/README.md)
+9. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
 
 
 ## 📦 Installation
@@ -585,15 +592,16 @@ data/
 
 ### 🎯 Objective
 
-The LLM OCR module provides an alternative approach to handwritten text recognition using vision-capable Large Language Models. Instead of using TrOCR, this module sends document images directly to LLM APIs (OpenAI, Google Gemini, or Mistral) for transcription.
+The LLM OCR module provides an alternative approach to handwritten text recognition using vision-language models. Instead of using TrOCR, this module sends region images directly to an API (OpenAI, Google Gemini, Mistral) or to any model served by a vLLM OpenAI-compatible server (open-weight or fine-tuned models).
 
 ### 🛠️ Supported Providers
 
-| Provider | Default Model | Vision Support |
-|----------|--------------|----------------|
-| OpenAI | gpt-5.2 | Yes |
-| Gemini | gemini-3-pro-preview | Yes |
-| Mistral | mistral-large-latest | Yes |
+| Provider | Default Model | Notes |
+|----------|--------------|-------|
+| OpenAI | gpt-5.2 | API key in `.env` |
+| Gemini | gemini-3-pro-preview | API key in `.env`; `--reasoning_effort` controls thinking |
+| Mistral | mistral-large-latest | API key in `.env` |
+| vLLM | none, pass `--model` | Needs `--vllm_base_url` (or `VLLM_BASE_URL`); `--model` is the served model name |
 
 ### 📜 How to Use
 
@@ -625,13 +633,43 @@ python -m trocr_handwritten.llm.ocr \
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--provider` | LLM provider (openai, gemini, mistral) | gemini |
+| `--provider` | LLM provider (openai, gemini, mistral, vllm) | gemini |
 | `--model` | Model name | Provider default |
 | `--input_dir` | Root directory with images | data/processed/images |
 | `--pattern` | Glob pattern for images | `*/*/*.jpg` |
 | `-n` | Limit number of images | None (all) |
-| `--max_concurrent` | Parallel API calls | 5 |
+| `--max_concurrent` | Parallel API calls | 10 |
 | `--prompt_path` | Custom prompt file | config/ocr.prompt |
+| `--output_dir` | Write predictions here, mirroring the subfolders; otherwise next to the images | None |
+| `--repeat` | Run N times into `<output_dir>/run{i}` to measure run-to-run variability (requires `--output_dir`) | 1 |
+| `--temperature` | Sampling temperature; must be > 0 for repeated runs to differ | 0.0 |
+| `--max_tokens` | Max output tokens per call | 16000 |
+| `--request_timeout` | Per-request timeout in seconds | 120 |
+| `--reasoning_effort` | Gemini thinking level (none, low, medium, high) | None |
+| `--disable_thinking` | vLLM only: disable the `<think>` block of Qwen3-family models | off |
+| `--vllm_base_url`, `--vllm_api_key` | vLLM server URL and key | env vars |
+
+Existing outputs are skipped, so an interrupted run resumes where it stopped.
+
+Benchmark run on a test split, 5 repeated runs:
+
+```bash
+python -m trocr_handwritten.llm.ocr --provider gemini --model gemini-3.1-pro-preview \
+    --reasoning_effort low \
+    --input_dir data/ocr/test/images --pattern "*/*.jpg" \
+    --output_dir data/ocr/test/predictions/zs-gemini-3.1-pro \
+    --repeat 5 --temperature 0.3
+```
+
+Open-weight model served by vLLM:
+
+```bash
+python -m trocr_handwritten.llm.ocr --provider vllm \
+    --vllm_base_url http://localhost:8000/v1 --model Qwen3.5-9B \
+    --input_dir data/ocr/test/images --pattern "*/*.jpg" \
+    --output_dir data/ocr/test/predictions/zs-qwen3.5-9b \
+    --repeat 5 --temperature 0.3 --disable_thinking
+```
 
 ### 📁 Output Structure
 
@@ -734,37 +772,113 @@ Saved annotations go to `data/ocr/{split}/`:
 
 ### 📊 OCR Metrics
 
-Evaluate OCR quality by comparing predictions with reference labels. The workflow is:
-
-1. Apply the LLM OCR on the test images (generates `.md` files next to images):
+Evaluate OCR quality by comparing predictions (`.md`) with reference labels (`.txt`), matched by subfolder and file name.
 
 ```bash
-python -m trocr_handwritten.llm.ocr \
-    --input_dir data/ocr/test/images \
-    --provider gemini
-```
-
-2. Compare predictions vs labels:
-
-```bash
+P=data/ocr/test/predictions/zs-gemini-3.1-pro
 python -m trocr_handwritten.llm.metrics \
-    --predictions data/ocr/test/images \
-    --labels data/ocr/test/labels
+    --predictions $P/run1 $P/run2 $P/run3 $P/run4 $P/run5 \
+    --labels data/ocr/test/labels \
+    --output $P/metrics.json
 ```
 
-Metrics computed per image and per subfolder:
-- **CER** (Character Error Rate)
-- **WER** (Word Error Rate)
-- **Levenshtein distance** (character edits)
-- **Exact match** (% perfectly identical)
+Each run gets its own `metrics.json`; `--output` receives the record averaged over runs, with the inter-run standard deviation.
 
-Output:
+**Normalization ladder.** Every score is computed at four levels, applied identically to prediction and reference:
+
+| Level | Transform | Use |
+|-------|-----------|-----|
+| N0 | Raw: markup stripped, whitespace collapsed | Co-primary |
+| N1 | N0 + lowercase | Appendix |
+| N2 | N0 + punctuation removed (hyphens and apostrophes kept) | Co-primary |
+| N3 | N2 + diacritics removed | Appendix |
+
+**What is reported**, globally, per subfolder and per register:
+- micro-CER/WER (total edits / total reference characters or words, the primary metric) and macro-CER/WER (mean of per-item scores);
+- median and standard deviation of per-item CER;
+- exact-match share and failure count.
+
+**Failures.** Per-item CER and WER are clipped at 1.0. An empty prediction, an output more than 10× longer than the reference, or a label with **no prediction file at all** counts as a failure at CER = 1.0, so missing outputs cannot inflate a score.
+
+**Confidence intervals.** `llm.stats` resamples **registers** (one archival volume ≈ one scribe), not crops, because errors correlate within a hand:
+
+```bash
+python -m trocr_handwritten.llm.stats ci --metrics $P/metrics.json --level N2
+python -m trocr_handwritten.llm.stats paired --a $P/metrics.json \
+    --b data/ocr/test/predictions/ft-qwen3.5-4B-nativeall/metrics.json --level N2
 ```
-      Subfolder      CER     WER     Lev  Exact%     N
-    Plein Texte   0.0450  0.1210    12.3    8.0%    25
-          Marge   0.0820  0.1950    18.7    4.0%    10
-            ALL   0.0520  0.1380    14.2    6.5%    35
+
+`ci` gives the point estimate and 95% bootstrap interval for one system; `paired` gives the interval on the difference A − B using the same resampled registers for both systems (significant when it excludes 0). Both accept `--subfolder` and `-B` (number of replicates, default 10,000). `replicates` summarizes seed-replicated training runs.
+
+### 🔍 Error analysis
+
+Breaks down where a system fails: character confusions, word segmentation, entities, error position in the text, length buckets, worst registers and image quality.
+
+```bash
+python -m trocr_handwritten.llm.error_analysis \
+    --predictions data/ocr/dev/predictions/ft-qwen3.5-4B-nativeall/run1 \
+    --labels data/ocr/dev/labels \
+    --tags data/ocr/dev/labels_tags.json \
+    --images data/ocr/dev/images \
+    --output ea_4B.json
 ```
+
+`--tags` enables the POS/NER breakdown and `--images` the image-quality correlations; both are optional. The tag cache is built once per split by an LLM:
+
+```bash
+python -m trocr_handwritten.llm.tag_references \
+    --labels data/ocr/dev/labels --output data/ocr/dev/labels_tags.json
+```
+
+## 🎛️ Fine-tuning vision-language models with LoRA
+
+Fine-tunes Qwen3.5 (or another Hugging Face image-text-to-text model) on the OCR crops with LoRA adapters. Training needs a GPU and packages that are not in the default environment:
+
+```bash
+uv pip install peft datasets accelerate liger-kernel
+```
+
+1. **Build the training manifests**: one JSON line per crop (image, region, text). `dev.jsonl` and `test.jsonl` copy the eval splits, and `train_<n>.jsonl` holds nested training subsets for learning curves (60 ⊂ 120 ⊂ … ⊂ 1997, the full train set).
+
+```bash
+python -m trocr_handwritten.llm.finetune.prepare_data --ocr-dir data/ocr --out-dir data/ocr/finetune
+```
+
+2. **Train an adapter.** `--eval` enables per-epoch evaluation and early stopping on the dev manifest. `--target-modules all-linear` also adapts the vision tower and the merger, not only the language model. `--min-visual-tokens` and `--max-visual-tokens` bound the image resolution and must be reused at inference.
+
+```bash
+python -m trocr_handwritten.llm.finetune.train_lora \
+    --model Qwen/Qwen3.5-4B \
+    --train data/ocr/finetune/train_1997.jsonl \
+    --eval data/ocr/finetune/dev.jsonl \
+    --data-root data/ocr \
+    --target-modules all-linear \
+    --output-dir adapters/qwen3.5-4B-lora
+```
+
+Defaults (rank 16, learning rate, batch size, scheduler) live in `LoraSettings` (`llm/finetune/settings.py`). `--init-adapter` continues training from an existing adapter (two-stage pre-training). `python -m trocr_handwritten.llm.finetune.bench` measures dataloader speed and training throughput (tokens/s, MFU) across attention, gradient-checkpointing and batch-size settings, to pick the fastest configuration before a long run.
+
+3. **Merge the adapter into the base weights.** vLLM silently drops LoRA weights on the Qwen3.5 vision tower, so an adapter trained with `all-linear` must be merged before serving:
+
+```bash
+python -m trocr_handwritten.llm.finetune.merge_lora \
+    --base Qwen/Qwen3.5-4B --adapter adapters/qwen3.5-4B-lora \
+    --output-dir models/qwen3.5-4B-merged
+```
+
+4. **Serve and evaluate** the merged model with vLLM, then run `llm.ocr --provider vllm` and `llm.metrics` as above. `python -m trocr_handwritten.llm.finetune.curve` prints the learning curves across training subsets.
+
+## 🧼 Image preprocessing
+
+Flattens uneven illumination (shadows, yellowing, page curvature) on OCR crops, by dividing each image by its blurred background (`bgdiv`), by local contrast equalization (`clahe`), or both:
+
+```bash
+python -m trocr_handwritten.utils.preprocess_images \
+    --input-dir data/ocr/test/images --output-dir data/ocr/test/images-bgdiv \
+    --method bgdiv
+```
+
+The output mirrors the input subfolders, so it can be passed directly to `llm.ocr --input_dir`.
 
 ## 🗃️ Named Entity Recognition (NER) with LLM
 

@@ -6,11 +6,13 @@ This documentation presents a comprehensive pipeline designed to structure scann
 
 Our key contributions encompass the following:
 
-1. **Open-Source Handwritten Data Processing Model:** We introduce an open-source model tailored for the processing of images containing handwritten French text. This model enables efficient transcription of handwritten content from scanned documents such as archives and extraction of key information from the transcribed text.
+1. **Open-Source Handwritten Recognition Models:** We provide open models for handwritten French: a fine-tuned TrOCR model and a LoRA fine-tuning pipeline for open-weight vision-language models (Qwen3.5), which can be trained and run locally so that archives keep control of their documents.
 
-2. **Manually French Labeled Handwritten Dataset:** To train our model effectively, we curated a labeled dataset of handwritten data. This dataset serves is used to train and validate the model's accuracy. This dataset is available at [Hugging Face Hub](https://huggingface.co/datasets/).
+2. **Manually French Labeled Handwritten Dataset:** We curated a labeled dataset of handwritten region crops from 19th-century French Antilles records (civil registers, convict registers, microfilms). Train, dev and test splits are made at the register level, so test hands are never seen during training. The public release is in preparation.
 
-3. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step an independant script](/trocr_handwritten/README.md). These scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
+3. **A Reproducible Evaluation Protocol:** Every system, from commercial APIs to fine-tuned open models, is scored with the same tooling: a normalization ladder (N0–N3), micro and macro CER/WER, failures counted at CER = 1.0, and confidence intervals from a register-level bootstrap.
+
+4. **Reproducible Research Scripts:** In an effort to promote transparency and enable further research, we provide for [each step an independant script](/trocr_handwritten/README.md). These scripts can be adapted to accommodate other languages or fine-tune similar  models, thereby extending their utility beyond the scope of French archives.
 
 ## Overview of Pipeline Components
 
@@ -20,19 +22,21 @@ In this section, we provide an overview of the primary components comprising the
 
 The pipeline, depicted in the image above, follows three stages:
 
-1. **Parsing Layout:** layout parsing, wherein global images are segmented into smaller units, each containing a single line of text.
+1. **Parsing Layout:** layout parsing, wherein page images are segmented into regions (name, margin, full text, etc.) by a YOLO detector.
 
-2. **Optical Character Recognition (OCR) Module:** the OCR module transcribes individual images into text.
+2. **Optical Character Recognition (OCR) Module:** the OCR module transcribes each region into text, either with TrOCR or with a vision-language model (commercial API, open-weight model served by vLLM, or a LoRA fine-tuned model). Transcriptions are reviewed and corrected in [Label Studio](/trocr_handwritten/labelstudio/README.md).
 
 3. **Named Entity Recognition (NER) Module:**  the Named Entity Recognition module extracts key information from the transcribed archival content using LLM's.
 
 Each of these pipeline components has been developed and optimized independently to ensure minimal interference with other elements. Our overarching goal is to foster modularity, allowing for the replacement or enhancement of individual components without disrupting the overall input/output pipeline.
 
-In the subsequent sections, we present in more details each pipeline component. 
+In the subsequent sections, we present in more details each pipeline component.
 
 ### Parsing Layout of a document
 
 Layout parsing is a document processing method that segments documents or images into distinct regions.
+
+The current pipeline detects regions with a YOLO model trained on our pages (8 classes: title, header, margin, name, full text, signature, table, section). Usage and training are documented in the [Layout Parsing](trocr_handwritten/README.md#-parsing-layout) section. The ARU-Net approach below was our first line-detection method and is kept for reference.
 
 To facilitate document segmentation, we rely on the research conducted by Gruning et al. in 2018 (ARU-NET framework). The [@Gruning2018] study presents a two-stage method using the ARU-Net neural network for detecting text lines in historical documents. It achieves high performance (the F-value improves from 0.859 to 0.922 in the cBAD: ICDAR2017 Baseline Detection Competition), and the ARU-Net framework is available as an open-source resource for further research in this domain.
 Additionally, we make use of the open-source implementation available at [this GitHub repository](https://github.com/NicSenn/ARU-Net-Pytorch/tree/main), which aligns with our segmentation objectives.
@@ -41,7 +45,7 @@ We customized the existing methodology to suit the characteristics of 19th-centu
 
 ![Alt Image](images/layout-parsing.png "Layout parsing of a document")
 
-As part of our ongoing research endeavors, we intend to develop a tailored layout-parser that is specifically optimized for historical archive documents. Our aim is to improve its capacity to accurately identify the precise regions within these documents where textual content is located. 
+As part of our ongoing research endeavors, we intend to develop a tailored layout-parser that is specifically optimized for historical archive documents. Our aim is to improve its capacity to accurately identify the precise regions within these documents where textual content is located.
 
 To test the layout parsing we document all steps and how to use the script: [Layout Parsing](trocr_handwritten/README.md#-parsing-layout)
 
@@ -146,6 +150,14 @@ Here is an example of text we extracted once we consolidate all lines together:
 ```python
 "L'an mil huit cent quatre vingt quatorze et le Samedi huit Mars à deux heures de l'après midi. Acte de naissance de Petrin Isabelle Marie Constance, du sexe féminin, née le Vendredi vingt trois Février dans nier à deux heures de l'après midi, sur l'habitation Coma section des hauteurs où demeure le père, du Mariagedu sieur Sétrin Vital âgé de vingt-trois ans, cultivateur propriétaire, domicilié aux Adjmes, avec la dame Urie Marie Antoinette Dédoïse a âgée de vingt trois ans, sans profession, domiciliée aux Adjoint-Constaté par nous Lucas Maxime Jules, deuxième. Adjoint au Maire de la commune des Abymes remplissant par délégation les fonctions d'Officier de l'Etat Civil auquel l'enfant a été présenté. Sur la déclaration du père faite en présence des sieurs Déveille Moïse, âgée de trente ans, cultivateur, proprié staire et Cédéon Raoul, âgé de vingt un ans, employé de Mairie, tous deux do&miciliés dans la présente commune, lesquels ont signé avec nous, le père de ce requis ayant déclaré ne le savoir après lecture de Aéveillé Raven M Jules"
 ```
+
+### Vision-language models for OCR
+
+Besides TrOCR, regions can be transcribed directly by vision-language models, from a single command line: commercial APIs (Gemini, GPT, Mistral) or open-weight models served by vLLM. Open models (Qwen3.5) can also be fine-tuned with LoRA on the annotated crops, including the vision encoder, then merged and served locally.
+
+All systems are evaluated with the same protocol: four normalization levels, micro and macro CER/WER, failures counted at CER = 1.0 (including missing outputs), and 95% confidence intervals from a bootstrap over registers, since one register is roughly one scribe. An error-analysis tool then breaks errors down by character, word, entity type, position, register and image quality.
+
+Commands are documented in the [LLM-based OCR](trocr_handwritten/README.md#-llm-based-ocr) and [Fine-tuning](trocr_handwritten/README.md#️-fine-tuning-vision-language-models-with-lora) sections.
 
 ### Extract entities from texts
 
