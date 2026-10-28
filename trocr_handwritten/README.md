@@ -17,10 +17,11 @@ In this page we explain a bit more in detail the different components of the pip
    - [Annotating](#️-annotating-ocr-transcriptions)
    - [Metrics and confidence intervals](#-ocr-metrics)
    - [Error analysis](#-error-analysis)
-6. [Fine-tuning vision-language models with LoRA](#️-fine-tuning-vision-language-models-with-lora)
-7. [Image preprocessing](#-image-preprocessing)
-8. [Transcribing with Label Studio](labelstudio/README.md)
-9. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
+6. [Line-based HTR baselines (Kraken, PyLaia)](#-line-based-htr-baselines-kraken-pylaia)
+7. [Fine-tuning vision-language models with LoRA](#️-fine-tuning-vision-language-models-with-lora)
+8. [Image preprocessing](#-image-preprocessing)
+9. [Transcribing with Label Studio](labelstudio/README.md)
+10. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
 
 
 ## 📦 Installation
@@ -829,6 +830,84 @@ python -m trocr_handwritten.llm.error_analysis \
 python -m trocr_handwritten.llm.tag_references \
     --labels data/ocr/dev/labels --output data/ocr/dev/labels_tags.json
 ```
+
+## 📏 Line-based HTR baselines (Kraken, PyLaia)
+
+Zero-shot baselines with public line-level HTR models on the same multi-line crops as the vision-language models. Each crop is segmented into lines once with Kraken `blla`; the cached lines feed both recognizers, so Kraken and PyLaia see exactly the same lines. Recognized lines are joined top to bottom with `\n` and scored at crop level with `llm.metrics`, so segmentation errors count in the CER.
+
+**1. Engine environments.** Kraken and PyLaia pin torch versions incompatible with the main environment, so each gets its own virtual environment at the repository root (both are git-ignored). The repository code calls their CLIs as subprocesses.
+
+```bash
+uv venv .venv-kraken --python 3.11
+uv pip install --python .venv-kraken/bin/python "kraken==7.1.1"
+uv venv .venv-pylaia --python 3.10
+uv pip install --python .venv-pylaia/bin/python "pylaia==1.1.2" "setuptools==69.5.1" "pip==24.2"
+```
+
+`setuptools<81` provides `pkg_resources` and `pip` is called by PyLaia at start-up. Check with `.venv-kraken/bin/kraken --version` and `.venv-pylaia/bin/pylaia-htr-train-ctc --help`.
+
+On Linux aarch64 only, torchaudio looks for a system `libgomp.so.1`; link the copy bundled with torch (the engine adds this folder to `LD_LIBRARY_PATH`):
+
+```bash
+G=$(ls .venv-pylaia/lib/python3.10/site-packages/torch/lib/libgomp-*.so.1)
+mkdir -p .venv-pylaia/lib/gomp && ln -sf "$PWD/$G" .venv-pylaia/lib/gomp/libgomp.so.1
+```
+
+**2. Public models.**
+
+| Engine | Model | Source | License | Training data |
+|--------|-------|--------|---------|---------------|
+| Kraken | McCATMuS v1 | [10.5281/zenodo.13788177](https://doi.org/10.5281/zenodo.13788177) | CC-BY-4.0 | CATMuS Modern, 16th c.–2023, mostly French |
+| PyLaia | pylaia-belfort (commit `d35f9216`) | [Teklia/pylaia-belfort](https://huggingface.co/Teklia/pylaia-belfort) | MIT | Belfort municipal registers, 1790–1946 |
+
+```bash
+mkdir -p models/kraken models/pylaia-belfort
+curl -L -o models/kraken/McCATMuS_nfd_nofix_V1.mlmodel \
+    "https://zenodo.org/records/13788177/files/McCATMuS_nfd_nofix_V1.mlmodel?download=1"
+for f in model weights.ckpt syms.txt; do
+    curl -L -o models/pylaia-belfort/$f "https://huggingface.co/Teklia/pylaia-belfort/resolve/d35f9216/$f"
+done
+```
+
+**3. Predict.** Run Kraken first: it segments every crop and caches the lines in `<input_dir>/../segmentation/<subfolder>/<stem>.{png,xml}`; PyLaia then reuses the cache. An interrupted run resumes from the cache.
+
+```bash
+D=data/ocr/20260807-ft-data/test
+python -m trocr_handwritten.htr.ocr --input_dir $D/images \
+    --output_dir $D/predictions/zs-kraken-mccatmus/run1 \
+    --engine kraken --model models/kraken/McCATMuS_nfd_nofix_V1.mlmodel --batch_size 4
+python -m trocr_handwritten.htr.ocr --input_dir $D/images \
+    --output_dir $D/predictions/zs-pylaia-belfort/run1 \
+    --engine pylaia --model models/pylaia-belfort --batch_size 16
+```
+
+| Option | Description |
+|--------|-------------|
+| `--input_dir`, `--pattern`, `-n` | Crops to process, as in `llm.ocr` (default pattern `*/*.jpg`). |
+| `--output_dir` | Where `.md` predictions and `summary.json` are written (subfolders preserved). |
+| `--engine` | `kraken` or `pylaia`. |
+| `--model` | Kraken `.mlmodel` path, or PyLaia directory holding `model`, `weights.ckpt` and `syms.txt`. |
+| `--device` | `cpu` (default), `cuda` or `cuda:N`. Keep `cpu` for reproducibility: `mps` changes Kraken's segmentation output. |
+| `--batch_size` | Crops per engine subprocess (one model load each). |
+| `--threads` | Kraken OpenMP/BLAS threads (default: all cores). |
+
+Other parameters live in `HTRSettings` (`htr/settings.py`). Implementation details that affect scores:
+- **Padding.** `blla` rescales each image to 1,800 px height, which exhausts memory on wide crops. Crops wider than `seg_max_aspect` (2.0) are padded at the bottom with the median paper colour, which leaves line coordinates unchanged.
+- **Line order.** Lines are sorted by the mean height of their baseline; fragments of one visual line become separate lines.
+- **PyLaia input.** Each line polygon is cropped, filled outside with the paper colour, converted to grayscale and resized to 128 px height. Decoding is greedy CTC without language model.
+- **Unicode.** Predictions are written in NFC, like the labels (McCATMuS outputs NFD).
+- **Failures.** Every crop gets a `.md`, empty when no line is found or the engine fails. `summary.json` lists timings, failures and the number of lines detected per crop.
+
+**4. Score** with the metrics and register-level confidence intervals described in [OCR Metrics](#-ocr-metrics):
+
+```bash
+P=data/ocr/20260807-ft-data/test/predictions/zs-kraken-mccatmus
+python -m trocr_handwritten.llm.metrics --predictions $P/run1 \
+    --labels data/ocr/20260807-ft-data/test/labels --output $P/metrics.json
+python -m trocr_handwritten.llm.stats ci --metrics $P/metrics.json --level N2
+```
+
+Labels without a prediction count as failures, so scoring a subset of crops needs a labels folder reduced to the same subset.
 
 ## 🎛️ Fine-tuning vision-language models with LoRA
 
