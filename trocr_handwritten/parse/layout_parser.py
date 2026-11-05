@@ -2,6 +2,7 @@
 import argparse
 import json
 from os.path import join
+from pathlib import Path
 
 from trocr_handwritten.parse.utils import (
     YOLOModel,
@@ -14,20 +15,38 @@ from trocr_handwritten.utils.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def main(settings: LayoutParserSettings, logger):
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 
+
+def main(settings: LayoutParserSettings, logger):
+    """
+    Detect regions on every image of path_folder, batch by batch.
+
+    Predicting a whole folder at once keeps every page in memory, so images are
+    processed in batches of settings.batch_size; crops are written per batch and
+    predictions.json gathers all batches.
+    """
     model = YOLOModel(settings, logger)
 
-    logger.info(f"Predicting on {settings.path_folder}...")
-    det_res = model.predict(settings.path_folder)
+    images = sorted(
+        str(p)
+        for p in Path(settings.path_folder).iterdir()
+        if p.suffix.lower() in IMAGE_SUFFIXES
+    )
+    logger.info(f"Predicting on {len(images)} images in {settings.path_folder}...")
 
-    logger.info("Creating structured crops...")
-    create_structured_crops(det_res, settings.class_names, settings.path_output)
+    predictions = []
+    for start in range(0, len(images), settings.batch_size):
+        batch = images[start : start + settings.batch_size]
+        det_res = model.predict(batch)
+        create_structured_crops(det_res, settings.class_names, settings.path_output)
+        if settings.create_annotation_json:
+            predictions.extend(
+                create_predictions_json(det_res, settings.class_names, settings.iou)
+            )
+        logger.info(f"Processed {start + len(batch)}/{len(images)} images")
 
     if settings.create_annotation_json:
-        predictions = create_predictions_json(
-            det_res, settings.class_names, settings.iou
-        )
         output_path = join(settings.path_output, "predictions.json")
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(predictions, f, ensure_ascii=False, indent=2)
@@ -51,6 +70,12 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=float, default=0.2)
     parser.add_argument("--iou", type=float, default=0.5)
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Images predicted per batch (bounds memory on large folders)",
+    )
+    parser.add_argument(
         "--no-annotation-json", action="store_true", help="Skip VIA JSON generation"
     )
     args = parser.parse_args()
@@ -64,6 +89,7 @@ if __name__ == "__main__":
         device=args.device,
         conf=args.conf,
         iou=args.iou,
+        batch_size=args.batch_size,
         create_annotation_json=not args.no_annotation_json,
     )
 
