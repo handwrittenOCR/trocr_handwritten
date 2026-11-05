@@ -53,7 +53,12 @@ class EvaluationSettings:
     hf_filename: str = "20241119_v2_yolov10_50_finetuned.pt"
     split: str = "test"
     conf: float = 0.2
+    ap_conf: float = 0.001
     iou: float = 0.5
     imgsz: int = 1024
     device: str = "cpu"
+    out_json: str = None
+    iou_thresholds_ap: tuple = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95)
+    iou_thresholds_prf: tuple = (0.5, 0.7)
+    ap_recall_points: int = 101
     class_names: dict = field(default_factory=lambda: dict(CLASS_NAMES))

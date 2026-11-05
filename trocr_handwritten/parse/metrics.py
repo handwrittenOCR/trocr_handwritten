@@ -1,4 +1,6 @@
 import argparse
+import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -139,16 +141,175 @@ def _match_predictions(
     return results
 
 
+def _match_tp_flags(gt_boxes, pred_boxes, pred_confs, iou_thresholds):
+    """
+    COCO-style greedy matching of one class on one image at several IoU thresholds.
+
+    Predictions are visited by decreasing confidence; each one takes the unmatched
+    ground-truth box with the highest IoU, if that IoU reaches the threshold.
+
+    Args:
+        gt_boxes: Ground truth boxes (xyxy) of one class
+        pred_boxes: Predicted boxes (xyxy) of the same class
+        pred_confs: Prediction confidences
+        iou_thresholds: Sequence of IoU thresholds
+
+    Returns:
+        np.ndarray: (n_pred, n_thresholds) boolean TP flags, in the input order
+    """
+    flags = np.zeros((len(pred_boxes), len(iou_thresholds)), dtype=bool)
+    if len(pred_boxes) == 0 or len(gt_boxes) == 0:
+        return flags
+    iou_matrix = _compute_iou_matrix(pred_boxes, gt_boxes)
+    order = np.argsort(-pred_confs, kind="stable")
+    for t_idx, thr in enumerate(iou_thresholds):
+        matched = np.zeros(len(gt_boxes), dtype=bool)
+        for pred_idx in order:
+            ious = np.where(matched, -1.0, iou_matrix[pred_idx])
+            best_gt = int(np.argmax(ious))
+            if ious[best_gt] >= thr:
+                matched[best_gt] = True
+                flags[pred_idx, t_idx] = True
+    return flags
+
+
+def _average_precision(tp_flags, confs, n_gt, recall_points):
+    """
+    COCO interpolated average precision for one class and one IoU threshold.
+
+    Args:
+        tp_flags: Boolean TP flag per prediction, pooled over all images
+        confs: Confidence per prediction
+        n_gt: Number of ground-truth boxes of the class
+        recall_points: Number of recall points of the interpolation (COCO: 101)
+
+    Returns:
+        float: AP, or nan if the class has no ground truth
+    """
+    if n_gt == 0:
+        return float("nan")
+    if len(confs) == 0:
+        return 0.0
+    order = np.argsort(-confs, kind="stable")
+    tp = np.cumsum(tp_flags[order])
+    fp = np.cumsum(~tp_flags[order])
+    recall = tp / n_gt
+    precision = tp / np.maximum(tp + fp, 1e-9)
+    precision = np.maximum.accumulate(precision[::-1])[::-1]
+    idx = np.searchsorted(recall, np.linspace(0, 1, recall_points), side="left")
+    return float(np.mean([precision[i] if i < len(precision) else 0.0 for i in idx]))
+
+
+def _prf(tp, fp, fn):
+    """
+    Precision, recall and F1 from counts.
+
+    Args:
+        tp: True positives
+        fp: False positives
+        fn: False negatives
+
+    Returns:
+        tuple: (precision, recall, f1)
+    """
+    p = tp / (tp + fp) if (tp + fp) > 0 else 0
+    r = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
+    return p, r, f1
+
+
+def _predict(model, img_path, settings):
+    """
+    Run one ultralytics prediction and time it (preprocessing, inference, NMS).
+
+    Args:
+        model: Loaded ultralytics / doclayout-yolo model
+        img_path: Path to the page image
+        settings: EvaluationSettings instance
+
+    Returns:
+        tuple: (boxes_xyxy, classes, confs, seconds)
+    """
+    start = time.perf_counter()
+    results = model.predict(
+        str(img_path),
+        imgsz=settings.imgsz,
+        conf=settings.ap_conf,
+        iou=settings.iou,
+        device=settings.device,
+        verbose=False,
+    )
+    boxes = results[0].boxes
+    if boxes is not None and len(boxes) > 0:
+        out = (
+            boxes.xyxy.cpu().numpy(),
+            boxes.cls.cpu().numpy().astype(int),
+            boxes.conf.cpu().numpy(),
+        )
+    else:
+        out = (np.zeros((0, 4)), np.zeros(0, dtype=int), np.zeros(0))
+    return (*out, time.perf_counter() - start)
+
+
+def _log_report(report, logger):
+    """
+    Log the evaluation report: AP table, P/R/F1 tables per IoU threshold, timing.
+
+    Args:
+        report: Dict returned by evaluate
+        logger: Logger instance
+    """
+    logger.info(
+        f"\nSplit: {report['split']} | pages={report['n_pages']} | "
+        f"conf={report['conf']} | nms_iou={report['nms_iou']} | "
+        f"device={report['device']}"
+    )
+    logger.info(f"{'':>12}  {'n_gt':>5} {'AP50':>7} {'AP50:95':>7}")
+    logger.info("-" * 36)
+    for name, c in report["per_class"].items():
+        logger.info(
+            f"{name:>12}  {c['n_gt']:>5} {c['ap50']:>7.4f} {c['ap50_95']:>7.4f}"
+        )
+    logger.info("-" * 36)
+    logger.info(
+        f"{'mAP':>12}  {report['n_gt']:>5} {report['map50']:>7.4f} "
+        f"{report['map50_95']:>7.4f}"
+    )
+    for key in report["prf"]:
+        logger.info(f"\nIoU {key} (conf >= {report['conf']})")
+        logger.info(
+            f"{'':>12}  {'P':>7} {'R':>7} {'F1':>7} {'TP':>5} {'FP':>5} {'FN':>5}"
+        )
+        logger.info("-" * 60)
+        for name, c in report["prf"][key].items():
+            if name == "ALL":
+                logger.info("-" * 60)
+            logger.info(
+                f"{name:>12}  {c['p']:>7.4f} {c['r']:>7.4f} {c['f1']:>7.4f} "
+                f"{c['tp']:>5} {c['fp']:>5} {c['fn']:>5}"
+            )
+    t = report["time_per_page"]
+    logger.info(
+        f"\nTime per page ({report['device']}): mean {t['mean']:.4f}s | "
+        f"median {t['median']:.4f}s | total {t['total']:.1f}s"
+    )
+
+
 def evaluate(settings, logger):
     """
-    Evaluate a YOLO model on a dataset split with P/R/F1 per class.
+    Evaluate a layout model on a dataset split.
+
+    Computes per-class AP at the first threshold and averaged over
+    iou_thresholds_ap (COCO interpolation, all predictions above ap_conf), mAP over
+    classes with ground truth, P/R/F1 at each of iou_thresholds_prf on predictions
+    above conf, and the wall-clock prediction time per page.
 
     Args:
         settings: EvaluationSettings instance
         logger: Logger instance
 
     Returns:
-        dict: Per-class TP/FP/FN totals
+        dict: Evaluation report (also written to settings.out_json if set)
     """
     if settings.path_model:
         model = _load_model(settings.path_model)
@@ -177,9 +338,22 @@ def evaluate(settings, logger):
         + list(images_dir.glob("*.jpg"))
         + list(images_dir.glob("*.jpeg"))
     )
-    totals = {i: {"tp": 0, "fp": 0, "fn": 0} for i in range(num_classes)}
+    if not image_paths:
+        logger.error(f"No images in {images_dir}")
+        return None
 
     import cv2
+
+    _predict(model, image_paths[0], settings)
+
+    totals = {
+        thr: {i: {"tp": 0, "fp": 0, "fn": 0} for i in range(num_classes)}
+        for thr in settings.iou_thresholds_prf
+    }
+    ap_flags = {i: [] for i in range(num_classes)}
+    ap_confs = {i: [] for i in range(num_classes)}
+    n_gt = np.zeros(num_classes, dtype=int)
+    times = []
 
     for img_path in image_paths:
         label_path = labels_dir / (img_path.stem + ".txt")
@@ -193,73 +367,116 @@ def evaluate(settings, logger):
             gt_boxes[:, [0, 2]] *= w_img
             gt_boxes[:, [1, 3]] *= h_img
 
-        results = model.predict(
-            str(img_path),
-            imgsz=settings.imgsz,
-            conf=settings.conf,
-            iou=settings.iou,
-            device=settings.device,
-            verbose=False,
+        pred_boxes, pred_classes, pred_confs, seconds = _predict(
+            model, img_path, settings
         )
+        times.append(seconds)
 
-        if results[0].boxes is not None and len(results[0].boxes) > 0:
-            pred_boxes = results[0].boxes.xyxy.cpu().numpy()
-            pred_classes = results[0].boxes.cls.cpu().numpy().astype(int)
-            pred_confs = results[0].boxes.conf.cpu().numpy()
-        else:
-            pred_boxes = np.zeros((0, 4))
-            pred_classes = np.zeros(0, dtype=int)
-            pred_confs = np.zeros(0)
-
-        img_results = _match_predictions(
-            gt_boxes, gt_classes, pred_boxes, pred_classes, pred_confs, num_classes
-        )
         for cls_id in range(num_classes):
-            for k in ("tp", "fp", "fn"):
-                totals[cls_id][k] += img_results[cls_id][k]
+            gt_mask = gt_classes == cls_id
+            pred_mask = pred_classes == cls_id
+            n_gt[cls_id] += int(gt_mask.sum())
+            ap_flags[cls_id].append(
+                _match_tp_flags(
+                    gt_boxes[gt_mask],
+                    pred_boxes[pred_mask],
+                    pred_confs[pred_mask],
+                    settings.iou_thresholds_ap,
+                )
+            )
+            ap_confs[cls_id].append(pred_confs[pred_mask])
 
-    logger.info(
-        f"\nSplit: {settings.split} | conf={settings.conf} | iou={settings.iou}"
-    )
-    logger.info(f"{'':>12}  {'P':>7} {'R':>7} {'F1':>7} {'TP':>5} {'FP':>5} {'FN':>5}")
-    logger.info("-" * 60)
+        keep = pred_confs >= settings.conf
+        for thr in settings.iou_thresholds_prf:
+            img_results = _match_predictions(
+                gt_boxes,
+                gt_classes,
+                pred_boxes[keep],
+                pred_classes[keep],
+                pred_confs[keep],
+                num_classes,
+                iou_threshold=thr,
+            )
+            for cls_id in range(num_classes):
+                for k in ("tp", "fp", "fn"):
+                    totals[thr][cls_id][k] += img_results[cls_id][k]
 
-    sum_tp = sum_fp = sum_fn = 0
+    per_class = {}
+    ap_matrix = np.full((num_classes, len(settings.iou_thresholds_ap)), np.nan)
     for cls_id in range(num_classes):
-        tp = totals[cls_id]["tp"]
-        fp = totals[cls_id]["fp"]
-        fn = totals[cls_id]["fn"]
-        p = tp / (tp + fp) if (tp + fp) > 0 else 0
-        r = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0
-        logger.info(
-            f"{class_names_list[cls_id]:>12}  {p:>7.4f} {r:>7.4f} {f1:>7.4f} {tp:>5} {fp:>5} {fn:>5}"
-        )
-        sum_tp += tp
-        sum_fp += fp
-        sum_fn += fn
+        flags = np.concatenate(ap_flags[cls_id])
+        confs = np.concatenate(ap_confs[cls_id])
+        for t_idx in range(len(settings.iou_thresholds_ap)):
+            ap_matrix[cls_id, t_idx] = _average_precision(
+                flags[:, t_idx], confs, n_gt[cls_id], settings.ap_recall_points
+            )
+        per_class[class_names_list[cls_id]] = {
+            "n_gt": int(n_gt[cls_id]),
+            "ap50": float(ap_matrix[cls_id, 0]),
+            "ap50_95": float(np.mean(ap_matrix[cls_id])),
+        }
 
-    p_all = sum_tp / (sum_tp + sum_fp) if (sum_tp + sum_fp) > 0 else 0
-    r_all = sum_tp / (sum_tp + sum_fn) if (sum_tp + sum_fn) > 0 else 0
-    f1_all = 2 * p_all * r_all / (p_all + r_all) if (p_all + r_all) > 0 else 0
-    logger.info("-" * 60)
-    logger.info(
-        f"{'ALL':>12}  {p_all:>7.4f} {r_all:>7.4f} {f1_all:>7.4f} {sum_tp:>5} {sum_fp:>5} {sum_fn:>5}"
-    )
+    prf = {}
+    for thr in settings.iou_thresholds_prf:
+        table = {}
+        sums = {"tp": 0, "fp": 0, "fn": 0}
+        for cls_id in range(num_classes):
+            c = totals[thr][cls_id]
+            p, r, f1 = _prf(c["tp"], c["fp"], c["fn"])
+            table[class_names_list[cls_id]] = {"p": p, "r": r, "f1": f1, **c}
+            for k in sums:
+                sums[k] += c[k]
+        p, r, f1 = _prf(sums["tp"], sums["fp"], sums["fn"])
+        table["ALL"] = {"p": p, "r": r, "f1": f1, **sums}
+        prf[str(thr)] = table
 
-    return totals
+    report = {
+        "model": str(settings.path_model or settings.hf_filename),
+        "split": settings.split,
+        "n_pages": len(image_paths),
+        "conf": settings.conf,
+        "ap_conf": settings.ap_conf,
+        "nms_iou": settings.iou,
+        "imgsz": settings.imgsz,
+        "device": settings.device,
+        "n_gt": int(n_gt.sum()),
+        "map50": float(np.nanmean(ap_matrix[:, 0])),
+        "map50_95": float(np.nanmean(ap_matrix.mean(axis=1))),
+        "per_class": per_class,
+        "prf": prf,
+        "time_per_page": {
+            "mean": float(np.mean(times)),
+            "median": float(np.median(times)),
+            "total": float(np.sum(times)),
+        },
+    }
+
+    _log_report(report, logger)
+
+    if settings.out_json:
+        out = Path(settings.out_json)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+        logger.info(f"Report written to {out}")
+
+    return report
 
 
 def main():
     """CLI entry point for layout model evaluation."""
-    parser = argparse.ArgumentParser(description="Evaluate YOLO layout model")
-    parser.add_argument("--path-data", type=str, default="data/layout")
-    parser.add_argument("--model", type=str, default=None)
-    parser.add_argument("--split", type=str, default="test", choices=["train", "test"])
-    parser.add_argument("--conf", type=float, default=0.2)
-    parser.add_argument("--iou", type=float, default=0.5)
-    parser.add_argument("--imgsz", type=int, default=1024)
-    parser.add_argument("--device", type=str, default="cpu")
+    defaults = EvaluationSettings()
+    parser = argparse.ArgumentParser(description="Evaluate a layout detection model")
+    parser.add_argument("--path-data", type=str, default=defaults.path_data)
+    parser.add_argument("--model", type=str, default=defaults.path_model)
+    parser.add_argument(
+        "--split", type=str, default=defaults.split, choices=["train", "dev", "test"]
+    )
+    parser.add_argument("--conf", type=float, default=defaults.conf)
+    parser.add_argument("--ap-conf", type=float, default=defaults.ap_conf)
+    parser.add_argument("--iou", type=float, default=defaults.iou)
+    parser.add_argument("--imgsz", type=int, default=defaults.imgsz)
+    parser.add_argument("--device", type=str, default=defaults.device)
+    parser.add_argument("--out-json", type=str, default=defaults.out_json)
     args = parser.parse_args()
 
     settings = EvaluationSettings(
@@ -267,9 +484,11 @@ def main():
         path_model=args.model,
         split=args.split,
         conf=args.conf,
+        ap_conf=args.ap_conf,
         iou=args.iou,
         imgsz=args.imgsz,
         device=args.device,
+        out_json=args.out_json,
     )
 
     evaluate(settings, logger)
