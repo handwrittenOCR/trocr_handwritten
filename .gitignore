@@ -73,3 +73,4 @@ venv/
 # Adaptateurs LoRA (3,1 Go) et notes locales de session
 adapters/
 .claude/
+CLAUDE.md
