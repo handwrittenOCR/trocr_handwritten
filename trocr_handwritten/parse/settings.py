@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 CLASS_NAMES = {
     "0": "Title",
-    "1": "En-tête",
+    "1": "Bruit",
     "2": "Marge",
     "3": "Nom",
     "4": "Plein Texte",
@@ -24,6 +24,7 @@ class LayoutParserSettings:
     device: str = "cpu"
     conf: float = 0.2
     iou: float = 0.5
+    batch_size: int = 32
     create_annotation_json: bool = True
     class_names: dict = field(default_factory=lambda: dict(CLASS_NAMES))
 
