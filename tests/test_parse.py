@@ -361,3 +361,106 @@ class TestDetectPipeline:
         assert out[0]["filename"] == "a.jpg"
         assert out[0]["regions"][0]["label"] == "Plein Texte"
         assert out[0]["regions"][0]["x"] == 100 and out[0]["regions"][0]["width"] == 200
+
+
+class TestConfSweepHFAndBenchmark:
+    """Tests for the confidence sweep, the Hugging Face layout conversion and the benchmark runner."""
+
+    def test_conf_sweep_in_report(self, tmp_path):
+        """A low-confidence false positive lowers F1 at conf 0.2 but not at 0.5."""
+        import numpy as np
+        from PIL import Image
+
+        from trocr_handwritten.parse.metrics import evaluate
+
+        for sub in ("images", "labels"):
+            (tmp_path / "dev" / sub).mkdir(parents=True)
+        Image.new("RGB", (100, 100), "white").save(
+            tmp_path / "dev" / "images" / "p.jpg"
+        )
+        (tmp_path / "dev" / "labels" / "p.txt").write_text("4 0.3 0.3 0.2 0.2")
+        model = Mock(spec=["detect"])
+        model.detect.return_value = (
+            np.array([[20.0, 20.0, 40.0, 40.0], [60.0, 60.0, 90.0, 90.0]]),
+            np.array([4, 4]),
+            np.array([0.9, 0.3]),
+        )
+        settings = EvaluationSettings(
+            path_data=str(tmp_path), split="dev", conf_sweep=(0.2, 0.5)
+        )
+        report = evaluate(settings, Mock(), model=model, verbose=False)
+        f1 = {c: report["conf_sweep"][c]["0.5"]["ALL"]["f1"] for c in ("0.2", "0.5")}
+        assert round(f1["0.2"], 4) == round(2 / 3, 4)
+        assert f1["0.5"] == 1.0
+        assert report["prf"]["0.5"]["ALL"]["f1"] == f1["0.2"]
+
+    def test_convert_layout_snapshot(self, tmp_path):
+        """metadata.jsonl rows become annotations.json entries with class ids and image links."""
+        import json
+
+        from trocr_handwritten.parse.hf_layout import convert_layout_snapshot
+
+        split_dir = tmp_path / "snap" / "layout" / "dev"
+        (split_dir / "images").mkdir(parents=True)
+        (split_dir / "images" / "p.jpg").write_bytes(b"jpg")
+        row = {
+            "file_name": "images/p.jpg",
+            "source": "corpus",
+            "register": "r1",
+            "width": 10,
+            "height": 20,
+            "objects": {"bbox": [[1, 2, 3, 4]], "category": ["Signature"]},
+        }
+        (split_dir / "metadata.jsonl").write_text(json.dumps(row) + "\n")
+        out = tmp_path / "out"
+        assert convert_layout_snapshot(
+            tmp_path / "snap", out, CLASS_NAMES, ("dev",)
+        ) == {"dev": 1}
+        entry = json.loads((out / "dev" / "annotations.json").read_text())[0]
+        assert entry["boxes"] == [
+            {
+                "x": 1,
+                "y": 2,
+                "width": 3,
+                "height": 4,
+                "class_id": 5,
+                "label": "Signature",
+            }
+        ]
+        assert (out / "images_src" / "p.jpg").resolve() == (
+            split_dir / "images" / "p.jpg"
+        ).resolve()
+
+    def test_benchmark_retrains_interrupted_run(self, tmp_path):
+        """A best.pt without the marker is trained again; a finished run is skipped."""
+        from trocr_handwritten.parse import benchmark
+        from trocr_handwritten.parse.settings import BenchmarkSettings
+
+        settings = BenchmarkSettings(path_data=str(tmp_path), images_dir=str(tmp_path))
+        best = tmp_path / "models" / "bench_frcnn" / "weights" / "best.pt"
+        best.parent.mkdir(parents=True)
+        best.write_bytes(b"partial")
+        with patch.object(benchmark, "run_logged", return_value=0) as run:
+            assert benchmark.train_run("bench_frcnn", settings)
+            cmd = run.call_args[0][0]
+            assert cmd[-2:] == ["--patience", "10"]
+            assert (best.parent.parent / benchmark.DONE_MARKER).exists()
+            run.reset_mock()
+            assert benchmark.train_run("bench_frcnn", settings)
+            run.assert_not_called()
+
+    def test_benchmark_doclayout_env(self):
+        """Only the DocLayout-YOLO run gets TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD."""
+        from trocr_handwritten.parse.benchmark import child_env
+        from trocr_handwritten.parse.settings import BenchmarkSettings
+
+        settings = BenchmarkSettings()
+        assert (
+            child_env("bench_doclayout", settings)["TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"]
+            == "1"
+        )
+        import os
+
+        assert child_env("bench_yolo26m", settings).get(
+            "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"
+        ) == os.environ.get("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD")

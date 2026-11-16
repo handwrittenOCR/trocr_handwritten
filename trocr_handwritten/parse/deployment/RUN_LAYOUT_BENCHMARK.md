@@ -37,59 +37,42 @@ rsync -avz --exclude '.env*' --exclude '.venv*' --exclude .git --exclude .claude
   ./ root@$IP:/root/trocr_handwritten/
 ```
 
-Données (les liens relatifs de `images_src/` restent valides car les trois dossiers partent ensemble) :
-```bash
-rsync -avzR --exclude 'models/' --exclude '*.html' --exclude 'labels.cache' \
-  data/raw/initial data/layout_hf/images data/layout_merged \
-  root@$IP:/root/trocr_handwritten/
-```
-
-Sur la box :
-```bash
-ssh root@$IP
-cd ~/trocr_handwritten
-find data/layout_merged/images_src -xtype l | wc -l        # attendu 0 (aucun lien cassé)
-apt-get install -y tmux
-curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH="$HOME/.local/bin:$PATH"
-uv sync --python 3.11
-source .venv/bin/activate
-nvidia-smi
-python -c "import torch; print(torch.__version__, torch.cuda.is_available())"   # attendu True
-```
-
-Si la dernière ligne affiche `False` (driver trop ancien pour le build cu130 de PyPI) :
-```bash
-uv pip install --reinstall torch==2.13.0 torchvision==0.28.0 \
-  --index-url https://download.pytorch.org/whl/cu126
-python -c "import torch; print(torch.__version__, torch.cuda.is_available())"   # attendu 2.13.0+cu126 True
-```
+Données, deux possibilités :
+- **depuis le Mac de l'auteur**, en flux tar (plus rapide que rsync pour beaucoup de petits fichiers ; les liens relatifs de `images_src/` restent valides car les trois dossiers partent ensemble) :
+  ```bash
+  COPYFILE_DISABLE=1 tar --no-xattrs -cf - --exclude 'data/layout_merged/models' --exclude '*.html' --exclude 'labels.cache' \
+    data/raw/initial data/layout_hf/images data/layout_merged \
+    | ssh root@$IP 'tar -xf - -C /root/trocr_handwritten && echo TAR_OK'
+  ```
+- **depuis Hugging Face**, sur la box (même dataset, format reconstruit) : `python -m trocr_handwritten.parse.hf_layout --out-dir data/layout_merged`, puis utiliser `--images-dir data/layout_merged/images_src` (valeur par défaut du benchmark).
 
 ---
 
 ## 3. Lancer le benchmark (sur la box)
 
-Session A d'abord (elle télécharge DocLayout), puis B quand A affiche `===== training bench_yolo11m_v2`.
-B installe `rfdetr[train]==1.12.1` dans le venv avant RF-DETR.
-```bash
-cd ~/trocr_handwritten
-tmux new -d -s benchA 'bash trocr_handwritten/parse/deployment/bench_layout.sh bench_yolo11m_v2 bench_doclayout bench_rtdetr_l; bash'
-tmux new -d -s benchB 'bash trocr_handwritten/parse/deployment/bench_layout.sh bench_yolo26m bench_rfdetr_m bench_frcnn; bash'
-```
-Suivre en direct depuis le Mac :
-```bash
-ssh -t root@$IP tmux attach -t benchA        # Ctrl-b d pour détacher ; idem benchB
-ssh -t root@$IP "watch -n 30 'nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader; for f in ~/train-*.log; do echo \"== \$f\"; tail -c 300 \$f | tr \"\\r\" \"\\n\" | tail -n 2; done'"
-```
-Si une session tombe (OOM compris), relancer la même commande : les modèles déjà entraînés sont sautés.
-Si RF-DETR sature la mémoire en parallèle : le relancer seul quand A a fini.
+Script : `python -m trocr_handwritten.parse.benchmark [runs…]` (réglages dans `BenchmarkSettings`, `parse/settings.py`). Pour chaque run : entraînement (`parse.train`), puis scoring dev et test (`parse.metrics`) en JSON dans `data/layout_merged/eval/`, logs dans `data/layout_merged/logs/`. Un run n'est sauté que s'il a son marqueur `models/<run>/TRAINING_DONE`, écrit en fin d'entraînement réussi : un run interrompu (qui peut déjà avoir un `best.pt`) est réentraîné. Les poids DocLayout sont téléchargés au premier besoin ; `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1` est posé pour ce seul run.
 
-Fin attendue : `ALL DONE` dans les deux sessions, 6 dossiers `data/layout_merged/models/bench_*`.
+Deux sessions tmux en parallèle (≈ 38 Go de GPU au pic sur la L40S). `remain-on-exit` garde le panneau ouvert si un processus meurt, pour lire l'erreur.
+```bash
+cd ~/trocr_handwritten && source .venv/bin/activate
+tmux set -g remain-on-exit on
+tmux new -d -s benchA 'python -m trocr_handwritten.parse.benchmark bench_yolo11m_v2 bench_doclayout bench_rtdetr_l 2>&1 | tee ~/benchA.log; bash'
+sleep 60
+tmux new -d -s benchB 'python -m trocr_handwritten.parse.benchmark bench_yolo26m bench_rfdetr_m bench_frcnn 2>&1 | tee ~/benchB.log; bash'
+tmux ls
+```
+Suivre en direct depuis le Mac (sans s'attacher ; si on s'attache, détacher par **Ctrl-b puis d**) :
+```bash
+ssh -t root@$IP "watch -n 30 'nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader; for f in ~/trocr_handwritten/data/layout_merged/logs/train-*.log; do echo \"== \$f\"; tail -c 300 \$f | tr \"\\r\" \"\\n\" | tail -n 2; done'"
+```
+Si une session tombe, relancer la même commande : les runs finis sont sautés.
+
+Fin attendue : `ALL DONE` dans les deux sessions, un `TRAINING_DONE` par run, 12 JSON dans `data/layout_merged/eval/`.
 
 Réévaluation sur GPU libre (les temps par page mesurés pendant le parallèle sont faussés) :
 ```bash
-tmux new -s rescore 'bash trocr_handwritten/parse/deployment/bench_layout.sh; bash'
+python -m trocr_handwritten.parse.benchmark --score-only
 ```
-Fin attendue : `skip training` pour les 6 runs, `ALL DONE`, 12 JSON dans `data/layout_merged/eval/`.
 
 ---
 
@@ -100,7 +83,7 @@ mkdir -p data/layout_merged/eval data/layout_merged/logs
 rsync -avz root@$IP:/root/trocr_handwritten/data/layout_merged/models/ data/layout_merged/models/ \
   --include 'bench_*/***' --exclude '*'
 rsync -avz root@$IP:/root/trocr_handwritten/data/layout_merged/eval/ data/layout_merged/eval/
-rsync -avz root@$IP:'/root/*bench_*.log' data/layout_merged/logs/
+rsync -avz root@$IP:/root/trocr_handwritten/data/layout_merged/logs/ data/layout_merged/logs/
 ls data/layout_merged/models/bench_*/weights/best.pt | wc -l    # attendu 7 (6 + ancien bench_yolo11m)
 ls data/layout_merged/eval/*_cuda.json | wc -l                  # attendu 12
 ```
@@ -129,10 +112,6 @@ Si un volume `block` subsiste : `scw block volume delete <id> zone=fr-par-2`.
 ## 6. Temps par page sur CPU (Mac, gratuit)
 
 ```bash
-for R in bench_yolo11m_v2 bench_yolo26m bench_doclayout bench_rfdetr_m bench_rtdetr_l bench_frcnn; do
-  P=""; [ "$R" = bench_doclayout ] && P="env TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1"
-  $P python -m trocr_handwritten.parse.metrics --path-data data/layout_merged --split test \
-    --model data/layout_merged/models/$R/weights/best.pt --device cpu \
-    --out-json data/layout_merged/eval/${R}_test_cpu.json
-done
+python -m trocr_handwritten.parse.benchmark --score-only --device cpu
 ```
+Écrit `data/layout_merged/eval/<run>_{dev,test}_cpu.json` pour chaque run qui a un `best.pt`. Chaque JSON contient aussi `conf_sweep` : P/R/F1 pour des seuils de confiance de 0,1 à 0,9, pour choisir un seuil sur le dev.

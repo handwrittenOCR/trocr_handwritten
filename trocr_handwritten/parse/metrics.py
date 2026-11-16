@@ -273,6 +273,36 @@ def _prf(tp, fp, fn):
     return p, r, f1
 
 
+def _prf_table(counts, class_names_list, n_gt):
+    """
+    Build the P/R/F1 table of one IoU threshold from per-class TP/FP/FN counts.
+
+    Args:
+        counts: {cls_id: {"tp": int, "fp": int, "fn": int}}
+        class_names_list: Ordered class names
+        n_gt: Ground-truth count per class (macro average over classes with ground truth)
+
+    Returns:
+        dict: {class name: {p, r, f1, tp, fp, fn}, "ALL": micro, "MACRO": macro}
+    """
+    table = {}
+    sums = {"tp": 0, "fp": 0, "fn": 0}
+    for cls_id, name in enumerate(class_names_list):
+        c = counts[cls_id]
+        p, r, f1 = _prf(c["tp"], c["fp"], c["fn"])
+        table[name] = {"p": p, "r": r, "f1": f1, **c}
+        for k in sums:
+            sums[k] += c[k]
+    p, r, f1 = _prf(sums["tp"], sums["fp"], sums["fn"])
+    table["ALL"] = {"p": p, "r": r, "f1": f1, **sums}
+    with_gt = [class_names_list[i] for i in range(len(class_names_list)) if n_gt[i] > 0]
+    table["MACRO"] = {
+        k: float(np.mean([table[c][k] for c in with_gt])) if with_gt else 0.0
+        for k in ("p", "r", "f1")
+    }
+    return table
+
+
 def _predict(model, img_path, settings):
     """
     Run one prediction and time it (preprocessing, inference, NMS).
@@ -347,6 +377,15 @@ def _log_report(report, logger):
             counts = f"{c['tp']:>5} {c['fp']:>5} {c['fn']:>5}" if "tp" in c else ""
             logger.info(
                 f"{name:>12}  {c['p']:>7.4f} {c['r']:>7.4f} {c['f1']:>7.4f} {counts}"
+            )
+    if report.get("conf_sweep"):
+        thrs = list(next(iter(report["conf_sweep"].values())))
+        logger.info("\nF1 (micro) by confidence threshold")
+        logger.info(f"{'conf':>12}  " + " ".join(f"{'IoU ' + t:>9}" for t in thrs))
+        for conf, by_thr in report["conf_sweep"].items():
+            logger.info(
+                f"{conf:>12}  "
+                + " ".join(f"{by_thr[t]['ALL']['f1']:>9.4f}" for t in thrs)
             )
     cm = report["confusion"]
     logger.info(
@@ -435,6 +474,13 @@ def evaluate(settings, logger, model=None, verbose=True):
         thr: {i: {"tp": 0, "fp": 0, "fn": 0} for i in range(num_classes)}
         for thr in settings.iou_thresholds_prf
     }
+    sweep = {
+        conf: {
+            thr: {i: {"tp": 0, "fp": 0, "fn": 0} for i in range(num_classes)}
+            for thr in settings.iou_thresholds_prf
+        }
+        for conf in settings.conf_sweep
+    }
     ap_flags = {i: [] for i in range(num_classes)}
     ap_confs = {i: [] for i in range(num_classes)}
     n_gt = np.zeros(num_classes, dtype=int)
@@ -495,6 +541,21 @@ def evaluate(settings, logger, model=None, verbose=True):
             for cls_id in range(num_classes):
                 for k in ("tp", "fp", "fn"):
                     totals[thr][cls_id][k] += img_results[cls_id][k]
+        for conf in settings.conf_sweep:
+            above = pred_confs >= conf
+            for thr in settings.iou_thresholds_prf:
+                img_results = _match_predictions(
+                    gt_boxes,
+                    gt_classes,
+                    pred_boxes[above],
+                    pred_classes[above],
+                    pred_confs[above],
+                    num_classes,
+                    iou_threshold=thr,
+                )
+                for cls_id in range(num_classes):
+                    for k in ("tp", "fp", "fn"):
+                        sweep[conf][thr][cls_id][k] += img_results[cls_id][k]
 
     per_class = {}
     ap_matrix = np.full((num_classes, len(settings.iou_thresholds_ap)), np.nan)
@@ -511,24 +572,17 @@ def evaluate(settings, logger, model=None, verbose=True):
             "ap50_95": float(np.mean(ap_matrix[cls_id])),
         }
 
-    prf = {}
-    for thr in settings.iou_thresholds_prf:
-        table = {}
-        sums = {"tp": 0, "fp": 0, "fn": 0}
-        for cls_id in range(num_classes):
-            c = totals[thr][cls_id]
-            p, r, f1 = _prf(c["tp"], c["fp"], c["fn"])
-            table[class_names_list[cls_id]] = {"p": p, "r": r, "f1": f1, **c}
-            for k in sums:
-                sums[k] += c[k]
-        p, r, f1 = _prf(sums["tp"], sums["fp"], sums["fn"])
-        table["ALL"] = {"p": p, "r": r, "f1": f1, **sums}
-        with_gt = [class_names_list[i] for i in range(num_classes) if n_gt[i] > 0]
-        table["MACRO"] = {
-            k: float(np.mean([table[c][k] for c in with_gt])) if with_gt else 0.0
-            for k in ("p", "r", "f1")
+    prf = {
+        str(thr): _prf_table(totals[thr], class_names_list, n_gt)
+        for thr in settings.iou_thresholds_prf
+    }
+    conf_sweep = {
+        str(conf): {
+            str(thr): _prf_table(sweep[conf][thr], class_names_list, n_gt)
+            for thr in settings.iou_thresholds_prf
         }
-        prf[str(thr)] = table
+        for conf in settings.conf_sweep
+    }
 
     report = {
         "model": str(settings.path_model or settings.hf_filename),
@@ -544,6 +598,7 @@ def evaluate(settings, logger, model=None, verbose=True):
         "map50_95": float(np.nanmean(ap_matrix.mean(axis=1))),
         "per_class": per_class,
         "prf": prf,
+        "conf_sweep": conf_sweep,
         "confusion": {
             "iou": settings.confusion_iou,
             "conf": settings.conf,
@@ -585,6 +640,9 @@ def main():
     parser.add_argument("--imgsz", type=int, default=defaults.imgsz)
     parser.add_argument("--device", type=str, default=defaults.device)
     parser.add_argument("--out-json", type=str, default=defaults.out_json)
+    parser.add_argument(
+        "--conf-sweep", type=float, nargs="*", default=list(defaults.conf_sweep)
+    )
     args = parser.parse_args()
 
     settings = EvaluationSettings(
@@ -597,6 +655,7 @@ def main():
         imgsz=args.imgsz,
         device=args.device,
         out_json=args.out_json,
+        conf_sweep=tuple(args.conf_sweep),
     )
 
     evaluate(settings, logger)
