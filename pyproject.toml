@@ -40,6 +40,7 @@ dependencies = [
     "fonttools>=4.60.2",
     "requests>=2.33.0",
     "opencv-python-headless>=4.13.0.92",
+    "rfdetr==1.12.1",
 ]
 
 [project.scripts]
