@@ -88,4 +88,37 @@ class EvaluationSettings:
     iou_thresholds_prf: tuple = (0.5, 0.7)
     confusion_iou: float = 0.5
     ap_recall_points: int = 101
+    conf_sweep: tuple = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
     class_names: dict = field(default_factory=lambda: dict(CLASS_NAMES))
+
+
+@dataclass
+class LayoutDatasetSettings:
+    repo_id: str = "agomberto/historical-layout-colonial"
+    out_dir: str = "data/layout_colonial"
+    splits: tuple = ("train", "dev", "test")
+    class_names: dict = field(default_factory=lambda: dict(CLASS_NAMES))
+
+
+@dataclass
+class BenchmarkSettings:
+    path_data: str = "data/layout_merged"
+    images_dir: str = "data/layout_merged/images_src"
+    device: str = "cuda"
+    splits: tuple = ("dev", "test")
+    doclayout_repo: str = "juliozhao/DocLayout-YOLO-DocSynth300K-pretrain"
+    doclayout_filename: str = "doclayout_yolo_docsynth300k_imgsz1600.pt"
+    weights_dir: str = "models"
+    runs: dict = field(
+        default_factory=lambda: {
+            "bench_yolo11m_v2": "yolo11m.pt",
+            "bench_yolo26m": "yolo26m.pt",
+            "bench_doclayout": "doclayout",
+            "bench_rfdetr_m": "rfdetr_medium",
+            "bench_rtdetr_l": "rtdetr-l.pt",
+            "bench_frcnn": "fasterrcnn_resnet50_fpn",
+        }
+    )
+    extra_args: dict = field(
+        default_factory=lambda: {"bench_frcnn": ["--patience", "10"]}
+    )
