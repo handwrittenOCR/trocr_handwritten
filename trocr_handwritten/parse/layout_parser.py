@@ -56,15 +56,13 @@ def main(settings: LayoutParserSettings, logger):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="Apply YOLO layout parser on images")
+    parser = argparse.ArgumentParser(description="Apply the layout parser on images")
     parser.add_argument("path_folder", nargs="?", default="data/raw/images")
     parser.add_argument("--output", type=str, default="data/processed/images/")
     parser.add_argument("--model", type=str, default=None)
-    parser.add_argument("--hf-repo", type=str, default="agomberto/historical-layout-ft")
+    parser.add_argument("--hf-repo", type=str, default=LayoutParserSettings.hf_repo)
     parser.add_argument(
-        "--hf-filename",
-        type=str,
-        default="20241119_v2_yolov10_50_finetuned.pt",
+        "--hf-filename", type=str, default=LayoutParserSettings.hf_filename
     )
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--conf", type=float, default=0.2)

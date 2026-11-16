@@ -102,7 +102,7 @@ Configure via `LayoutParserSettings` in `trocr_handwritten/parse/settings.py`:
 - `path_folder`: Input images directory (default: `data/raw/images`)
 - `path_output`: Output directory (default: `data/processed/images/`)
 - `path_model`: Local `.pt` model path (optional, uses HF if None)
-- `hf_repo` / `hf_filename`: HuggingFace model repo and filename
+- `hf_repo` / `hf_filename`: HuggingFace model repo and filename (default: RF-DETR-M, best detector of the 2026-11-13 benchmark)
 - `device`: `"cpu"`, `"cuda"`, or `"mps"`
 - `conf`: Confidence threshold (default: 0.2)
 - `iou`: IoU threshold (default: 0.5)
