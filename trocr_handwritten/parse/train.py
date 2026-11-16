@@ -3,10 +3,15 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
 import torch
-from ultralytics import YOLO
 
-from trocr_handwritten.parse.settings import TrainingSettings
+from trocr_handwritten.parse.settings import (
+    FasterRCNNSettings,
+    RFDETRSettings,
+    TrainingSettings,
+)
+from trocr_handwritten.parse.utils import _load_model, _detect_model_backend
 from trocr_handwritten.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -138,6 +143,26 @@ def _count_split(path_data, split):
     return len(images), len(labels)
 
 
+def _restore_numpy_trapz():
+    """
+    Alias np.trapz to np.trapezoid when NumPy no longer provides it (removed in 2.4).
+    doclayout-yolo 0.0.4 calls np.trapz in its validation AP computation.
+    """
+    if not hasattr(np, "trapz"):
+        np.trapz = np.trapezoid
+
+
+def _skip_doclayout_amp_check():
+    """
+    Replace the doclayout-yolo 0.0.4 AMP check by "AMP on when the model is on CUDA".
+    The check downloads yolov8n.pt from the non-existent doclayout_yolo/assets GitHub
+    repo and its FileNotFoundError is not caught, which aborts training.
+    """
+    from doclayout_yolo.engine import trainer
+
+    trainer.check_amp = lambda model: next(model.parameters()).device.type == "cuda"
+
+
 def _get_device():
     """
     Detect the best available device.
@@ -154,10 +179,12 @@ def _get_device():
 
 def train(settings, images_dir, logger):
     """
-    Train a YOLO11 model on layout detection data.
+    Train a layout detector picked from model_base: YOLO, RT-DETR, DocLayout-YOLO
+    (ultralytics / doclayout-yolo), Faster R-CNN ("fasterrcnn_*", torchvision) or
+    RF-DETR ("rfdetr_*", rfdetr).
 
     Args:
-        settings: TrainingSettings instance
+        settings: TrainingSettings, FasterRCNNSettings or RFDETRSettings instance
         images_dir: Source directory containing the original images
         logger: Logger instance
 
@@ -191,7 +218,24 @@ def train(settings, images_dir, logger):
     models_dir = Path(settings.path_data) / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    model = YOLO(settings.model_base)
+    if settings.model_base.startswith("fasterrcnn"):
+        from trocr_handwritten.parse.frcnn import train_frcnn
+
+        logger.info(f"  model: {settings.model_base} (torchvision)")
+        return _copy_best(train_frcnn(settings, device, logger), models_dir, logger)
+
+    if settings.model_base.startswith("rfdetr"):
+        from trocr_handwritten.parse.rfdetr import train_rfdetr
+
+        logger.info(f"  model: {settings.model_base} (rfdetr)")
+        return _copy_best(train_rfdetr(settings, device, logger), models_dir, logger)
+
+    backend = _detect_model_backend(settings.model_base)
+    if backend == "doclayout":
+        _restore_numpy_trapz()
+        _skip_doclayout_amp_check()
+    model = _load_model(settings.model_base, backend=backend)
+    logger.info(f"  model: {settings.model_base} ({backend}, {type(model).__name__})")
 
     model.train(
         data=str(yaml_path),
@@ -205,13 +249,29 @@ def train(settings, images_dir, logger):
         patience=settings.patience,
         save=True,
         plots=True,
-        workers=4,
+        workers=settings.workers,
         freeze=settings.freeze,
         dropout=settings.dropout,
         weight_decay=settings.weight_decay,
     )
 
-    best_pt = models_dir / settings.run_name / "weights" / "best.pt"
+    return _copy_best(
+        models_dir / settings.run_name / "weights" / "best.pt", models_dir, logger
+    )
+
+
+def _copy_best(best_pt, models_dir, logger):
+    """
+    Copy a run's best.pt to <models_dir>/best.pt.
+
+    Args:
+        best_pt: Path to the run's best checkpoint
+        models_dir: Directory holding all runs
+        logger: Logger instance
+
+    Returns:
+        Path: Path to the copy, or None if best_pt does not exist
+    """
     if best_pt.exists():
         out = models_dir / "best.pt"
         shutil.copy2(best_pt, out)
@@ -223,39 +283,39 @@ def train(settings, images_dir, logger):
 
 
 def main():
-    """CLI entry point for layout YOLO training."""
-    parser = argparse.ArgumentParser(description="Train YOLO11 on layout annotations")
-    parser.add_argument("--path-data", type=str, default="data/layout")
-    parser.add_argument("--images-dir", type=str, default="data/raw/images")
-    parser.add_argument("--model-base", type=str, default="yolo11n.pt")
-    parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--imgsz", type=int, default=1024)
-    parser.add_argument("--batch", type=int, default=8)
-    parser.add_argument("--device", type=str, default="auto")
-    parser.add_argument("--patience", type=int, default=20)
-    parser.add_argument("--freeze", type=int, default=0)
-    parser.add_argument("--dropout", type=float, default=0.0)
-    parser.add_argument("--weight-decay", type=float, default=0.0005)
-    parser.add_argument("--name", type=str, default=None)
-    args = parser.parse_args()
+    """
+    CLI entry point for layout detector training.
+    Unset options keep the defaults of TrainingSettings, of FasterRCNNSettings
+    when --model-base starts with "fasterrcnn", or of RFDETRSettings when it starts
+    with "rfdetr".
+    """
+    parser = argparse.ArgumentParser(description="Train a layout detector")
+    parser.add_argument("--path-data", type=str)
+    parser.add_argument("--images-dir", type=str)
+    parser.add_argument("--model-base", type=str)
+    parser.add_argument("--epochs", type=int)
+    parser.add_argument("--imgsz", type=int)
+    parser.add_argument("--batch", type=int)
+    parser.add_argument("--device", type=str)
+    parser.add_argument("--workers", type=int)
+    parser.add_argument("--patience", type=int)
+    parser.add_argument("--freeze", type=int)
+    parser.add_argument("--dropout", type=float)
+    parser.add_argument("--weight-decay", type=float)
+    parser.add_argument("--name", dest="run_name", type=str)
+    overrides = {k: v for k, v in vars(parser.parse_args()).items() if v is not None}
 
-    run_name = args.name or f"e{args.epochs}_b{args.batch}_f{args.freeze}"
+    model_base = overrides.get("model_base", TrainingSettings.model_base)
+    settings_cls = TrainingSettings
+    if model_base.startswith("fasterrcnn"):
+        settings_cls = FasterRCNNSettings
+    elif model_base.startswith("rfdetr"):
+        settings_cls = RFDETRSettings
+    settings = settings_cls(**overrides)
+    if "run_name" not in overrides:
+        settings.run_name = f"e{settings.epochs}_b{settings.batch}_f{settings.freeze}"
 
-    settings = TrainingSettings(
-        path_data=args.path_data,
-        model_base=args.model_base,
-        epochs=args.epochs,
-        imgsz=args.imgsz,
-        batch=args.batch,
-        device=args.device,
-        patience=args.patience,
-        freeze=args.freeze,
-        dropout=args.dropout,
-        weight_decay=args.weight_decay,
-        run_name=run_name,
-    )
-
-    train(settings, args.images_dir, logger)
+    train(settings, settings.images_dir, logger)
 
 
 if __name__ == "__main__":

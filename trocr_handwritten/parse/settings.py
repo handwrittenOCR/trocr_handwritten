@@ -19,8 +19,8 @@ class LayoutParserSettings:
     path_folder: str = "data/raw/images"
     path_output: str = "data/processed/images/"
     path_model: str = None
-    hf_repo: str = "agomberto/historical-layout-ft"
-    hf_filename: str = "20241119_v2_yolov10_50_finetuned.pt"
+    hf_repo: str = "agomberto/historical-layout-rfdetr-m"
+    hf_filename: str = "20261113_rfdetr_medium_layout.pt"
     device: str = "cpu"
     conf: float = 0.2
     iou: float = 0.5
@@ -32,11 +32,13 @@ class LayoutParserSettings:
 @dataclass
 class TrainingSettings:
     path_data: str = "data/layout"
+    images_dir: str = "data/raw/images"
     model_base: str = "yolo11n.pt"
-    epochs: int = 50
+    epochs: int = 100
     imgsz: int = 1024
     batch: int = 8
-    device: str = "cpu"
+    device: str = "auto"
+    workers: int = 4
     patience: int = 20
     freeze: int = 0
     dropout: float = 0.0
@@ -46,11 +48,35 @@ class TrainingSettings:
 
 
 @dataclass
+class FasterRCNNSettings(TrainingSettings):
+    model_base: str = "fasterrcnn_resnet50_fpn"
+    pretrained: bool = True
+    trainable_backbone_layers: int = 3
+    lr: float = 0.01
+    momentum: float = 0.9
+    weight_decay: float = 0.0001
+    warmup_iters: int = 1000
+    hflip: float = 0.5
+    max_det: int = 300
+    seed: int = 0
+
+
+@dataclass
+class RFDETRSettings(TrainingSettings):
+    model_base: str = "rfdetr_medium"
+    lr: float = 1e-4
+    lr_encoder: float = 1.5e-4
+    weight_decay: float = 1e-4
+    grad_accum_steps: int = 1
+    seed: int = 0
+
+
+@dataclass
 class EvaluationSettings:
     path_data: str = "data/layout"
     path_model: str = None
-    hf_repo: str = "agomberto/historical-layout-ft"
-    hf_filename: str = "20241119_v2_yolov10_50_finetuned.pt"
+    hf_repo: str = "agomberto/historical-layout-rfdetr-m"
+    hf_filename: str = "20261113_rfdetr_medium_layout.pt"
     split: str = "test"
     conf: float = 0.2
     ap_conf: float = 0.001
@@ -60,5 +86,6 @@ class EvaluationSettings:
     out_json: str = None
     iou_thresholds_ap: tuple = (0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95)
     iou_thresholds_prf: tuple = (0.5, 0.7)
+    confusion_iou: float = 0.5
     ap_recall_points: int = 101
     class_names: dict = field(default_factory=lambda: dict(CLASS_NAMES))

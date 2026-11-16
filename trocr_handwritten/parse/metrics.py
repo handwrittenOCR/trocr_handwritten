@@ -161,16 +161,71 @@ def _match_tp_flags(gt_boxes, pred_boxes, pred_confs, iou_thresholds):
     if len(pred_boxes) == 0 or len(gt_boxes) == 0:
         return flags
     iou_matrix = _compute_iou_matrix(pred_boxes, gt_boxes)
-    order = np.argsort(-pred_confs, kind="stable")
     for t_idx, thr in enumerate(iou_thresholds):
-        matched = np.zeros(len(gt_boxes), dtype=bool)
-        for pred_idx in order:
-            ious = np.where(matched, -1.0, iou_matrix[pred_idx])
-            best_gt = int(np.argmax(ious))
-            if ious[best_gt] >= thr:
-                matched[best_gt] = True
-                flags[pred_idx, t_idx] = True
+        flags[:, t_idx] = _greedy_match(iou_matrix, pred_confs, thr) >= 0
     return flags
+
+
+def _greedy_match(iou_matrix, pred_confs, iou_threshold):
+    """
+    Greedy one-to-one matching of predictions to ground truth by decreasing confidence.
+
+    Each prediction takes the unmatched ground-truth box with the highest IoU, if
+    that IoU reaches the threshold.
+
+    Args:
+        iou_matrix: (n_pred, n_gt) IoU matrix
+        pred_confs: Prediction confidences
+        iou_threshold: IoU threshold
+
+    Returns:
+        np.ndarray: Matched ground-truth index per prediction (-1 if unmatched),
+            in the input order
+    """
+    match = np.full(iou_matrix.shape[0], -1, dtype=int)
+    matched = np.zeros(iou_matrix.shape[1], dtype=bool)
+    if iou_matrix.shape[1] == 0:
+        return match
+    for pred_idx in np.argsort(-pred_confs, kind="stable"):
+        ious = np.where(matched, -1.0, iou_matrix[pred_idx])
+        best_gt = int(np.argmax(ious))
+        if ious[best_gt] >= iou_threshold:
+            matched[best_gt] = True
+            match[pred_idx] = best_gt
+    return match
+
+
+def _confusion_matrix(
+    gt_boxes, gt_classes, pred_boxes, pred_classes, pred_confs, num_classes, iou
+):
+    """
+    Confusion matrix of one image from a class-agnostic greedy matching.
+
+    Rows are ground-truth classes plus a last "background" row (predictions that
+    match no ground-truth box); columns are predicted classes plus a last "missed"
+    column (ground-truth boxes matched by no prediction).
+
+    Args:
+        gt_boxes: Ground truth boxes (xyxy)
+        gt_classes: Ground truth class ids
+        pred_boxes: Predicted boxes (xyxy)
+        pred_classes: Predicted class ids
+        pred_confs: Prediction confidences
+        num_classes: Total number of classes
+        iou: IoU threshold for a match
+
+    Returns:
+        np.ndarray: (num_classes + 1, num_classes + 1) integer counts
+    """
+    matrix = np.zeros((num_classes + 1, num_classes + 1), dtype=int)
+    match = _greedy_match(_compute_iou_matrix(pred_boxes, gt_boxes), pred_confs, iou)
+    for pred_idx, gt_idx in enumerate(match):
+        row = gt_classes[gt_idx] if gt_idx >= 0 else num_classes
+        matrix[row, pred_classes[pred_idx]] += 1
+    missed = np.setdiff1d(np.arange(len(gt_boxes)), match[match >= 0])
+    for gt_idx in missed:
+        matrix[gt_classes[gt_idx], num_classes] += 1
+    return matrix
 
 
 def _average_precision(tp_flags, confs, n_gt, recall_points):
@@ -220,10 +275,12 @@ def _prf(tp, fp, fn):
 
 def _predict(model, img_path, settings):
     """
-    Run one ultralytics prediction and time it (preprocessing, inference, NMS).
+    Run one prediction and time it (preprocessing, inference, NMS).
+    Models exposing detect(img_path, conf, iou, device) (torchvision detectors) are
+    called through it; others go through the ultralytics predict API.
 
     Args:
-        model: Loaded ultralytics / doclayout-yolo model
+        model: Loaded ultralytics / doclayout-yolo model or FasterRCNNDetector
         img_path: Path to the page image
         settings: EvaluationSettings instance
 
@@ -231,6 +288,9 @@ def _predict(model, img_path, settings):
         tuple: (boxes_xyxy, classes, confs, seconds)
     """
     start = time.perf_counter()
+    if hasattr(model, "detect"):
+        out = model.detect(img_path, settings.ap_conf, settings.iou, settings.device)
+        return (*out, time.perf_counter() - start)
     results = model.predict(
         str(img_path),
         imgsz=settings.imgsz,
@@ -284,10 +344,18 @@ def _log_report(report, logger):
         for name, c in report["prf"][key].items():
             if name == "ALL":
                 logger.info("-" * 60)
+            counts = f"{c['tp']:>5} {c['fp']:>5} {c['fn']:>5}" if "tp" in c else ""
             logger.info(
-                f"{name:>12}  {c['p']:>7.4f} {c['r']:>7.4f} {c['f1']:>7.4f} "
-                f"{c['tp']:>5} {c['fp']:>5} {c['fn']:>5}"
+                f"{name:>12}  {c['p']:>7.4f} {c['r']:>7.4f} {c['f1']:>7.4f} {counts}"
             )
+    cm = report["confusion"]
+    logger.info(
+        f"\nConfusion at IoU {cm['iou']} (conf >= {cm['conf']}): "
+        f"rows = ground truth, columns = prediction"
+    )
+    logger.info(f"{'':>12}  " + " ".join(f"{c[:7]:>7}" for c in cm["cols"]))
+    for name, row in zip(cm["rows"], cm["matrix"]):
+        logger.info(f"{name:>12}  " + " ".join(f"{v:>7}" for v in row))
     t = report["time_per_page"]
     logger.info(
         f"\nTime per page ({report['device']}): mean {t['mean']:.4f}s | "
@@ -295,7 +363,25 @@ def _log_report(report, logger):
     )
 
 
-def evaluate(settings, logger):
+def _list_images(images_dir):
+    """
+    List the page images of a split directory, sorted.
+
+    Args:
+        images_dir: Directory holding .png / .jpg / .jpeg images
+
+    Returns:
+        list: Sorted list of image Paths
+    """
+    images_dir = Path(images_dir)
+    return sorted(
+        list(images_dir.glob("*.png"))
+        + list(images_dir.glob("*.jpg"))
+        + list(images_dir.glob("*.jpeg"))
+    )
+
+
+def evaluate(settings, logger, model=None, verbose=True):
     """
     Evaluate a layout model on a dataset split.
 
@@ -307,13 +393,16 @@ def evaluate(settings, logger):
     Args:
         settings: EvaluationSettings instance
         logger: Logger instance
+        model: Already loaded model (e.g. during training); loaded from
+            settings.path_model or the HF repo when None
+        verbose: Log the full report tables
 
     Returns:
         dict: Evaluation report (also written to settings.out_json if set)
     """
-    if settings.path_model:
+    if model is None and settings.path_model:
         model = _load_model(settings.path_model)
-    else:
+    elif model is None:
         token = _get_hf_token()
         filepath = hf_hub_download(
             repo_id=settings.hf_repo, filename=settings.hf_filename, token=token
@@ -333,11 +422,7 @@ def evaluate(settings, logger):
         logger.error(f"Images dir not found: {images_dir}")
         return None
 
-    image_paths = sorted(
-        list(images_dir.glob("*.png"))
-        + list(images_dir.glob("*.jpg"))
-        + list(images_dir.glob("*.jpeg"))
-    )
+    image_paths = _list_images(images_dir)
     if not image_paths:
         logger.error(f"No images in {images_dir}")
         return None
@@ -353,6 +438,7 @@ def evaluate(settings, logger):
     ap_flags = {i: [] for i in range(num_classes)}
     ap_confs = {i: [] for i in range(num_classes)}
     n_gt = np.zeros(num_classes, dtype=int)
+    confusion = np.zeros((num_classes + 1, num_classes + 1), dtype=int)
     times = []
 
     for img_path in image_paths:
@@ -387,6 +473,15 @@ def evaluate(settings, logger):
             ap_confs[cls_id].append(pred_confs[pred_mask])
 
         keep = pred_confs >= settings.conf
+        confusion += _confusion_matrix(
+            gt_boxes,
+            gt_classes,
+            pred_boxes[keep],
+            pred_classes[keep],
+            pred_confs[keep],
+            num_classes,
+            settings.confusion_iou,
+        )
         for thr in settings.iou_thresholds_prf:
             img_results = _match_predictions(
                 gt_boxes,
@@ -428,6 +523,11 @@ def evaluate(settings, logger):
                 sums[k] += c[k]
         p, r, f1 = _prf(sums["tp"], sums["fp"], sums["fn"])
         table["ALL"] = {"p": p, "r": r, "f1": f1, **sums}
+        with_gt = [class_names_list[i] for i in range(num_classes) if n_gt[i] > 0]
+        table["MACRO"] = {
+            k: float(np.mean([table[c][k] for c in with_gt])) if with_gt else 0.0
+            for k in ("p", "r", "f1")
+        }
         prf[str(thr)] = table
 
     report = {
@@ -444,6 +544,13 @@ def evaluate(settings, logger):
         "map50_95": float(np.nanmean(ap_matrix.mean(axis=1))),
         "per_class": per_class,
         "prf": prf,
+        "confusion": {
+            "iou": settings.confusion_iou,
+            "conf": settings.conf,
+            "rows": class_names_list + ["background"],
+            "cols": class_names_list + ["missed"],
+            "matrix": confusion.tolist(),
+        },
         "time_per_page": {
             "mean": float(np.mean(times)),
             "median": float(np.median(times)),
@@ -451,7 +558,8 @@ def evaluate(settings, logger):
         },
     }
 
-    _log_report(report, logger)
+    if verbose:
+        _log_report(report, logger)
 
     if settings.out_json:
         out = Path(settings.out_json)

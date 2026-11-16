@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 from dotenv import load_dotenv
 from huggingface_hub import hf_hub_download
+import numpy as np
 import torch
 import logging
 import cv2
@@ -23,15 +25,24 @@ def _get_hf_token():
 
 def _detect_model_backend(model_path):
     """
-    Detect whether a model checkpoint was trained with doclayout-yolo or ultralytics.
+    Detect whether a model checkpoint was trained with doclayout-yolo, ultralytics,
+    torchvision (Faster R-CNN checkpoints written by parse.frcnn) or rfdetr.
+    A name that is not a local file (e.g. "yolo11m.pt", downloaded by ultralytics)
+    is treated as ultralytics.
 
     Args:
         model_path: Path to the .pt model file
 
     Returns:
-        str: "doclayout" or "ultralytics"
+        str: "doclayout", "torchvision", "rfdetr" or "ultralytics"
     """
+    if not Path(model_path).is_file():
+        return "ultralytics"
     ckpt = torch.load(model_path, map_location="cpu", weights_only=False)
+    if isinstance(ckpt, dict) and str(ckpt.get("arch", "")).startswith("fasterrcnn"):
+        return "torchvision"
+    if isinstance(ckpt, dict) and str(ckpt.get("model_name", "")).startswith("RFDETR"):
+        return "rfdetr"
     if isinstance(ckpt, dict) and "model" in ckpt:
         module = getattr(ckpt["model"].__class__, "__module__", "")
         if module.startswith("doclayout_yolo"):
@@ -42,13 +53,16 @@ def _detect_model_backend(model_path):
 def _load_model(model_path, backend=None):
     """
     Load a YOLO model with the appropriate backend.
+    Names containing "rtdetr" (e.g. rtdetr-l.pt, rtdetr-l.yaml) load as RT-DETR;
+    fine-tuned RT-DETR checkpoints are switched by ultralytics from their head.
 
     Args:
-        model_path: Path to the .pt model file
-        backend: Force a backend ("doclayout" or "ultralytics"). Auto-detects if None.
+        model_path: Path to the .pt (or .yaml) model file
+        backend: Force a backend ("doclayout", "torchvision", "rfdetr" or
+            "ultralytics"). Auto-detects if None.
 
     Returns:
-        YOLO model instance
+        YOLO, RTDETR, YOLOv10, FasterRCNNDetector or RFDETRDetector instance
     """
     if backend is None:
         backend = _detect_model_backend(model_path)
@@ -58,15 +72,50 @@ def _load_model(model_path, backend=None):
 
         return YOLOv10(model_path)
 
+    if backend == "torchvision":
+        from trocr_handwritten.parse.frcnn import FasterRCNNDetector
+
+        return FasterRCNNDetector.from_checkpoint(model_path)
+
+    if backend == "rfdetr":
+        from trocr_handwritten.parse.rfdetr import RFDETRDetector
+
+        return RFDETRDetector(model_path)
+
+    if "rtdetr" in Path(model_path).stem:
+        from ultralytics import RTDETR
+
+        return RTDETR(model_path)
+
     from ultralytics import YOLO
 
     return YOLO(model_path)
 
 
+class DetectionResult:
+    """
+    Stand-in for an ultralytics Results object, built from the outputs of a detector
+    exposing detect() (RF-DETR, Faster R-CNN), so that create_predictions_json and
+    create_structured_crops handle every backend alike.
+    """
+
+    def __init__(self, path, boxes_xyxy, classes, confs):
+        xyxy = torch.as_tensor(np.asarray(boxes_xyxy, dtype=np.float32)).reshape(-1, 4)
+        xywh = torch.cat(
+            [(xyxy[:, :2] + xyxy[:, 2:]) / 2, xyxy[:, 2:] - xyxy[:, :2]], 1
+        )
+        self.path = str(path)
+        self.boxes = SimpleNamespace(
+            xywh=xywh,
+            cls=torch.as_tensor(np.asarray(classes, dtype=np.float32)),
+            conf=torch.as_tensor(np.asarray(confs, dtype=np.float32)),
+        )
+
+
 class YOLOModel:
     """
-    YOLO model class for layout parsing of historical documents.
-    Supports both doclayout-yolo (YOLOv10) and ultralytics (YOLO11) backends.
+    Layout model class for historical documents. Supports doclayout-yolo (YOLOv10),
+    ultralytics (YOLO, RT-DETR) and detectors exposing detect() (RF-DETR, Faster R-CNN).
     """
 
     def __init__(self, settings: LayoutParserSettings, logger: logging.Logger):
@@ -124,6 +173,25 @@ class YOLOModel:
             raise ValueError(f"Error loading model from local file: {e}")
 
     def predict(self, path_folder):
+        """
+        Detect the regions of a list of images (or of one image path).
+
+        Args:
+            path_folder: Image path or list of image paths
+
+        Returns:
+            list: ultralytics Results, or DetectionResult for detect() models
+        """
+        if hasattr(self.model, "detect"):
+            paths = (
+                [path_folder] if isinstance(path_folder, (str, Path)) else path_folder
+            )
+            return [
+                DetectionResult(
+                    p, *self.model.detect(p, self.conf, self.iou, self.device)
+                )
+                for p in paths
+            ]
         return self.model.predict(
             path_folder, imgsz=1024, conf=self.conf, iou=self.iou, device=self.device
         )
