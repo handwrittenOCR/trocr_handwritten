@@ -22,6 +22,7 @@ In this page we explain a bit more in detail the different components of the pip
 8. [Image preprocessing](#-image-preprocessing)
 9. [Transcribing with Label Studio](labelstudio/README.md)
 10. [Named Entity Recognition (NER)](#-named-entity-recognition-ner-with-llm)
+11. [Filtering handwritten regions](hw_filter/README.md)
 
 
 ## 📦 Installation
