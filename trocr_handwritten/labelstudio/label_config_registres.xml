@@ -1,0 +1,42 @@
+<View>
+  <Style>.lsf-main-content { max-height: 92vh; } .meta { font-size: 12px; white-space: pre-wrap; }</Style>
+  <View style="display: flex; gap: 1em;">
+    <View style="flex: 55%;">
+      <Image name="image" valueList="$images" zoom="true" zoomControl="true"/>
+    </View>
+    <View style="flex: 45%; overflow-y: auto;">
+      <Header value="$register_key"/>
+      <Text name="a_verifier" value="$a_verifier" className="meta"/>
+      <Header value="Métadonnées (corriger si besoin)" size="5"/>
+      <Header value="Type de document" size="6"/>
+      <TextArea name="type_document" toName="image" value="$type_document" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Actes (état civil)" size="6"/>
+      <TextArea name="actes" toName="image" value="$actes" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Mention d'esclaves (oui / non / sans objet)" size="6"/>
+      <TextArea name="mention_esclaves" toName="image" value="$mention_esclaves" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Lieu (bagne ou commune de l'acte)" size="6"/>
+      <TextArea name="place" toName="image" value="$place" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Colonie" size="6"/>
+      <TextArea name="colony" toName="image" value="$colony" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Année de début" size="6"/>
+      <TextArea name="year_start" toName="image" value="$year_start" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Année de fin" size="6"/>
+      <TextArea name="year_end" toName="image" value="$year_end" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Nature des dates" size="6"/>
+      <TextArea name="dates_nature" toName="image" value="$dates_nature" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Catégorie pénale" size="6"/>
+      <TextArea name="penal_category" toName="image" value="$penal_category" rows="1" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Commentaire" size="6"/>
+      <TextArea name="commentaire" toName="image" rows="2" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Choices name="statut" toName="image" choice="single" showInLine="true" required="true">
+        <Choice value="ok"/>
+        <Choice value="corrigé"/>
+        <Choice value="incertain"/>
+      </Choices>
+      <Header value="Valeurs lues par les agents et preuves" size="6"/>
+      <Text name="agents" value="$agents" className="meta"/>
+      <Header value="Texte transcrit" size="6"/>
+      <Text name="texte" value="$texte" className="meta"/>
+    </View>
+  </View>
+</View>

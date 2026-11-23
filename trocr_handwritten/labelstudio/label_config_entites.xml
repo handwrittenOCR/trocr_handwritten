@@ -1,0 +1,25 @@
+<View>
+  <Style>.lsf-main-content { max-height: 92vh; } .meta { font-size: 12px; white-space: pre-wrap; }</Style>
+  <View style="display: flex; gap: 1em;">
+    <View style="flex: 55%;">
+      <Image name="image" valueList="$images" zoom="true" zoomControl="true"/>
+    </View>
+    <View style="flex: 45%; overflow-y: auto;">
+      <Header value="$titre"/>
+      <Header value="Champs extraits : une ligne « champ : valeur » ; corriger la valeur, laisser vide si absent de la source" size="6"/>
+      <TextArea name="champs" toName="image" value="$champs" rows="22" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Choices name="verdict" toName="image" choice="single" showInLine="true" required="true">
+        <Choice value="tout juste"/>
+        <Choice value="corrigé"/>
+        <Choice value="acte mal découpé"/>
+        <Choice value="illisible"/>
+      </Choices>
+      <Header value="Commentaire" size="6"/>
+      <TextArea name="commentaire" toName="image" rows="2" editable="true" maxSubmissions="1" showSubmitButton="false"/>
+      <Header value="Texte transcrit des régions de l'acte" size="6"/>
+      <Text name="texte" value="$texte" className="meta"/>
+      <Header value="Passage cité par l'agent" size="6"/>
+      <Text name="preuve" value="$preuve" className="meta"/>
+    </View>
+  </View>
+</View>
