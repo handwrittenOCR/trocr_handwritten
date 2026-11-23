@@ -107,8 +107,8 @@ class DataSettings(BaseModel):
         default="data/ocr/finetune", description="Where manifests are written."
     )
     paliers: List[int] = Field(
-        default_factory=lambda: [60, 120, 240, 485, 972, 1400, 1997],
-        description="Nested subset sizes for the learning curve (1997 = full train).",
+        default_factory=lambda: [60, 120, 240, 485, 972, 1400, 1997, 2415],
+        description="Nested subset sizes for the learning curve (2415 = full train).",
     )
     eval_splits: List[str] = Field(
         default_factory=lambda: ["dev", "test"],
