@@ -17,7 +17,20 @@ class LabelStudio:
 
     def __init__(self, url: str, token: str):
         self.url = url.rstrip("/")
+        self.token = token
         self.h = self._resolve_auth(token)
+
+    def _patch(self, path: str, payload: Dict) -> None:
+        """PATCH ``path``; on 401 (expired short-lived JWT) renew the auth once and retry."""
+        r = requests.patch(
+            f"{self.url}{path}", headers=self.h, json=payload, timeout=30
+        )
+        if r.status_code == 401:
+            self.h = self._resolve_auth(self.token)
+            r = requests.patch(
+                f"{self.url}{path}", headers=self.h, json=payload, timeout=30
+            )
+        r.raise_for_status()
 
     def _probe(self, headers: Dict[str, str]) -> bool:
         """True if these headers authenticate against the projects endpoint."""
@@ -63,12 +76,11 @@ class LabelStudio:
 
     def update_config(self, project_id: int, label_config: str) -> None:
         """Replace a project's labeling config (names must stay compatible)."""
-        r = requests.patch(
-            f"{self.url}/api/projects/{project_id}",
-            headers=self.h,
-            json={"label_config": label_config},
-        )
-        r.raise_for_status()
+        self._patch(f"/api/projects/{project_id}", {"label_config": label_config})
+
+    def update_task(self, task_id: int, data: Dict) -> None:
+        """Replace a task's data; its annotations are kept."""
+        self._patch(f"/api/tasks/{task_id}", {"data": data})
 
     def delete_all_tasks(self, project_id: int) -> None:
         """Delete every task (and its annotations) in a project."""
@@ -107,12 +119,12 @@ class LabelStudio:
             n += len(chunk)
         return n
 
-    def export_tasks(self, project_id: int) -> List[Dict]:
-        """Export a project's tasks with their annotations as JSON."""
+    def export_tasks(self, project_id: int, all_tasks: bool = False) -> List[Dict]:
+        """Export a project's tasks with their annotations as JSON; unannotated ones too if ``all_tasks``."""
         r = requests.get(
             f"{self.url}/api/projects/{project_id}/export",
             headers=self.h,
-            params={"exportType": "JSON"},
+            params={"exportType": "JSON", "download_all_tasks": str(all_tasks).lower()},
         )
         r.raise_for_status()
         return r.json()
