@@ -32,11 +32,10 @@ def register_key(filename):
     """
     Return the archival register/volume a crop belongs to.
 
-    A register (matricule volume, microfilm reel or civil-status cote) is written
-    by a single hand, so grouping splits by register instead of page keeps a whole
-    scribe out of dev/test and measures generalization to unseen hands. The key is
-    read from the file name across the known corpus grammars; unknown patterns fall
-    back to stripping the trailing page and crop indices.
+    A register is a matricule volume, microfilm reel or civil-status cote; grouping
+    splits by register keeps every page and crop of a volume in a single split. The
+    key is read from the file name across the known corpus grammars; unknown patterns
+    fall back to stripping the trailing page and crop indices.
 
     Args:
         filename: Crop file name or stem.
