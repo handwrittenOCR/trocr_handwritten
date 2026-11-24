@@ -919,7 +919,7 @@ Fine-tunes Qwen3.5 (or another Hugging Face image-text-to-text model) on the OCR
 uv pip install peft datasets accelerate liger-kernel
 ```
 
-1. **Build the training manifests**: one JSON line per crop (image, region, text). `dev.jsonl` and `test.jsonl` copy the eval splits, and `train_<n>.jsonl` holds nested training subsets for learning curves (60 ⊂ 120 ⊂ … ⊂ 1997, the full train set).
+1. **Build the training manifests**: one JSON line per crop (image, region, text). `dev.jsonl` and `test.jsonl` copy the eval splits, and `train_<n>.jsonl` holds nested training subsets for learning curves (60 ⊂ 120 ⊂ … ⊂ 1997 ⊂ 2415, the full train set).
 
 ```bash
 python -m trocr_handwritten.llm.finetune.prepare_data --ocr-dir data/ocr --out-dir data/ocr/finetune
@@ -930,7 +930,7 @@ python -m trocr_handwritten.llm.finetune.prepare_data --ocr-dir data/ocr --out-d
 ```bash
 python -m trocr_handwritten.llm.finetune.train_lora \
     --model Qwen/Qwen3.5-4B \
-    --train data/ocr/finetune/train_1997.jsonl \
+    --train data/ocr/finetune/train_2415.jsonl \
     --eval data/ocr/finetune/dev.jsonl \
     --data-root data/ocr \
     --target-modules all-linear \

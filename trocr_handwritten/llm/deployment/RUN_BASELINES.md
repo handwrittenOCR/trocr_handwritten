@@ -1,6 +1,6 @@
 # Runbook — baselines VLM zero-shot sur H100 (test v2.0)
 
-Corpus : `data/ocr/20260807-ft-data` (test = 568 images).
+Corpus : `data/ocr/20260807-ft-data` (test = 652 images).
 Déjà fait : `zs-qwen3-vl-8b`, `zs-qwen3-vl-2b`.
 Restent **6 modèles** (voir table §3).
 
@@ -55,7 +55,7 @@ rsync -avz --progress --exclude .venv --exclude .git --exclude data \
 **Si tu préfères tout faire sur la box** (option sans tunnel), il faut aussi le split test :
 ```bash
 # vérifier côté box
-ssh root@$IP 'find /root/trocr_handwritten/data/ocr/20260807-ft-data/test/images -type f | wc -l'  # attendu 568
+ssh root@$IP 'find /root/trocr_handwritten/data/ocr/20260807-ft-data/test/images -type f | wc -l'  # attendu 652
 # sinon, le monter depuis le Mac
 ssh root@$IP 'mkdir -p /root/trocr_handwritten/data/ocr/20260807-ft-data'
 rsync -avz --progress data/ocr/20260807-ft-data/test \
