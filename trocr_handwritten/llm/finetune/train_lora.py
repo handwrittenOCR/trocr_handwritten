@@ -269,6 +269,13 @@ def main():
     if "warmup_ratio" not in allowed and "warmup_steps" in allowed:
         cand.pop("warmup_ratio", None)
         cand["warmup_steps"] = int(s.warmup_ratio * steps)
+    if (
+        cand.get("group_by_length")
+        and "group_by_length" not in allowed
+        and "train_sampling_strategy" in allowed
+    ):
+        cand.pop("group_by_length")
+        cand["train_sampling_strategy"] = "group_by_length"
     dropped = sorted(k for k in cand if k not in allowed)
     if dropped:
         import transformers
