@@ -53,6 +53,11 @@ def main():
         default=None,
         help="Kraken OpenMP/BLAS threads (default: all cores).",
     )
+    parser.add_argument(
+        "--skip_existing",
+        action="store_true",
+        help="Skip crops whose prediction already exists in output_dir.",
+    )
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir)
@@ -67,6 +72,15 @@ def main():
     cache_dir = Path(settings.seg_cache_dir or input_dir.parent / "segmentation")
 
     images = find_images(input_dir, args.pattern, limit=args.n)
+    if args.skip_existing:
+        images = [
+            img
+            for img in images
+            if not (
+                output_dir
+                / img.relative_to(input_dir).with_suffix(settings.output_extension)
+            ).exists()
+        ]
     logger.info(f"Found {len(images)} images; engine={args.engine} model={args.model}")
 
     engine = ENGINES[args.engine](settings)
