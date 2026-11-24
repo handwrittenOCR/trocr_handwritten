@@ -20,6 +20,7 @@ class VLLMProvider(LLMProvider):
         super().__init__(settings)
         if not self.settings.vllm_base_url:
             raise ValueError("vllm_base_url must be set when using the vllm provider")
+        self.sampled_outputs = 0
         self._init_client()
 
     def _init_client(self) -> None:
@@ -105,6 +106,7 @@ class VLLMProvider(LLMProvider):
             out_tok += rout
             if rtext and rtext.strip():
                 text = rtext
+                self.sampled_outputs += 1
         return text, in_tok, out_tok
 
     async def _call_api_async(self, model: str, messages: list) -> Tuple[str, int, int]:
@@ -129,4 +131,5 @@ class VLLMProvider(LLMProvider):
             out_tok += rout
             if rtext and rtext.strip():
                 text = rtext
+                self.sampled_outputs += 1
         return text, in_tok, out_tok

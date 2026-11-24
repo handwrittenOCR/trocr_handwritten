@@ -186,6 +186,11 @@ def run_once(
             "estimated_cost_usd": cost_tracker.get_cost(),
             "elapsed_seconds": round(cost_tracker.elapsed_seconds(), 1),
             "failed_count": len(failed_images),
+            **(
+                {"sampled_outputs": provider.sampled_outputs}
+                if hasattr(provider, "sampled_outputs")
+                else {}
+            ),
         }
         with open(output_dir / "summary.json", "w", encoding="utf-8") as f:
             json.dump(summary_data, f, indent=2)
@@ -364,7 +369,6 @@ def main():
     logger.info(f"Using model: {llm_settings.model_name}")
 
     prompt = load_prompt(ocr_settings.llm_settings.prompt_path)
-    provider = get_provider(llm_settings)
 
     input_path = Path(ocr_settings.input_dir)
     images = find_images(input_path, ocr_settings.image_pattern, limit=args.n)
@@ -379,7 +383,7 @@ def main():
             run_dir = base_dir
         run_once(
             images,
-            provider,
+            get_provider(llm_settings),
             prompt,
             ocr_settings.output_extension,
             model_name,
