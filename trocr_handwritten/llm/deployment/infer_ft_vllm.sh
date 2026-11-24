@@ -33,6 +33,7 @@ MAXP=1310720   # 1280 * 32 * 32
 RES=${RES:-capped}
 # TAG selects which adapter variant to serve and tags the prediction dir with it.
 TAG=${TAG:-}
+PALIER=${PALIER:-2415}
 if [ "$RES" = "capped" ]; then
     MM_ARGS=(--mm-processor-kwargs "{\"min_pixels\":$MINP,\"max_pixels\":$MAXP}")
     SUF=""
@@ -40,7 +41,7 @@ else
     MM_ARGS=()
     SUF="-native"
 fi
-echo "resolution: $RES"
+echo "resolution: $RES, palier: $PALIER"
 
 free_gpu() {
     # vLLM claims 90% of the card at startup and aborts if anything else holds
@@ -81,7 +82,7 @@ for M in $MODELS; do
         fi
     else
         SRC="Qwen/Qwen3.5-$M"
-        A="$PWD/adapters/qwen3.5-$M-lora-1997$TAG"
+        A="$PWD/adapters/qwen3.5-$M-lora-$PALIER$TAG"
         LORA_ARGS=(--enable-lora --max-lora-rank 16 --lora-modules "ft=$A")
         SERVED="base-$M"
         if [ ! -d "$A" ]; then
@@ -125,7 +126,7 @@ for M in $MODELS; do
             --model ft --vllm_base_url "http://localhost:$PORT/v1" \
             --input_dir "$ROOT/$SP/images" --pattern "*/*.jpg" \
             --output_dir "$ROOT/$SP/predictions/ft-qwen3.5-$M${TAG:-$SUF}" \
-            --repeat 5 --temperature 0 --max_tokens 1024 --max_concurrent 32 \
+            --repeat 5 --temperature 0 --max_tokens 2048 --max_concurrent 32 \
             --disable_thinking
     done
 

@@ -10,14 +10,15 @@ source /workspace/.venv/bin/activate
 export HF_HOME=/workspace/hf_cache
 
 TAG=${TAG:--nativeall}
+PALIER=${PALIER:-2415}
 DEVICE=${DEVICE:-cpu}
 OUTROOT=${OUTROOT:-merged}
 
 MODELS=${*:-0.8B 2B 4B 9B}
-echo "models: $MODELS | tag: $TAG | device: $DEVICE"
+echo "models: $MODELS | tag: $TAG | palier: $PALIER | device: $DEVICE"
 
 for M in $MODELS; do
-    A="adapters/qwen3.5-$M-lora-1997$TAG"
+    A="adapters/qwen3.5-$M-lora-$PALIER$TAG"
     OUT="$OUTROOT/qwen3.5-$M$TAG"
     if [ ! -f "$A/adapter_model.safetensors" ]; then
         echo "skip $M (no adapter at $A)"

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -u
 
-# Train the four Qwen3.5 LoRA adapters on the full 1997 palier. RES selects the
+# Train the four Qwen3.5 LoRA adapters on train_$PALIER (2415 = full train). RES selects the
 # visual-token budget and TARGETS the LoRA coverage, so one script produces both
 # the baseline configuration and the native + all-linear variant. Adapters are
-# written to adapters/qwen3.5-$M-lora-1997$TAG, which infer_ft_vllm.sh reads
-# through the same TAG.
+# written to adapters/qwen3.5-$M-lora-$PALIER$TAG, which infer_ft_vllm.sh reads
+# through the same PALIER and TAG.
 
 cd ~/trocr_handwritten
 source /workspace/.venv/bin/activate
@@ -17,6 +17,7 @@ MAN=$ROOT/manifests
 RES=${RES:-native}
 TARGETS=${TARGETS:-all-linear}
 TAG=${TAG:--nativeall}
+PALIER=${PALIER:-2415}
 # Qwen3.5's gated-delta-rule linear attention keeps large per-chunk intermediates,
 # so every size OOMs on an 80GB card without checkpointing -- including the 0.8B.
 GC_MODELS=${GC_MODELS:-0.8B 2B 4B 9B 27B}
@@ -32,10 +33,10 @@ fi
 MODELS=${*:-0.8B 2B 4B 9B}
 echo "models: $MODELS"
 echo "resolution: $RES ($MINTOK-$MAXTOK visual tokens), targets: $TARGETS"
-echo "batch: ${BS}x${GA}, tag: $TAG"
+echo "batch: ${BS}x${GA}, tag: $TAG, palier: $PALIER"
 
 for M in $MODELS; do
-    OUT="adapters/qwen3.5-$M-lora-1997$TAG"
+    OUT="adapters/qwen3.5-$M-lora-$PALIER$TAG"
     if [ -f "$OUT/adapter_model.safetensors" ]; then
         echo "skip $M (already trained at $OUT)"
         continue
@@ -46,7 +47,7 @@ for M in $MODELS; do
     python -m trocr_handwritten.llm.finetune.train_lora \
         --gradient-checkpointing "$GC" \
         --model "Qwen/Qwen3.5-$M" \
-        --train "$MAN/train_1997.jsonl" \
+        --train "$MAN/train_$PALIER.jsonl" \
         --eval "$MAN/dev.jsonl" \
         --data-root "$ROOT" \
         --min-visual-tokens "$MINTOK" --max-visual-tokens "$MAXTOK" \
